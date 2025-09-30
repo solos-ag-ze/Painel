@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Redirecionando...</title>
+</head>
+<body>
+  <p id="msg">Redirecionando para o painel do ZÉ DA SAFRA...</p>
+
+  <script>
+    (function () {
+      function go() {
+        const msg = document.getElementById("msg");
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get("token");
+
+        const isJwt = token && token.split(".").length === 3;
+
+        if (isJwt) {
+          try {
+            localStorage.setItem("ze_safra_token", token);
+            // redireciona sem query string
+            window.location.replace("https://app.zedasafra.com");
+          } catch (e) {
+            console.error("Erro ao salvar token:", e);
+            msg.textContent = "Falha ao salvar o token. Habilite cookies/localStorage e tente novamente.";
+          }
+        } else {
+          msg.textContent = "Token não encontrado ou inválido. Solicite novo link de acesso.";
+        }
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", go);
+      } else {
+        go();
+      }
+    })();
+  </script>
+</body>
+</html>
