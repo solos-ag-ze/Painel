@@ -1,15 +1,21 @@
 // src/components/Estoque/ListaProdutosDesktop.tsx
-import React from "react";
 import { Paperclip } from "lucide-react";
-import { ProdutoEstoque } from "../../services/estoqueService";
+import { ProdutoAgrupado } from '../../services/agruparProdutosService';
+
+type ModalParams = {
+  isOpen: boolean;
+  product: ProdutoAgrupado | null;
+  quantidade?: number;
+  observacao?: string;
+};
 
 interface Props {
-  produtos: ProdutoEstoque[];
+  produtos: ProdutoAgrupado[];
   formatDate: (dateString: string | null) => string;
   getCategoryIcon: (categoria: string) => JSX.Element;
   openAttachmentModal: (productId: string, productName: string) => void;
-  setHistoryModal: (value: { isOpen: boolean; product: ProdutoEstoque | null }) => void;
-  setRemoveModal: (value: { isOpen: boolean; product: ProdutoEstoque | null; quantidade: number; observacao: string }) => void;
+  setHistoryModal: (params: ModalParams) => void;
+  setRemoveModal: (params: ModalParams) => void;
 }
 
 export default function ListaProdutosDesktop({
@@ -31,43 +37,43 @@ export default function ListaProdutosDesktop({
       <div>
         {produtos.map((item) => (
           <div
-            key={item.id}
+            key={item.nome}
             className="relative flex flex-col md:flex-row md:items-center gap-4 p-6 hover:bg-[#8fa49d]/5 border-t border-gray-100 first:border-t-0"
           >
             {/* 1) ÍCONE */}
             <div className="w-20 flex items-center justify-center">
-              {getCategoryIcon(item.categoria)}
+              {getCategoryIcon(item.categorias[0] || '')}
             </div>
 
             {/* 2) NOME / MARCA / CATEGORIA */}
             <div className="flex-1 min-w-0">
               <h4 className="text-lg font-semibold text-[#092f20] truncate">
-                {item.nome_produto}
+                {item.nome}
               </h4>
               <p className="text-sm text-gray-600 truncate">
-                {item.marca || "Marca não informada"}
+                {item.marcas.join(', ') || "Marca não informada"}
               </p>
               <p className="text-sm text-gray-700 font-medium truncate">
-                {item.fornecedor || "—"}
+                {item.fornecedores.map(f => f.fornecedor).join(', ') || "—"}
               </p>
               <span className="text-xs font-medium px-2 py-0.5 bg-[#397738]/10 text-[#397738] rounded-full">
-                {item.categoria}
+                {item.categorias.join(', ')}
               </span>
             </div>
 
-            {/* 3) QUANTIDADE / VALOR UNITÁRIO */}
+            {/* 3) QUANTIDADE / VALOR MÉDIO */}
             <div className="flex gap-6 shrink-0">
               <div className="text-center">
                 <p className="text-xs text-gray-500">Quantidade</p>
                 <p className="text-lg font-bold text-[#092f20]">
-                  {item.quantidade} {item.unidade}
+                  {item.totalEstoque} {item.unidades[0]}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-gray-500">Valor Unitário</p>
+                <p className="text-xs text-gray-500">Valor Médio</p>
                 <p className="text-lg font-bold text-[#397738]">
-                  {item.valor != null
-                    ? `R$ ${Number(item.valor).toLocaleString("pt-BR")}`
+                  {item.mediaPreco != null
+                    ? `R$ ${Number(item.mediaPreco).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
                     : "—"}
                 </p>
               </div>
@@ -77,7 +83,7 @@ export default function ListaProdutosDesktop({
             <div className="flex items-center justify-end gap-2 shrink-0">
               <button
                 onClick={() =>
-                  openAttachmentModal(String(item.id), item.nome_produto)
+                  openAttachmentModal(String(item.produtos[0].id), item.nome)
                 }
                 className="px-3 py-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg border border-gray-200 text-xs flex items-center gap-1"
               >
@@ -95,9 +101,7 @@ export default function ListaProdutosDesktop({
                 onClick={() =>
                   setRemoveModal({
                     isOpen: true,
-                    product: item,
-                    quantidade: 1,
-                    observacao: "",
+                    product: item
                   })
                 }
                 className="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg border border-red-200 text-xs flex items-center gap-1"
@@ -108,9 +112,8 @@ export default function ListaProdutosDesktop({
 
             {/* 5) RODAPÉ */}
             <div className="absolute bottom-2 left-28 md:left-auto md:right-6 text-xs text-gray-400 flex gap-4">
-              <span>Lote: {item.lote ?? "-"}</span>
-              <span>Validade: {formatDate(item.validade)}</span>
-              <span>Lançado em {formatDate(item.created_at ?? null)}</span>
+              <span>Lotes: {item.lotes.filter(Boolean).join(', ') || '-'}</span>
+              <span>Validades: {item.validades.filter(Boolean).map(formatDate).join(', ') || '-'}</span>
             </div>
           </div>
         ))}

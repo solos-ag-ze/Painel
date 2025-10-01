@@ -1,15 +1,21 @@
 // src/components/Estoque/ListaProdutosMobile.tsx
-import React from "react";
-import { Minus, Paperclip } from "lucide-react";
-import { ProdutoEstoque } from "../../services/estoqueService";
+import { Paperclip } from "lucide-react";
+import { ProdutoAgrupado } from '../../services/agruparProdutosService';
+
+type ModalParams = {
+  isOpen: boolean;
+  product: ProdutoAgrupado | null;
+  quantidade?: number;
+  observacao?: string;
+};
 
 interface Props {
-  produtos: ProdutoEstoque[];
+  produtos: ProdutoAgrupado[];
   formatDate: (dateString: string | null) => string;
   getCategoryIcon: (categoria: string) => JSX.Element;
   openAttachmentModal: (productId: string, productName: string) => void;
-  setHistoryModal: (value: { isOpen: boolean; product: ProdutoEstoque | null }) => void;
-  setRemoveModal: (value: { isOpen: boolean; product: ProdutoEstoque | null; quantidade: number; observacao: string }) => void;
+  setHistoryModal: (params: ModalParams) => void;
+  setRemoveModal: (params: ModalParams) => void;
 }
 
 export default function ListaProdutosMobile({
@@ -30,24 +36,24 @@ export default function ListaProdutosMobile({
       {/* Lista */}
       <div className="divide-y divide-gray-100">
         {produtos.map((item) => (
-          <div key={item.id} className="p-4 space-y-3 hover:bg-[#8fa49d]/5">
+          <div key={item.nome} className="p-4 space-y-3 hover:bg-[#8fa49d]/5">
             {/* Cabeçalho: ícone + nome */}
             <div className="flex items-center gap-3">
               <div className="w-12 flex items-center justify-center">
-                {getCategoryIcon(item.categoria)}
+                {getCategoryIcon(item.categorias[0] || '')}
               </div>
               <div className="flex-1">
                 <h4 className="text-base font-semibold text-[#092f20] md:text-lg md:font-semibold">
-                  {item.nome_produto}
+                  {item.nome}
                 </h4>
                 <p className="text-xs text-gray-600">
-                  {item.marca || "Marca não informada"}
+                  {item.marcas.join(', ') || "Marca não informada"}
                 </p>
                 <p className="text-xs text-gray-700 font-medium">
-                  {item.fornecedor || "—"}
+                  {item.fornecedores.map(f => f.fornecedor).join(', ') || "—"}
                 </p>
                 <span className="text-[11px] font-medium text-[#397738]">
-                  {item.categoria}
+                  {item.categorias.join(', ')}
                 </span>
               </div>
             </div>
@@ -57,14 +63,14 @@ export default function ListaProdutosMobile({
               <div>
                 <p className="text-gray-500">Qtd.</p>
                 <p className="font-bold">
-                  {item.quantidade} {item.unidade}
+                  {item.totalEstoque} {item.unidades[0]}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500">Valor Unit.</p>
+                <p className="text-gray-500">Valor Méd.</p>
                 <p className="font-bold text-[#397738]">
-                  {item.valor != null
-                    ? `R$ ${Number(item.valor).toLocaleString("pt-BR")}`
+                  {item.mediaPreco != null
+                    ? `R$ ${Number(item.mediaPreco).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
                     : "—"}
                 </p>
               </div>
@@ -72,16 +78,15 @@ export default function ListaProdutosMobile({
 
             {/* Rodapé: lote, validade e data */}
             <div className="flex flex-wrap text-xs text-gray-400 gap-4">
-              <span>Lote: {item.lote ?? "-"}</span>
-              <span>Val.: {formatDate(item.validade)}</span> <br></br>
-              <span>Lançado em {formatDate(item.created_at ?? null)}</span>
+              <span>Lotes: {item.lotes.filter(Boolean).join(', ') || '-'}</span>
+              <span>Val.: {item.validades.filter(Boolean).map(formatDate).join(', ') || '-'}</span>
             </div>
 
             {/* Botões */}
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() =>
-                  openAttachmentModal(String(item.id), item.nome_produto)
+                  openAttachmentModal(String(item.produtos[0].id), item.nome)
                 }
                 className="px-2 py-1 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg border border-gray-200 text-xs flex items-center gap-1"
               >
@@ -99,9 +104,7 @@ export default function ListaProdutosMobile({
                 onClick={() =>
                   setRemoveModal({
                     isOpen: true,
-                    product: item,
-                    quantidade: 1,
-                    observacao: "",
+                    product: item
                   })
                 }
                 className="px-2 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg border border-red-200 text-xs flex items-center gap-1"

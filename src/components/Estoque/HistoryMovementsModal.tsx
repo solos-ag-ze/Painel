@@ -1,15 +1,17 @@
 // src/components/Estoque/HistoryMovementsModal.tsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { ProdutoEstoque, MovimentacaoEstoque, EstoqueService } from '../../services/estoqueService';
+import { ProdutoAgrupado } from '../../services/agruparProdutosService';
 
 interface Props {
   isOpen: boolean;
-  product: ProdutoEstoque | null;
+  product: ProdutoAgrupado | null;
   onClose: () => void;
 }
 
 export default function HistoryMovementsModal({ isOpen, product, onClose }: Props) {
+  const [selectedProduto, setSelectedProduto] = useState<ProdutoEstoque | null>(null);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<MovimentacaoEstoque[]>([]);
   const [page, setPage] = useState(1);
@@ -20,15 +22,21 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
   useEffect(() => {
     if (!isOpen || !product) return;
     setPage(1);
-    load(page);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Seleciona o primeiro produto do grupo por padrão
+    setSelectedProduto(product.produtos[0] || null);
   }, [isOpen, product]);
 
+  useEffect(() => {
+    if (!isOpen || !selectedProduto) return;
+    load(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, selectedProduto, page]);
+
   async function load(p: number) {
-    if (!product) return;
+    if (!selectedProduto) return;
     setLoading(true);
     try {
-      const resp = await EstoqueService.getMovimentacoes(product.id, p, pageSize);
+      const resp = await EstoqueService.getMovimentacoes(selectedProduto.id, p, pageSize);
       setItems(resp.items);
       setTotal(resp.total);
       setTotais(resp.totais);
@@ -61,8 +69,25 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
           <div>
             <h3 className="text-lg font-semibold text-[#092f20]">Histórico de Movimentações</h3>
             <p className="text-sm text-gray-600 truncate">
-              {product.nome_produto} • {product.marca || '—'}
+              {product.nome} {selectedProduto ? `• ${selectedProduto.marca || '—'} • Fornecedor: ${selectedProduto.fornecedor || '—'}` : ''}
             </p>
+            {/* Dropdown de fornecedores/produtos */}
+            <div className="mt-2">
+              <select
+                className="border rounded px-2 py-1 text-sm"
+                value={selectedProduto?.id || ''}
+                onChange={e => {
+                  const prod = product.produtos.find(p => p.id === Number(e.target.value));
+                  setSelectedProduto(prod || null);
+                }}
+              >
+                {product.produtos.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.fornecedor || 'Fornecedor desconhecido'} • Marca: {p.marca || '—'} • Lote: {p.lote || '—'}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-700 rounded">
             <X className="w-6 h-6" />
@@ -70,14 +95,16 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
         </div>
 
         {/* Totais → apenas saídas */}
+        {selectedProduto && (
         <div className="p-4 border-b">
           <div className="bg-red-50 rounded-lg p-3">
             <p className="text-xs text-red-700">Saídas</p>
             <p className="text-lg font-bold text-red-800">
-              - {totais.saidas} {product.unidade}
+              - {totais.saidas} {selectedProduto.unidade}
             </p>
           </div>
         </div>
+        )}
 
         {/* Lista */}
         <div className="flex-1 overflow-y-auto px-2 md:px-4">
@@ -103,7 +130,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                       {m.tipo}
                     </span>
                     <div className={`mt-1 font-semibold ${m.tipo === 'entrada' ? 'text-green-700' : 'text-red-700'}`}>
-                      {m.tipo === 'entrada' ? '+' : '-'} {Number(m.quantidade)} {product.unidade}
+                      {m.tipo === 'entrada' ? '+' : '-'} {Number(m.quantidade)} {selectedProduto ? selectedProduto.unidade : ''}
                     </div>
                   </div>
                 </li>

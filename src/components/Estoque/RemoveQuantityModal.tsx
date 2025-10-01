@@ -1,11 +1,13 @@
 // src/components/Estoque/RemoveQuantityModal.tsx
-import React from "react";
 import { X } from "lucide-react";
 import { ProdutoEstoque } from "../../services/estoqueService";
+import { ProdutoAgrupado } from "../../services/agruparProdutosService";
 
 interface RemoveQuantityModalProps {
   isOpen: boolean;
-  product: ProdutoEstoque | null;
+  productGroup: ProdutoAgrupado | null;
+  selectedProduto: ProdutoEstoque | null;
+  setSelectedProduto: (p: ProdutoEstoque | null) => void;
   quantidade: number;
   setQuantidade: (q: number) => void;
   observacao: string;
@@ -16,7 +18,9 @@ interface RemoveQuantityModalProps {
 
 export default function RemoveQuantityModal({
   isOpen,
-  product,
+  productGroup,
+  selectedProduto,
+  setSelectedProduto,
   quantidade,
   setQuantidade,
   observacao,
@@ -24,7 +28,12 @@ export default function RemoveQuantityModal({
   onConfirm,
   onClose,
 }: RemoveQuantityModalProps) {
-  if (!isOpen || !product) return null;
+  if (!isOpen || !productGroup) return null;
+
+  // Quando não há produto selecionado, seleciona o primeiro
+  if (!selectedProduto && productGroup.produtos.length > 0) {
+    setSelectedProduto(productGroup.produtos[0]);
+  }
 
   const handleInputChange = (value: string) => {
     const num = parseFloat(value.replace(",", "."));
@@ -40,8 +49,8 @@ export default function RemoveQuantityModal({
     }
   };
 
-  const estoqueAtual = product.quantidade;
-  const isInvalid = quantidade <= 0 || quantidade > estoqueAtual;
+  const estoqueAtual = selectedProduto?.quantidade ?? 0;
+  const isInvalid = !selectedProduto || quantidade <= 0 || quantidade > estoqueAtual;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -59,16 +68,38 @@ export default function RemoveQuantityModal({
           </button>
         </div>
 
-        {/* Produto */}
+        {/* Produto e Fornecedor */}
         <p className="text-sm text-gray-600 mb-2">
-          Produto: <strong>{product.nome_produto}</strong>
+          Produto: <strong>{productGroup.nome}</strong>
         </p>
-        <p className="text-sm text-gray-600 mb-4">
-          Quantidade atual:{" "}
-          <strong>
-            {estoqueAtual} {product.unidade}
-          </strong>
-        </p>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-[#092f20] mb-1">
+            Selecione o Fornecedor
+          </label>
+          <select
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#397738] focus:border-transparent"
+            value={selectedProduto?.id || ''}
+            onChange={(e) => {
+              const prod = productGroup.produtos.find(p => p.id === Number(e.target.value));
+              setSelectedProduto(prod || null);
+              setQuantidade(1);
+            }}
+          >
+            {productGroup.produtos.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.fornecedor || 'Fornecedor desconhecido'} • Marca: {p.marca || '—'} • Lote: {p.lote || '—'} • Disponível: {p.quantidade} {p.unidade}
+              </option>
+            ))}
+          </select>
+        </div>
+        {selectedProduto && (
+          <p className="text-sm text-gray-600 mb-4">
+            Quantidade disponível:{" "}
+            <strong>
+              {estoqueAtual} {selectedProduto.unidade}
+            </strong>
+          </p>
+        )}
 
         {/* Input */}
         <div className="flex items-center gap-2 mb-4">

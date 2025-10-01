@@ -16,6 +16,7 @@ import EstoqueHeaderMobile from "./EstoqueHeaderMobile";
 import ListaProdutosDesktop from "./ListaProdutosDesktop";
 import ListaProdutosMobile from "./ListaProdutosMobile";
 import EstoqueFiltros from "./EstoqueFiltros";
+import { agruparProdutos, ProdutoAgrupado } from '../../services/agruparProdutosService';
 
 export default function EstoquePanel() {
   // 📌 Constantes
@@ -25,6 +26,7 @@ export default function EstoquePanel() {
   const [showModal, setShowModal] = useState(false);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
   const [loading, setLoading] = useState(true);
+  const [produtosAgrupados, setProdutosAgrupados] = useState<ProdutoAgrupado[]>([]);
 
   // 📌 Estados dos filtros
   const [search, setSearch] = useState("");
@@ -39,13 +41,14 @@ export default function EstoquePanel() {
   // 📌 Estados para os modais
   const [removeModal, setRemoveModal] = useState({
     isOpen: false,
-    product: null as ProdutoEstoque | null,
+    productGroup: null as ProdutoAgrupado | null,
+    selectedProduto: null as ProdutoEstoque | null,
     quantidade: 1,
     observacao: '',
   });
   const [historyModal, setHistoryModal] = useState({
     isOpen: false,
-    product: null as ProdutoEstoque | null,
+    product: null as ProdutoAgrupado | null,
   });
   const [attachmentModal, setAttachmentModal] = useState({
     isOpen: false,
@@ -64,9 +67,9 @@ export default function EstoquePanel() {
           setLoading(false);
           return;
         }
-
-  const dados = await EstoqueService.getProdutos();
+        const dados = await EstoqueService.getProdutos();
         setProdutos(dados);
+        setProdutosAgrupados(agruparProdutos(dados));
       } catch (error) {
         console.error("❌ Erro ao carregar estoque:", error);
       } finally {
@@ -158,21 +161,39 @@ export default function EstoquePanel() {
 
       {/* Listas */}
       <ListaProdutosDesktop
-        produtos={produtosVisiveis}
+        produtos={produtosAgrupados}
         formatDate={formatDate}
         getCategoryIcon={getCategoryIcon}
         openAttachmentModal={(id, nome) => setAttachmentModal({ isOpen: true, productId: id, productName: nome })}
         setHistoryModal={setHistoryModal}
-        setRemoveModal={setRemoveModal}
+        setRemoveModal={({ isOpen, product, quantidade, observacao }) =>
+          setRemoveModal((prev) => ({
+            ...prev,
+            isOpen,
+            productGroup: product,
+            selectedProduto: product && product.produtos[0] ? product.produtos[0] : null,
+            quantidade: quantidade ?? 1,
+            observacao: observacao ?? '',
+          }))
+        }
       />
 
       <ListaProdutosMobile
-        produtos={produtosVisiveis}
+        produtos={produtosAgrupados}
         formatDate={formatDate}
         getCategoryIcon={getCategoryIcon}
         openAttachmentModal={(id, nome) => setAttachmentModal({ isOpen: true, productId: id, productName: nome })}
         setHistoryModal={setHistoryModal}
-        setRemoveModal={setRemoveModal}
+        setRemoveModal={({ isOpen, product, quantidade, observacao }) =>
+          setRemoveModal((prev) => ({
+            ...prev,
+            isOpen,
+            productGroup: product,
+            selectedProduto: product && product.produtos[0] ? product.produtos[0] : null,
+            quantidade: quantidade ?? 1,
+            observacao: observacao ?? '',
+          }))
+        }
       />
 
       {/* Botões de Ver mais / Ver menos */}
@@ -224,28 +245,35 @@ export default function EstoquePanel() {
       {/* Modal de Remover Quantidade */}
       <RemoveQuantityModal
         isOpen={removeModal.isOpen}
-        product={removeModal.product}
+        productGroup={removeModal.productGroup}
+        selectedProduto={removeModal.selectedProduto}
+        setSelectedProduto={(p) => setRemoveModal((prev) => ({ ...prev, selectedProduto: p }))}
         quantidade={removeModal.quantidade}
         setQuantidade={(q) => setRemoveModal((prev) => ({ ...prev, quantidade: q }))}
         observacao={removeModal.observacao}
         setObservacao={(obs) => setRemoveModal((prev) => ({ ...prev, observacao: obs }))}
         onConfirm={async () => {
-          if (!removeModal.product) return;
+          if (!removeModal.selectedProduto) return;
           try {
             const atualizado = await EstoqueService.removerQuantidade(
-              removeModal.product.id,
+              removeModal.selectedProduto.id,
               removeModal.quantidade,
               removeModal.observacao
             );
-            setProdutos((prev) => prev.map((p) => (p.id === atualizado.id ? atualizado : p)));
-            setRemoveModal({ isOpen: false, product: null, quantidade: 1, observacao: '' });
+            // Atualiza lista de produtos
+            const produtosAtualizados = produtos.map((p) => p.id === atualizado.id ? atualizado : p);
+            setProdutos(produtosAtualizados);
+            
+            // Recalcula agrupamentos
+            setProdutosAgrupados(agruparProdutos(produtosAtualizados));
+            setRemoveModal({ isOpen: false, productGroup: null, selectedProduto: null, quantidade: 1, observacao: '' });
             alert('✅ Quantidade removida e movimentação registrada!');
           } catch (err: any) {
             console.error(err);
             alert(`❌ ${err.message || 'Erro ao remover quantidade.'}`);
           }
         }}
-        onClose={() => setRemoveModal({ isOpen: false, product: null, quantidade: 1, observacao: '' })}
+        onClose={() => setRemoveModal({ isOpen: false, productGroup: null, selectedProduto: null, quantidade: 1, observacao: '' })}
       />
 
       {/* Modal de Histórico */}
