@@ -330,6 +330,8 @@ export default function AttachmentProductModal({
               <div className="flex items-center gap-2 mb-2">
                 <FileText className="w-5 h-5 text-red-600" />
                 <span className="font-medium">PDF anexado</span>
+              </div>
+              <div className="flex gap-2 mb-2">
                 <button
                   className="bg-[#f3f4f6] text-[#092f20] px-2 py-1 rounded hover:bg-[#e5e7eb] border border-[#e5e7eb] flex items-center gap-1 transition-colors"
                   onClick={() => handleDownload('pdf')}
