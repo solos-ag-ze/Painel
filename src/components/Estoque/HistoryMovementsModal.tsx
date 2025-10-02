@@ -138,9 +138,9 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
             ) : (
               <div className="space-y-4">
                 {items.map((m) => (
-                  <div key={`${m.produto_id}-${m.id}`} className="border rounded-lg p-4 bg-gray-50">
+                  <div key={`${m.produto_id}-${m.id}`} className="border rounded-lg p-4 bg-gray-50 relative">
                     <div className="flex items-start justify-between">
-                      
+
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
                           <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
@@ -174,21 +174,20 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                           </div>
                         )}
                       </div>
-
-                      {m.tipo === 'entrada' && (
-                        <button
-                          onClick={() => openAttachmentModal(
-                            m.produto_id.toString(),
-                            m.nome_produto || 'Produto'
-                          )}
-                          className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                          title="Ver anexos"
-                        >
-                          <Paperclip className="w-4 h-4" />
-                          Anexos
-                        </button>
-                      )}
                     </div>
+
+                    {m.tipo === 'entrada' && (
+                      <button
+                        onClick={() => openAttachmentModal(
+                          m.produto_id.toString(),
+                          m.nome_produto || 'Produto'
+                        )}
+                        className="absolute bottom-4 right-4 text-gray-600 hover:text-gray-800 transition-colors"
+                        title="Ver anexos"
+                      >
+                        <Paperclip className="w-5 h-5" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
