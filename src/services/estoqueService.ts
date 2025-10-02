@@ -239,9 +239,15 @@ export class EstoqueService {
     produtoId: number,
     page = 1,
     limit = 10
-  ): Promise<{ data: MovimentacaoExpandida[]; hasMore: boolean }> {
+  ): Promise<{ data: MovimentacaoExpandida[]; hasMore: boolean; totalCount: number }> {
     const userId = await this.getCurrentUserId();
     const offset = (page - 1) * limit;
+
+    const { count } = await supabase
+      .from('movimentacoes_estoque')
+      .select('*', { count: 'exact', head: true })
+      .eq('produto_id', produtoId)
+      .eq('user_id', userId);
 
     const { data, error } = await supabase
       .from('movimentacoes_estoque')
@@ -290,8 +296,9 @@ export class EstoqueService {
       produto_created_at: mov.produto.created_at,
     }));
 
+    const totalCount = count || 0;
     const hasMore = data ? data.length === limit : false;
-    return { data: movimentacoes, hasMore };
+    return { data: movimentacoes, hasMore, totalCount };
   }
 
   static async getMovimentacoes(page = 1, limit = 10): Promise<{ data: MovimentacaoEstoque[]; hasMore: boolean }> {

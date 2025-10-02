@@ -4,6 +4,7 @@ import { X, Paperclip } from 'lucide-react';
 import { MovimentacaoExpandida, EstoqueService } from '../../services/estoqueService';
 import { ProdutoAgrupado } from '../../services/agruparProdutosService';
 import AttachmentProductModal from './AttachmentProductModal';
+import Pagination from './Pagination';
 
 interface Props {
   isOpen: boolean;
@@ -15,6 +16,11 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
   const [items, setItems] = useState<MovimentacaoExpandida[]>([]);
   const [loading, setLoading] = useState(false);
   const [totais, setTotais] = useState({ entradas: 0, saidas: 0 });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalEntradas, setTotalEntradas] = useState(0);
+  const [totalSaidas, setTotalSaidas] = useState(0);
+  const itemsPerPage = 10;
   const [attachmentModal, setAttachmentModal] = useState({
     isOpen: false,
     productId: '',
@@ -23,62 +29,114 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
 
   useEffect(() => {
     if (!isOpen || !product) return;
-    
-    const loadData = async () => {
-      setLoading(true);
-      
-      try {
-        const allMovements: MovimentacaoExpandida[] = [];
-        
-        for (const p of product.produtos) {
-          const resp = await EstoqueService.getMovimentacoesExpandidas(p.id, 1, 50);
-          allMovements.push(...resp.data);
-        }
-        
-        for (const p of product.produtos) {
-          if (p.quantidade > 0) {
-            const entradaInicial: MovimentacaoExpandida = {
-              id: -p.id,
-              produto_id: p.id,
-              user_id: p.user_id,
-              tipo: 'entrada',
-              quantidade: p.quantidade,
-              observacao: null,
-              created_at: p.created_at || new Date().toISOString(),
-              nome_produto: p.nome_produto,
-              marca: p.marca,
-              categoria: p.categoria,
-              unidade: p.unidade,
-              valor: p.valor,
-              lote: p.lote,
-              validade: p.validade,
-              fornecedor: p.fornecedor || null,
-              registro_mapa: p.registro_mapa || null,
-              produto_created_at: p.created_at || new Date().toISOString(),
-            };
-            allMovements.push(entradaInicial);
-          }
-        }
 
-        allMovements.sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-
-        setItems(allMovements);
-
-        const entradas = allMovements.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.quantidade, 0);
-        const saidas = allMovements.filter(m => m.tipo === 'saida').reduce((sum, m) => sum + m.quantidade, 0);
-        setTotais({ entradas, saidas });
-
-      } catch (error) {
-        console.error('Erro ao carregar histórico:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
+    setCurrentPage(1);
+    loadTotals();
   }, [isOpen, product]);
+
+  useEffect(() => {
+    if (!isOpen || !product) return;
+
+    loadData(currentPage);
+  }, [isOpen, product, currentPage]);
+
+  const loadTotals = async () => {
+    if (!product) return;
+
+    try {
+      let allEntradas = 0;
+      let allSaidas = 0;
+
+      for (const p of product.produtos) {
+        const resp = await EstoqueService.getMovimentacoesExpandidas(p.id, 1, 1000);
+        const entradas = resp.data.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.quantidade, 0);
+        const saidas = resp.data.filter(m => m.tipo === 'saida').reduce((sum, m) => sum + m.quantidade, 0);
+        allEntradas += entradas;
+        allSaidas += saidas;
+
+        if (p.quantidade > 0) {
+          allEntradas += p.quantidade;
+        }
+      }
+
+      setTotalEntradas(allEntradas);
+      setTotalSaidas(allSaidas);
+    } catch (error) {
+      console.error('Erro ao carregar totais:', error);
+    }
+  };
+
+  const loadData = async (page: number) => {
+    if (!product) return;
+
+    setLoading(true);
+
+    try {
+      const allMovements: MovimentacaoExpandida[] = [];
+      let totalMovements = 0;
+
+      for (const p of product.produtos) {
+        const resp = await EstoqueService.getMovimentacoesExpandidas(p.id, 1, 1000);
+        allMovements.push(...resp.data);
+        totalMovements += resp.totalCount;
+      }
+
+      for (const p of product.produtos) {
+        if (p.quantidade > 0) {
+          const entradaInicial: MovimentacaoExpandida = {
+            id: -p.id,
+            produto_id: p.id,
+            user_id: p.user_id,
+            tipo: 'entrada',
+            quantidade: p.quantidade,
+            observacao: null,
+            created_at: p.created_at || new Date().toISOString(),
+            nome_produto: p.nome_produto,
+            marca: p.marca,
+            categoria: p.categoria,
+            unidade: p.unidade,
+            valor: p.valor,
+            lote: p.lote,
+            validade: p.validade,
+            fornecedor: p.fornecedor || null,
+            registro_mapa: p.registro_mapa || null,
+            produto_created_at: p.created_at || new Date().toISOString(),
+          };
+          allMovements.push(entradaInicial);
+          totalMovements += 1;
+        }
+      }
+
+      allMovements.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setTotalCount(totalMovements);
+
+      const startIndex = (page - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedItems = allMovements.slice(startIndex, endIndex);
+
+      setItems(paginatedItems);
+
+      const entradas = paginatedItems.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.quantidade, 0);
+      const saidas = paginatedItems.filter(m => m.tipo === 'saida').reduce((sum, m) => sum + m.quantidade, 0);
+      setTotais({ entradas, saidas });
+
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    const modalContent = document.querySelector('[data-modal-content]');
+    if (modalContent) {
+      modalContent.scrollTop = 0;
+    }
+  };
 
   const formatDateTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -112,9 +170,9 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                 Histórico - {product?.nome}
               </h3>
               <div className="flex gap-4 text-sm text-gray-600 mt-1">
-                <span><strong>Entradas:</strong> {totais.entradas}</span>
-                <span><strong>Saídas:</strong> {totais.saidas}</span>
-                <span><strong>Total em estoque:</strong> {product?.totalEstoque}</span>
+                <span><strong>Total Entradas:</strong> {totalEntradas} {product?.produtos[0]?.unidade || ''}</span>
+                <span><strong>Total Saídas:</strong> {totalSaidas} {product?.produtos[0]?.unidade || ''}</span>
+                <span><strong>Em estoque:</strong> {product?.totalEstoque} {product?.produtos[0]?.unidade || ''}</span>
               </div>
             </div>
             <button
@@ -125,7 +183,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6" data-modal-content>
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -201,6 +259,19 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
               </div>
             )}
           </div>
+
+          {totalCount > itemsPerPage && (
+            <div className="p-4 border-t">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(totalCount / itemsPerPage)}
+                totalItems={totalCount}
+                itemsPerPage={itemsPerPage}
+                onPageChange={handlePageChange}
+                isLoading={loading}
+              />
+            </div>
+          )}
         </div>
       </div>
 
