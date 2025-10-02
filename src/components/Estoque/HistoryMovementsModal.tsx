@@ -164,12 +164,12 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
           
-          <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-gray-50 to-gray-100">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-xl font-bold text-gray-900">
                 Histórico - {product?.nome}
               </h3>
-              <div className="flex gap-4 text-sm text-gray-600 mt-1">
+              <div className="flex gap-4 text-sm text-gray-600 mt-2">
                 <span><strong>Total Entradas:</strong> {totalEntradas} {product?.produtos[0]?.unidade || ''}</span>
                 <span><strong>Total Saídas:</strong> {totalSaidas} {product?.produtos[0]?.unidade || ''}</span>
                 <span><strong>Em estoque:</strong> {product?.totalEstoque} {product?.produtos[0]?.unidade || ''}</span>
