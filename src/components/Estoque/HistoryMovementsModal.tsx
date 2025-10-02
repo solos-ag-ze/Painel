@@ -145,7 +145,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                         <div className="flex items-center gap-3">
                           <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
                             m.tipo === 'entrada'
-                              ? 'bg-green-100 text-green-700'
+                              ? 'bg-[#397738]/10 text-[#397738]'
                               : 'bg-red-100 text-red-700'
                           }`}>
                             {m.tipo === 'entrada' ? 'Entrada' : 'Saída'}
