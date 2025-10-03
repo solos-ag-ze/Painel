@@ -47,8 +47,8 @@ export default function FileAttachmentModal({
     type: null
   });
   const [fileSlots, setFileSlots] = useState<FileSlot[]>([
-    { id: 'primeiro_envio', label: 'Primeiro Arquivo', hasFile: false, url: null, fileType: null },
-    { id: 'segundo_envio', label: 'Segundo Arquivo', hasFile: false, url: null, fileType: null }
+    { id: 'primeiro_envio', hasFile: false, url: null, fileType: null },
+    { id: 'segundo_envio', hasFile: false, url: null, fileType: null }
   ]);
   const [loading, setLoading] = useState(false);
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
