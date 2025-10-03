@@ -310,8 +310,12 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
                 id="file-upload-maquina"
               />
               <label htmlFor="file-upload-maquina" className="cursor-pointer">
-                <Upload className={`w-8 h-8 mx-auto mb-2 ${errors.anexo ? 'text-red-500' : 'text-gray-400'}`} />
-                <p className={`text-sm ${errors.anexo ? 'text-red-700' : 'text-gray-600'}`}>
+                <Upload className={`w-8 h-8 mx-auto mb-2 ${
+                  errors.anexo ? 'text-red-500' : formData.anexo ? 'text-[#397738]' : 'text-gray-400'
+                }`} />
+                <p className={`text-sm ${
+                  errors.anexo ? 'text-red-700' : formData.anexo ? 'font-bold text-[#397738]' : 'text-gray-600'
+                }`}>
                   {formData.anexo ? formData.anexo.name : 'Clique para selecionar um arquivo'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG, WEBP (máx. 10MB)</p>
@@ -333,8 +337,12 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
                 id="file-upload-documento-maquina"
               />
               <label htmlFor="file-upload-documento-maquina" className="cursor-pointer">
-                <Upload className={`w-8 h-8 mx-auto mb-2 ${errors.documento_maquina ? 'text-red-500' : 'text-gray-400'}`} />
-                <p className={`text-sm ${errors.documento_maquina ? 'text-red-700' : 'text-gray-600'}`}>
+                <Upload className={`w-8 h-8 mx-auto mb-2 ${
+                  errors.documento_maquina ? 'text-red-500' : formData.documento_maquina ? 'text-[#397738]' : 'text-gray-400'
+                }`} />
+                <p className={`text-sm ${
+                  errors.documento_maquina ? 'text-red-700' : formData.documento_maquina ? 'font-bold text-[#397738]' : 'text-gray-600'
+                }`}>
                   {formData.documento_maquina ? formData.documento_maquina.name : 'Clique para selecionar um arquivo'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG, WEBP (máx. 10MB)</p>
