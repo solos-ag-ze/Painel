@@ -152,6 +152,63 @@ export class EstoqueService {
     }
   }
 
+  static async addProduto(produto: {
+    nome_produto: string;
+    marca: string;
+    categoria: string;
+    unidade: string;
+    quantidade: number;
+    valor: number | null;
+    lote: string | null;
+    validade: string | null;
+    fornecedor: string | null;
+    registro_mapa: string | null;
+  }): Promise<ProdutoEstoque> {
+    const userId = await this.getCurrentUserId();
+
+    const { data, error } = await supabase
+      .from('estoque_de_produtos')
+      .insert([
+        {
+          user_id: userId,
+          nome_do_produto: produto.nome_produto,
+          marca_ou_fabricante: produto.marca,
+          categoria: produto.categoria,
+          unidade_de_medida: produto.unidade,
+          quantidade_em_estoque: produto.quantidade,
+          valor_unitario: produto.valor,
+          lote: produto.lote,
+          validade: produto.validade || '1999-12-31', // Data padrão se vazio
+          fornecedor: produto.fornecedor,
+          registro_mapa: produto.registro_mapa,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Erro ao adicionar produto:', error);
+      throw error;
+    }
+
+    // Mapear resposta para o formato esperado
+    return {
+      id: data.id,
+      user_id: data.user_id,
+      nome_produto: data.nome_do_produto,
+      marca: data.marca_ou_fabricante,
+      categoria: data.categoria,
+      unidade: data.unidade_de_medida,
+      quantidade: data.quantidade_em_estoque,
+      valor: data.valor_unitario,
+      lote: data.lote,
+      validade: data.validade,
+      created_at: data.created_at,
+      fornecedor: data.fornecedor,
+      registro_mapa: data.registro_mapa,
+    };
+  }
+
   static async atualizarQuantidade(id: number, novaQuantidade: number): Promise<void> {
     const { error } = await supabase
       .from('estoque_de_produtos')
