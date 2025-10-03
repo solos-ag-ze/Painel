@@ -1,18 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Settings, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  CheckCircle, 
-  AlertTriangle, 
-  XCircle,
-  Save,
-  X,
-  Wrench,
-  Truck,
-  Paperclip
-} from 'lucide-react';
+import { Settings, Plus, CreditCard as Edit, Trash2, CheckCircle, AlertTriangle, XCircle, Save, X, Wrench, Truck, Paperclip } from 'lucide-react';
 import { AuthService } from '../../services/authService';
 import LoadingSpinner from '../Dashboard/LoadingSpinner';
 import ErrorMessage from '../Dashboard/ErrorMessage';
