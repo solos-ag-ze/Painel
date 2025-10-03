@@ -234,7 +234,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                             <div><strong>Marca:</strong> {m.marca || '—'}</div>
                             <div><strong>Fornecedor:</strong> {m.fornecedor || '—'}</div>
                             <div><strong>Lote:</strong> {m.lote || '—'}</div>
-                            <div><strong>Validade:</strong> {m.validade ? (new Date(m.validade).toLocaleDateString('pt-BR') === '31/12/1999' ? \'—' : new Date(m.validade).toLocaleDateString('pt-BR')) : '—'}</div>
+                            <div><strong>Validade:</strong> {m.validade ? new Date(m.validade).toLocaleDateString('pt-BR') : '—'}</div>
                             {m.valor && (
                               <div><strong>Valor unitário:</strong> R$ {Number(m.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
                             )}
