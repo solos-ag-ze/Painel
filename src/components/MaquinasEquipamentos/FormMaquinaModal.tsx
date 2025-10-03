@@ -214,7 +214,7 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Anexar arquivo (opcional)</label>
+            <label className="block text-sm font-medium mb-1">Foto da máquina (opcional)</label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#397738] transition-colors">
               <input
                 type="file"
