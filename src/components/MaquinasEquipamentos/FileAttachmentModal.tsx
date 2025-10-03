@@ -30,6 +30,7 @@ interface FileSlot {
   hasFile: boolean;
   url: string | null;
   fileType: string | null;
+  fileName?: string | null;
 }
 
 interface ConfirmState {
@@ -48,8 +49,8 @@ export default function FileAttachmentModal({
     type: null
   });
   const [fileSlots, setFileSlots] = useState<FileSlot[]>([
-    { id: 'primeiro_envio', hasFile: false, url: null, fileType: null },
-    { id: 'segundo_envio', hasFile: false, url: null, fileType: null }
+    { id: 'primeiro_envio', hasFile: false, url: null, fileType: null, fileName: null },
+    { id: 'segundo_envio', hasFile: false, url: null, fileType: null, fileName: null }
   ]);
   const [loading, setLoading] = useState(false);
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
@@ -79,20 +80,21 @@ export default function FileAttachmentModal({
             id: 'primeiro_envio',
             hasFile: attachmentInfo.hasPrimeiroEnvio,
             url: attachmentInfo.url_primeiro_envio,
-            fileType: attachmentInfo.primeiroEnvioType
+            fileType: attachmentInfo.primeiroEnvioType,
+            fileName: getFileNameFromUrl(attachmentInfo.url_primeiro_envio)
           },
           {
             id: 'segundo_envio',
             hasFile: attachmentInfo.hasSegundoEnvio,
             url: attachmentInfo.url_segundo_envio,
-            fileType: attachmentInfo.segundoEnvioType
+            fileType: attachmentInfo.segundoEnvioType,
+            fileName: getFileNameFromUrl(attachmentInfo.url_segundo_envio)
           }
         ]);
       } else {
-        // If no attachment info found, reset to empty state
         setFileSlots([
-          { id: 'primeiro_envio', hasFile: false, url: null, fileType: null },
-          { id: 'segundo_envio', hasFile: false, url: null, fileType: null }
+          { id: 'primeiro_envio', hasFile: false, url: null, fileType: null, fileName: null },
+          { id: 'segundo_envio', hasFile: false, url: null, fileType: null, fileName: null }
         ]);
       }
     } catch (error) {
@@ -104,26 +106,36 @@ export default function FileAttachmentModal({
   };
 
   const getFileIcon = (fileType: string | null) => {
-    if (!fileType) return <File className="w-5 h-5" />;
-    
+    if (!fileType) return <File className="w-8 h-8" />;
+
     if (fileType.startsWith('image/')) {
-      return <ImageIcon className="w-5 h-5" />;
+      return <ImageIcon className="w-8 h-8" />;
     }
-    
-    return <FileText className="w-5 h-5" />;
+
+    return <FileText className="w-8 h-8" />;
+  };
+
+  const getFileNameFromUrl = (url: string | null): string | null => {
+    if (!url) return null;
+    try {
+      const urlWithoutParams = url.split('?')[0];
+      const parts = urlWithoutParams.split('/');
+      return parts[parts.length - 1] || null;
+    } catch {
+      return null;
+    }
   };
 
   const isImageFile = (fileType: string | null) => {
     if (!fileType) return false;
-    
-    // Verifica se é um tipo de imagem
-    const isImage = fileType.startsWith('image/') || 
-                   fileType === 'jpg' || 
-                   fileType === 'jpeg' || 
-                   fileType === 'png' || 
-                   fileType === 'gif' || 
+
+    const isImage = fileType.startsWith('image/') ||
+                   fileType === 'jpg' ||
+                   fileType === 'jpeg' ||
+                   fileType === 'png' ||
+                   fileType === 'gif' ||
                    fileType === 'webp';
-    
+
     console.log('🖼️ Verificando se é imagem:', { fileType, isImage });
     return isImage;
   };
@@ -430,12 +442,16 @@ export default function FileAttachmentModal({
                           }}
                         />
                       ) : (
-                        <div className="flex items-center justify-center gap-2 text-gray-600 py-2">
-                          {getFileIcon(slot.fileType)}
-                          <div>
-                            <p className="text-sm font-medium">Arquivo anexado</p>
+                        <div className="flex flex-col items-center justify-center gap-2 py-2">
+                          <div className="text-[#397738]">
+                            {getFileIcon(slot.fileType)}
+                          </div>
+                          <div className="text-center">
+                            <p className="text-sm font-bold text-[#397738]">
+                              {slot.fileName || 'Arquivo anexado'}
+                            </p>
                             <p className="text-xs text-gray-500">
-                              {slot.fileType || 'Tipo desconhecido'}
+                              {slot.fileType?.toUpperCase() || 'Tipo desconhecido'}
                             </p>
                           </div>
                         </div>
