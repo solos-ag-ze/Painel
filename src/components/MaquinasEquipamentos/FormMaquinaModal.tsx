@@ -21,6 +21,7 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
     fornecedor: '',
     numero_serie: '',
     anexo: null as File | null,
+    documento_maquina: null as File | null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -32,7 +33,7 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
   };
 
-  const handleFileChange = (field: 'anexo', file: File | null) =>
+  const handleFileChange = (field: 'anexo' | 'documento_maquina', file: File | null) =>
     setFormData((prev) => ({ ...prev, [field]: file }));
 
   const validateForm = () => {
@@ -80,13 +81,28 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
         );
 
         if (!uploadResult.success) {
-          throw new Error(uploadResult.error || 'Erro ao fazer upload do anexo');
+          throw new Error(uploadResult.error || 'Erro ao fazer upload da foto da máquina');
+        }
+      }
+
+      if (formData.documento_maquina) {
+        const validationError = attachmentService.validateFile(formData.documento_maquina);
+        if (validationError) throw new Error(validationError);
+
+        const uploadResult = await attachmentService.uploadFile(
+          novaMaquina.id_maquina,
+          formData.documento_maquina,
+          'segundo_envio'
+        );
+
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || 'Erro ao fazer upload do documento da máquina');
         }
       }
 
       onCreated(novaMaquina);
       onClose();
-      const anexosMsg = formData.anexo ? ' e anexo enviado.' : '.';
+      const anexosMsg = formData.anexo || formData.documento_maquina ? ' e anexo(s) enviado(s).' : '.';
       alert('✅ Máquina cadastrada com sucesso' + anexosMsg);
     } catch (error) {
       console.error('❌ Erro ao cadastrar máquina:', error);
@@ -209,7 +225,7 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Anexos (opcional)</label>
+            <label className="block text-sm font-medium mb-1">Foto da máquina (opcional)</label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#397738] transition-colors">
               <input
                 type="file"
@@ -222,6 +238,26 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
                 <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                 <p className="text-sm text-gray-600">
                   {formData.anexo ? formData.anexo.name : 'Clique para selecionar um arquivo'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG, WEBP (máx. 10MB)</p>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Documento da máquina (opcional)</label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#397738] transition-colors">
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={(e) => handleFileChange('documento_maquina', e.target.files?.[0] || null)}
+                className="hidden"
+                id="file-upload-documento-maquina"
+              />
+              <label htmlFor="file-upload-documento-maquina" className="cursor-pointer">
+                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">
+                  {formData.documento_maquina ? formData.documento_maquina.name : 'Clique para selecionar um arquivo'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG, WEBP (máx. 10MB)</p>
               </label>
