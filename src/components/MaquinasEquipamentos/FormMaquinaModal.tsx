@@ -41,6 +41,7 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
     if (!formData.nome.trim()) newErrors.nome = 'Nome é obrigatório';
     if (!formData.marca_modelo.trim()) newErrors.marca_modelo = 'Marca/Modelo é obrigatório';
     if (!formData.categoria) newErrors.categoria = 'Categoria é obrigatória';
+    if (!formData.fornecedor.trim()) newErrors.fornecedor = 'Fornecedor é obrigatório';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -211,14 +212,16 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Fornecedor (opcional)</label>
+            <label className="block text-sm font-medium mb-1">Fornecedor</label>
             <input
               type="text"
               value={formData.fornecedor}
               onChange={(e) => handleInputChange('fornecedor', e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg border-gray-300"
+              className={`w-full px-3 py-2 border rounded-lg ${errors.fornecedor ? 'border-red-500' : 'border-gray-300'}`}
               placeholder="Ex.: Concessionária John Deere Sul de Minas"
+              required
             />
+            {errors.fornecedor && <p className="text-red-500 text-xs">{errors.fornecedor}</p>}
           </div>
 
           <div>
