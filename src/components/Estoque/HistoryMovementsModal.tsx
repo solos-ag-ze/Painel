@@ -191,9 +191,9 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                 Histórico - {product?.nome}
               </h3>
               <div className="flex gap-4 text-sm text-gray-600 mt-2">
-                <span><strong>Total Entradas:</strong> {totalEntradas} {formatUnitAbbreviated(product?.produtos[0]?.unidade)}</span>
-                <span><strong>Total Saídas:</strong> {totalSaidas} {formatUnitAbbreviated(product?.produtos[0]?.unidade)}</span>
-                <span><strong>Em estoque:</strong> {product?.totalEstoque} {formatUnitAbbreviated(product?.produtos[0]?.unidade)}</span>
+                <span className="whitespace-nowrap"><strong>Total Entradas:</strong> {totalEntradas} {formatUnitAbbreviated(product?.produtos[0]?.unidade)}</span>
+                <span className="whitespace-nowrap"><strong>Total Saídas:</strong> {totalSaidas} {formatUnitAbbreviated(product?.produtos[0]?.unidade)}</span>
+                <span className="whitespace-nowrap"><strong>Em estoque:</strong> {product?.totalEstoque} {formatUnitAbbreviated(product?.produtos[0]?.unidade)}</span>
               </div>
             </div>
             <button
@@ -230,7 +230,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                             }`}>
                               {m.tipo === 'entrada' ? 'Entrada' : 'Saída'}
                             </span>
-                            <span className="font-medium text-gray-900">
+                            <span className="font-medium text-gray-900 whitespace-nowrap">
                               {m.quantidade} {formatUnitAbbreviated(m.unidade)}
                             </span>
                           </div>
