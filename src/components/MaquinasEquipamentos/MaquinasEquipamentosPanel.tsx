@@ -182,7 +182,7 @@ export default function MaquinasEquipamentosPanel() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-[#86b646]/10 p-6 rounded-lg">
             <p>Total de Máquinas</p>
             <p className="text-3xl font-bold">{numeroMaquinas}</p>
@@ -192,6 +192,14 @@ export default function MaquinasEquipamentosPanel() {
             <p className="text-3xl font-bold">
               R$ {custoTotal.toLocaleString()}
             </p>
+          </div>
+          <div className="bg-[#397738]/10 p-6 rounded-lg border-2 border-dashed border-[#397738]/30">
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="w-full h-full text-[#397738]"
+            >
+              + Cadastrar Máquinas e Equipamentos
+            </button>
           </div>
         </div>
       </div>
