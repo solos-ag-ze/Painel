@@ -5,6 +5,7 @@ import LoadingSpinner from '../Dashboard/LoadingSpinner';
 import ErrorMessage from '../Dashboard/ErrorMessage';
 import { MaquinaService } from '../../services/maquinaService';
 import FileAttachmentModal from './FileAttachmentModal';
+import FormMaquinaModal from './FormMaquinaModal';
 import MaquinasEquipamentosHeaderMobile from './MaquinasEquipamentosHeaderMobile';
 import MaquinasEquipamentosListMobile from './MaquinasEquipamentosListMobile';
 import { MaquinasEquipamentos } from '../../lib/supabase';
@@ -55,10 +56,15 @@ export default function MaquinasEquipamentosPanel() {
 
   const handleOpenAttachments = (maquina: MaquinasEquipamentos) => {
     setSelectedMaquina({
-      id: maquina.id_maquina, 
+      id: maquina.id_maquina,
       description: maquina.nome || maquina.marca_modelo || 'Máquina sem nome'
     });
     setShowAttachmentModal(true);
+  };
+
+  const handleMaquinaCreated = (novaMaquina: MaquinasEquipamentos) => {
+    setMaquinas((prev) => [...prev, novaMaquina]);
+    loadMaquinasData();
   };
 
   const MaquinaList = ({
@@ -225,6 +231,12 @@ export default function MaquinasEquipamentosPanel() {
           maquinaDescription={selectedMaquina.description}
         />
       )}
+
+      <FormMaquinaModal
+        isOpen={showAddForm}
+        onClose={() => setShowAddForm(false)}
+        onCreated={handleMaquinaCreated}
+      />
     </div>
   );
 }

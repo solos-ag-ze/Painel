@@ -140,3 +140,19 @@ export interface ProdutoEstoque {
   registro_mapa: string | null;  // novo campo
   created_at?: string;
 }
+
+export interface MaquinasEquipamentos {
+  id_maquina: string;
+  user_id: string;
+  nome: string;
+  marca_modelo: string | null;
+  categoria: string | null;
+  horimetro_atual: number | null;
+  valor_compra: number | null;
+  data_compra: string | null;
+  fornecedor: string | null;
+  numero_serie: string | null;
+  url_primeiro_envio: string | null;
+  url_segundo_envio: string | null;
+  created_at?: string;
+}

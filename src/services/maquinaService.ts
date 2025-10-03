@@ -3,6 +3,39 @@ import { supabase, MaquinasEquipamentos } from '../lib/supabase';
 
 export class MaquinaService {
 
+    async addMaquina(data: {
+        user_id: string;
+        nome: string;
+        marca_modelo: string;
+        categoria: string;
+        horimetro_atual: number | null;
+        valor_compra: number | null;
+        data_compra: string | null;
+        fornecedor: string | null;
+        numero_serie: string | null;
+    }): Promise<MaquinasEquipamentos> {
+        try {
+            const { data: maquina, error } = await supabase
+                .from('maquinas_equipamentos')
+                .insert([data])
+                .select()
+                .single();
+
+            if (error) {
+                throw new Error(`Error adding machine: ${error.message}`);
+            }
+
+            if (!maquina) {
+                throw new Error('Failed to create machine');
+            }
+
+            return maquina;
+        } catch (error) {
+            console.error('Erro ao adicionar máquina:', error);
+            throw error;
+        }
+    }
+
     async getMaquinasByUserId(userId: string): Promise<MaquinasEquipamentos[]> {
         try {
             const { data, error } = await supabase
