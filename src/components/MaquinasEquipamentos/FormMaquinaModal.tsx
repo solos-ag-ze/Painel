@@ -204,7 +204,7 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#397738] transition-colors">
               <input
                 type="file"
-                accept="*/*"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
                 onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
                 className="hidden"
                 id="file-upload-maquina"
@@ -214,7 +214,7 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
                 <p className="text-sm text-gray-600">
                   {formData.anexo ? formData.anexo.name : 'Clique para selecionar um arquivo'}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Todos os tipos de arquivo aceitos (máx. 10MB)</p>
+                <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG, WEBP (máx. 10MB)</p>
               </label>
             </div>
           </div>

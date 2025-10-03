@@ -9,14 +9,11 @@ import {
   CheckCircle,
   Loader2,
   FileText,
-  File,
-  Image as ImageIcon,
-  FileSpreadsheet,
-  FileArchive,
-  Camera
+  File
 } from 'lucide-react';
 import { AttachmentService } from '../../services/attachmentService';
 
+// Create AttachmentService instance
 const attachmentService = new AttachmentService();
 
 interface FileAttachmentModalProps {
@@ -26,9 +23,17 @@ interface FileAttachmentModalProps {
   maquinaDescription: string;
 }
 
+interface FileSlot {
+  id: 'primeiro_envio' | 'segundo_envio';
+  label: string;
+  hasFile: boolean;
+  url: string | null;
+  fileType: string | null;
+}
+
 interface ConfirmState {
   type: 'delete' | 'replace' | null;
-  uploadType?: 'primeiro_envio' | 'segundo_envio';
+  slotId?: 'primeiro_envio' | 'segundo_envio';
   onConfirm?: () => void;
 }
 
@@ -38,16 +43,18 @@ export default function FileAttachmentModal({
   maquinaId,
   maquinaDescription
 }: FileAttachmentModalProps) {
-  const [confirmState, setConfirmState] = useState<ConfirmState>({ type: null });
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [photoType, setPhotoType] = useState<string | null>(null);
-  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
-  const [documentType, setDocumentType] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<ConfirmState>({
+    type: null
+  });
+  const [fileSlots, setFileSlots] = useState<FileSlot[]>([
+    { id: 'primeiro_envio', label: 'Primeiro Arquivo', hasFile: false, url: null, fileType: null },
+    { id: 'segundo_envio', label: 'Segundo Arquivo', hasFile: false, url: null, fileType: null }
+  ]);
   const [loading, setLoading] = useState(false);
-  const [uploadingType, setUploadingType] = useState<'primeiro_envio' | 'segundo_envio' | null>(null);
+  const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const documentInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeUploadSlot, setActiveUploadSlot] = useState<'primeiro_envio' | 'segundo_envio' | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -61,20 +68,33 @@ export default function FileAttachmentModal({
     try {
       setLoading(true);
       console.log('🔄 Verificando anexos para máquina:', maquinaId);
-
+      
       const attachmentInfo = await attachmentService.getAttachmentInfo(maquinaId);
       console.log('📋 Resultado da verificação:', attachmentInfo);
-
+      
       if (attachmentInfo) {
-        setPhotoUrl(attachmentInfo.url_primeiro_envio);
-        setPhotoType(attachmentInfo.primeiroEnvioType);
-        setDocumentUrl(attachmentInfo.url_segundo_envio);
-        setDocumentType(attachmentInfo.segundoEnvioType);
+        setFileSlots([
+          {
+            id: 'primeiro_envio',
+            label: 'Primeiro Arquivo',
+            hasFile: attachmentInfo.hasPrimeiroEnvio,
+            url: attachmentInfo.url_primeiro_envio,
+            fileType: attachmentInfo.primeiroEnvioType
+          },
+          {
+            id: 'segundo_envio',
+            label: 'Segundo Arquivo',
+            hasFile: attachmentInfo.hasSegundoEnvio,
+            url: attachmentInfo.url_segundo_envio,
+            fileType: attachmentInfo.segundoEnvioType
+          }
+        ]);
       } else {
-        setPhotoUrl(null);
-        setPhotoType(null);
-        setDocumentUrl(null);
-        setDocumentType(null);
+        // If no attachment info found, reset to empty state
+        setFileSlots([
+          { id: 'primeiro_envio', label: 'Primeiro Arquivo', hasFile: false, url: null, fileType: null },
+          { id: 'segundo_envio', label: 'Segundo Arquivo', hasFile: false, url: null, fileType: null }
+        ]);
       }
     } catch (error) {
       console.error('Erro ao verificar anexos:', error);
@@ -85,188 +105,172 @@ export default function FileAttachmentModal({
   };
 
   const getFileIcon = (fileType: string | null) => {
-    if (!fileType) return <File className="w-8 h-8" />;
-
-    const type = fileType.toLowerCase();
-
-    if (type.includes('image') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(type)) {
-      return <ImageIcon className="w-8 h-8 text-blue-600" />;
+    if (!fileType) return <File className="w-5 h-5" />;
+    
+    if (fileType.startsWith('image/')) {
+      return <ImageIcon className="w-5 h-5" />;
     }
-
-    if (['xls', 'xlsx', 'csv'].includes(type)) {
-      return <FileSpreadsheet className="w-8 h-8 text-green-600" />;
-    }
-
-    if (['zip', 'rar'].includes(type)) {
-      return <FileArchive className="w-8 h-8 text-orange-600" />;
-    }
-
-    if (['pdf', 'doc', 'docx', 'txt', 'xml'].includes(type)) {
-      return <FileText className="w-8 h-8 text-red-600" />;
-    }
-
-    return <File className="w-8 h-8 text-gray-600" />;
+    
+    return <FileText className="w-5 h-5" />;
   };
 
   const isImageFile = (fileType: string | null) => {
     if (!fileType) return false;
-    const type = fileType.toLowerCase();
-    return type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(type);
+    
+    // Verifica se é um tipo de imagem
+    const isImage = fileType.startsWith('image/') || 
+                   fileType === 'jpg' || 
+                   fileType === 'jpeg' || 
+                   fileType === 'png' || 
+                   fileType === 'gif' || 
+                   fileType === 'webp';
+    
+    console.log('🖼️ Verificando se é imagem:', { fileType, isImage });
+    return isImage;
   };
 
-  const handleDownload = async (url: string | null, type: string | null, label: string) => {
+  const handleDownload = async (slot: FileSlot) => {
     try {
       setLoading(true);
       setMessage(null);
-
-      if (!url) {
+      
+      if (!slot.url) {
         throw new Error('URL do arquivo não encontrada');
       }
-
-      const result = await attachmentService.downloadFile(url);
-
+      
+      const result = await attachmentService.downloadFile(slot.url);
+      
       if (result.data && result.fileType) {
+        // Criar URL temporária
         const tempUrl = URL.createObjectURL(result.data);
-
+        
         let extension = 'bin';
         if (result.fileType === 'xml') extension = 'xml';
         else if (result.fileType === 'jpg') extension = 'jpg';
         else if (result.fileType === 'pdf') extension = 'pdf';
-        else if (result.fileType === 'png') extension = 'png';
-        else if (result.fileType === 'doc') extension = 'doc';
-        else if (result.fileType === 'docx') extension = 'docx';
 
+        // Criar link para download
         const link = document.createElement('a');
         link.href = tempUrl;
-        link.download = `${label.toLowerCase().replace(' ', '_')}_${maquinaId}_${Date.now()}.${extension}`;
-
+        link.download = `${slot.label.toLowerCase().replace(' ', '_')}_${maquinaId}_${Date.now()}.${extension}`;
+        
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-
+        
         URL.revokeObjectURL(tempUrl);
-
+        
         setMessage({ type: 'success', text: 'Download iniciado com sucesso!' });
       } else {
         throw new Error(result.error || 'Erro ao fazer download');
       }
     } catch (error) {
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Erro ao fazer download'
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'Erro ao fazer download' 
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFileSelect = (uploadType: 'primeiro_envio' | 'segundo_envio', isReplace = false) => {
-    const currentFile = uploadType === 'primeiro_envio' ? photoUrl : documentUrl;
+  const handleFileSelect = (slotId: 'primeiro_envio' | 'segundo_envio', isReplace = false) => {
+    const currentSlot = fileSlots.find(slot => slot.id === slotId);
 
-    if (isReplace && currentFile) {
+    if (isReplace && currentSlot?.hasFile) {
       setConfirmState({
         type: 'replace',
-        uploadType,
+        slotId,
         onConfirm: () => {
           setConfirmState({ type: null });
-          if (uploadType === 'primeiro_envio') {
-            photoInputRef.current?.click();
-          } else {
-            documentInputRef.current?.click();
-          }
+          setActiveUploadSlot(slotId);
+          fileInputRef.current?.click();
         }
       });
     } else {
-      if (uploadType === 'primeiro_envio') {
-        photoInputRef.current?.click();
-      } else {
-        documentInputRef.current?.click();
-      }
+      setActiveUploadSlot(slotId);
+      fileInputRef.current?.click();
     }
   };
 
-  const handleFileChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-    uploadType: 'primeiro_envio' | 'segundo_envio'
-  ) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !activeUploadSlot) return;
 
     try {
-      setUploadingType(uploadType);
+      setUploadingSlot(activeUploadSlot);
       setMessage(null);
+      
+      // Find the current slot to check if it has an existing file
+      const currentSlot = fileSlots.find(slot => slot.id === activeUploadSlot);
+      const isReplacement = currentSlot?.hasFile || false;
+      
+      console.log(`📤 ${isReplacement ? 'Replacing' : 'Uploading'} file for slot:`, activeUploadSlot);
 
-      // Validação específica para foto (apenas imagens)
-      if (uploadType === 'primeiro_envio') {
-        const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-        if (!validImageTypes.includes(file.type)) {
-          throw new Error('Para foto da máquina, apenas imagens são permitidas (JPG, PNG, GIF, WEBP)');
-        }
-      }
-
-      const currentFile = uploadType === 'primeiro_envio' ? photoUrl : documentUrl;
-      const isReplacement = !!currentFile;
-
-      console.log(`📤 ${isReplacement ? 'Substituindo' : 'Enviando'} arquivo para:`, uploadType);
-
-      const result = await attachmentService.uploadFile(maquinaId, file, uploadType);
-
+      const result = await attachmentService.uploadFile(
+        maquinaId, 
+        file,
+        activeUploadSlot,
+      );
+      
       if (result.success) {
-        setMessage({
-          type: 'success',
-          text: `${uploadType === 'primeiro_envio' ? 'Foto' : 'Documento'} ${isReplacement ? 'substituído' : 'enviado'} com sucesso!`
+        setMessage({ 
+          type: 'success', 
+          text: `Arquivo ${isReplacement ? 'substituído' : 'enviado'} com sucesso!` 
         });
         await checkAttachments();
       } else {
         throw new Error(result.error || 'Erro ao fazer upload');
       }
-
+      
     } catch (error) {
       console.error('Upload error:', error);
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Erro ao processar arquivo'
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'Erro ao processar arquivo' 
       });
     } finally {
-      setUploadingType(null);
-      if (event.target) {
-        event.target.value = '';
+      setUploadingSlot(null);
+      setActiveUploadSlot(null);
+      // Clear input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
     }
   };
 
-  const handleDelete = (uploadType: 'primeiro_envio' | 'segundo_envio') => {
-    const url = uploadType === 'primeiro_envio' ? photoUrl : documentUrl;
-
-    if (!url) {
+  const handleDelete = (slot: FileSlot) => {
+    if (!slot.url) {
       setMessage({ type: 'error', text: 'URL do arquivo não encontrada para exclusão.' });
       return;
     }
 
     setConfirmState({
       type: 'delete',
-      uploadType,
+      slotId: slot.id,
       onConfirm: async () => {
         setConfirmState({ type: null });
         try {
           setLoading(true);
           setMessage(null);
-          console.log('🗑️ Excluindo arquivo:', { maquinaId, uploadType, url });
+          console.log('🗑️ Attempting to delete:', {
+            maquinaId,
+            slotId: slot.id,
+            hasFile: slot.hasFile,
+            url: slot.url
+          });
 
-          const result = await attachmentService.deleteFile(url, maquinaId, uploadType);
-          console.log('🗑️ Resultado da exclusão:', result);
+          const result = await attachmentService.deleteFile(slot.url, maquinaId, slot.id);
+          console.log('🗑️ Delete result:', result);
 
           if (result.success) {
-            setMessage({
-              type: 'success',
-              text: `${uploadType === 'primeiro_envio' ? 'Foto' : 'Documento'} excluído com sucesso!`
-            });
+            setMessage({ type: 'success', text: 'Arquivo excluído com sucesso!' });
             await checkAttachments();
           } else {
             throw new Error(result.error || 'Erro ao excluir arquivo');
           }
         } catch (error) {
-          console.error('🗑️ Erro ao excluir:', error);
+          console.error('🗑️ Delete error:', error);
           setMessage({
             type: 'error',
             text: error instanceof Error ? error.message : 'Erro ao excluir arquivo'
@@ -278,11 +282,14 @@ export default function FileAttachmentModal({
     });
   };
 
+
   if (!isOpen) return null;
+
+  const totalFiles = fileSlots.filter(slot => slot.hasFile).length;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      {/* Modal de confirmação */}
+      {/* Modal de confirmação customizado */}
       {confirmState.type && (
         <div className="fixed inset-0 flex items-center justify-center z-[60] bg-black/40">
           <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6 flex flex-col items-center">
@@ -309,8 +316,7 @@ export default function FileAttachmentModal({
           </div>
         </div>
       )}
-
-      <div className="bg-white rounded-xl shadow-lg max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
@@ -325,7 +331,7 @@ export default function FileAttachmentModal({
           <button
             onClick={onClose}
             className="p-1 text-gray-500 hover:text-gray-700 rounded"
-            disabled={loading || uploadingType !== null}
+            disabled={loading || uploadingSlot !== null}
             aria-label="Fechar"
           >
             <X className="w-5 h-5" />
@@ -352,222 +358,125 @@ export default function FileAttachmentModal({
           </div>
         )}
 
-        <div className="space-y-6">
-          {/* SEÇÃO: FOTO DA MÁQUINA */}
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border-2 border-blue-200">
-            <div className="flex items-center gap-2 mb-4">
-              <Camera className="w-6 h-6 text-blue-600" />
-              <h4 className="text-lg font-bold text-[#092f20]">Foto da Máquina</h4>
-              <div className={`ml-auto px-3 py-1 rounded-full text-xs font-medium ${
-                photoUrl ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-              }`}>
-                {photoUrl ? 'Foto anexada' : 'Sem foto'}
-              </div>
-            </div>
-
-            {/* Preview da foto quando existe */}
-            {photoUrl && isImageFile(photoType) && (
-              <div className="mb-4 bg-white p-3 rounded-lg">
-                <img
-                  src={photoUrl}
-                  alt="Foto da Máquina"
-                  className="w-full h-64 object-contain rounded-lg"
-                  onLoad={() => console.log('✅ Foto carregada:', photoUrl)}
-                  onError={(e) => {
-                    console.error('❌ Erro ao carregar foto:', photoUrl);
-                    const img = e.target as HTMLImageElement;
-                    if (!img.dataset.retried) {
-                      img.dataset.retried = 'true';
-                      img.src = photoUrl + '&retry=' + Date.now();
-                    }
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Área de upload quando NÃO tem foto */}
-            {!photoUrl && (
-              <div className="mb-4">
-                <div
-                  className="border-2 border-dashed border-blue-300 bg-white rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer"
-                  onClick={() => handleFileSelect('primeiro_envio', false)}
-                >
-                  <Camera className="w-12 h-12 text-blue-400 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-gray-700 mb-1">
-                    Clique para adicionar uma foto
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Apenas imagens: JPG, PNG, GIF, WEBP (máx. 10MB)
-                  </p>
+        {/* Área de anexos */}
+        <div className="space-y-4 mb-6">
+          {fileSlots.map((slot) => (
+            <div key={slot.id} className="bg-gray-50 p-4 rounded-lg border">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-[#092f20]">{slot.label}</h4>
+                <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  slot.hasFile
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {slot.hasFile ? 'Arquivo anexado' : 'Nenhum arquivo'}
                 </div>
               </div>
-            )}
 
-            {/* Botões de ação */}
-            <div className="flex flex-wrap gap-2">
-              {!photoUrl ? (
-                <button
-                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  onClick={() => handleFileSelect('primeiro_envio', false)}
-                  disabled={uploadingType !== null}
-                >
-                  {uploadingType === 'primeiro_envio' ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Upload className="w-4 h-4" />
-                  )}
-                  {uploadingType === 'primeiro_envio' ? 'Enviando...' : 'Adicionar Foto'}
-                </button>
-              ) : (
-                <>
+              {/* Botões de ação quando NÃO tem arquivo */}
+              {!slot.hasFile && (
+                <div className="flex flex-col gap-2">
                   <button
-                    className="flex items-center gap-2 bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors border border-blue-300"
-                    onClick={() => handleDownload(photoUrl, photoType, 'foto_maquina')}
-                    disabled={loading}
+                    className="flex items-center justify-center gap-2 bg-[#86b646] text-white py-2 rounded hover:bg-[#397738] transition-colors"
+                    onClick={() => handleFileSelect(slot.id, false)}
+                    disabled={uploadingSlot !== null}
                   >
-                    {loading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    Download
-                  </button>
-                  <button
-                    className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    onClick={() => handleFileSelect('primeiro_envio', true)}
-                    disabled={uploadingType !== null}
-                  >
-                    {uploadingType === 'primeiro_envio' ? (
+                    {uploadingSlot === slot.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <Upload className="w-4 h-4" />
                     )}
-                    Substituir Foto
+                    {uploadingSlot === slot.id ? 'Enviando...' : 'Anexar Arquivo'}
                   </button>
-                  <button
-                    className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-200"
-                    onClick={() => handleDelete('primeiro_envio')}
-                    disabled={loading}
-                  >
-                    <Trash2 className="w-4 h-4" /> Excluir
-                  </button>
-                </>
+                </div>
               )}
-            </div>
-          </div>
 
-          {/* SEÇÃO: DOCUMENTO DA MÁQUINA */}
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-5 rounded-xl border-2 border-gray-200">
-            <div className="flex items-center gap-2 mb-4">
-              <FileText className="w-6 h-6 text-gray-600" />
-              <h4 className="text-lg font-bold text-[#092f20]">Documento da Máquina</h4>
-              <div className={`ml-auto px-3 py-1 rounded-full text-xs font-medium ${
-                documentUrl ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-              }`}>
-                {documentUrl ? 'Documento anexado' : 'Sem documento'}
-              </div>
-            </div>
+              {/* Preview e controles quando TEM arquivo */}
+              {slot.hasFile && slot.url && (
+                <div className="flex flex-col items-center gap-2">
+                  {/* Preview do arquivo */}
+                  <div className="mb-2 w-full">
+                    {(() => {
+                      const isImage = isImageFile(slot.fileType);
+                      return isImage ? (
+                        <img
+                          src={slot.url}
+                          alt={slot.label}
+                          className="max-h-32 mx-auto rounded border"
+                          onLoad={() => console.log('✅ Imagem carregada:', slot.url)}
+                          onError={(e) => {
+                            console.error('❌ Erro ao carregar imagem:', slot.url);
+                            const img = e.target as HTMLImageElement;
+                            if (!img.dataset.retried) {
+                              img.dataset.retried = 'true';
+                              img.src = slot.url + '&retry=' + Date.now();
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center gap-2 text-gray-600 py-2">
+                          {getFileIcon(slot.fileType)}
+                          <div>
+                            <p className="text-sm font-medium">Arquivo anexado</p>
+                            <p className="text-xs text-gray-500">
+                              {slot.fileType || 'Tipo desconhecido'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
 
-            {/* Preview do documento quando existe */}
-            {documentUrl && (
-              <div className="mb-4 bg-white p-4 rounded-lg">
-                <div className="flex items-center gap-3">
-                  {getFileIcon(documentType)}
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">Documento anexado</p>
-                    <p className="text-xs text-gray-500">
-                      Tipo: {documentType?.toUpperCase() || 'Desconhecido'}
-                    </p>
+                  {/* Botão Download */}
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      className="bg-[#f3f4f6] text-[#092f20] px-3 py-1 rounded hover:bg-[#e5e7eb] flex items-center gap-1 transition-colors"
+                      onClick={() => handleDownload(slot)}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      Download
+                    </button>
+                  </div>
+
+                  {/* Botões Substituir e Excluir */}
+                  <div className="flex gap-2">
+                    <button
+                      className="bg-[#eaf4ec] text-[#092f20] px-3 py-1 rounded hover:bg-[#d3e7d8] flex items-center gap-1 transition-colors"
+                      onClick={() => handleFileSelect(slot.id, true)}
+                      disabled={uploadingSlot !== null}
+                    >
+                      {uploadingSlot === slot.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      Substituir Arquivo
+                    </button>
+                    <button
+                      className="bg-[#ffeaea] text-[#b71c1c] px-3 py-1 rounded hover:bg-[#ffd6d6] flex items-center gap-1 transition-colors"
+                      onClick={() => handleDelete(slot)}
+                      disabled={loading}
+                    >
+                      <Trash2 className="w-4 h-4" /> Excluir Arquivo
+                    </button>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Área de upload quando NÃO tem documento */}
-            {!documentUrl && (
-              <div className="mb-4">
-                <div
-                  className="border-2 border-dashed border-gray-300 bg-white rounded-lg p-8 text-center hover:border-gray-500 transition-colors cursor-pointer"
-                  onClick={() => handleFileSelect('segundo_envio', false)}
-                >
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-gray-700 mb-1">
-                    Clique para adicionar um documento
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Todos os tipos de arquivo aceitos (máx. 10MB)
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Botões de ação */}
-            <div className="flex flex-wrap gap-2">
-              {!documentUrl ? (
-                <button
-                  className="flex-1 flex items-center justify-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
-                  onClick={() => handleFileSelect('segundo_envio', false)}
-                  disabled={uploadingType !== null}
-                >
-                  {uploadingType === 'segundo_envio' ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Upload className="w-4 h-4" />
-                  )}
-                  {uploadingType === 'segundo_envio' ? 'Enviando...' : 'Adicionar Documento'}
-                </button>
-              ) : (
-                <>
-                  <button
-                    className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-300"
-                    onClick={() => handleDownload(documentUrl, documentType, 'documento_maquina')}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    Download
-                  </button>
-                  <button
-                    className="flex-1 flex items-center justify-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-                    onClick={() => handleFileSelect('segundo_envio', true)}
-                    disabled={uploadingType !== null}
-                  >
-                    {uploadingType === 'segundo_envio' ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
-                    Substituir Documento
-                  </button>
-                  <button
-                    className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-200"
-                    onClick={() => handleDelete('segundo_envio')}
-                    disabled={loading}
-                  >
-                    <Trash2 className="w-4 h-4" /> Excluir
-                  </button>
-                </>
               )}
             </div>
-          </div>
+          ))}
         </div>
 
-        {/* Inputs de arquivo ocultos */}
+        {/* Input de arquivo oculto */}
         <input
-          ref={photoInputRef}
+          ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-          onChange={(e) => handleFileChange(e, 'primeiro_envio')}
-          className="hidden"
-        />
-        <input
-          ref={documentInputRef}
-          type="file"
-          accept="*/*"
-          onChange={(e) => handleFileChange(e, 'segundo_envio')}
+          accept=".xml,.jpg,.jpeg,.pdf,image/jpeg,application/xml,application/pdf"
+          onChange={handleFileChange}
           className="hidden"
         />
       </div>

@@ -559,7 +559,7 @@ async uploadFile(
       return { success: false, error: 'Arquivo está vazio.' };
     }
 
-    const allowedExtensions = ['xml', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'zip', 'rar'];
+    const allowedExtensions = ['xml', 'jpg', 'jpeg', 'pdf'];
     const getFileExtension = (fileName: string): string | null => {
       const match = fileName.match(/\.([^.]+)$/);
       return match ? match[1].toLowerCase() : null;
@@ -572,9 +572,9 @@ async uploadFile(
 
     if (!fileExt || !allowedExtensions.includes(fileExt)) {
       console.error('❌ Invalid file type:', fileExt);
-      return {
-        success: false,
-        error: `Tipo de arquivo ${fileExt || 'desconhecido'} não permitido. Formatos suportados: imagens (jpg, png, gif, webp), documentos (pdf, doc, docx, xls, xlsx, txt, csv, xml) e arquivos compactados (zip, rar).`
+      return { 
+        success: false, 
+        error: `Tipo de arquivo ${fileExt || 'desconhecido'} não permitido. Apenas xml, jpg e pdf são suportados.` 
       };
     }
 
@@ -897,29 +897,14 @@ const regex = new RegExp(`https?://[^/]+/storage/v1/object/public/${this.bucketN
 }
 
 private getFileTypeFromUrl(url: string): string {
-  if (!url) return 'unknown';
-
-  // Check folder structure first
+  if (!url) return 'unknown'; 
   if (url.includes('/xml/')) return 'xml';
   if (url.includes('/jpg/')) return 'jpg';
-  if (url.includes('/jpeg/')) return 'jpeg';
-  if (url.includes('/png/')) return 'png';
-  if (url.includes('/gif/')) return 'gif';
-  if (url.includes('/webp/')) return 'webp';
   if (url.includes('/pdf/')) return 'pdf';
-  if (url.includes('/doc/')) return 'doc';
-  if (url.includes('/docx/')) return 'docx';
-  if (url.includes('/xls/')) return 'xls';
-  if (url.includes('/xlsx/')) return 'xlsx';
-  if (url.includes('/txt/')) return 'txt';
-  if (url.includes('/csv/')) return 'csv';
-  if (url.includes('/zip/')) return 'zip';
-  if (url.includes('/rar/')) return 'rar';
 
-  // Fallback to file extension
   const extension = url.includes('.') ? url.split('.').pop()?.toLowerCase() : '';
-  const validExtensions = ['xml', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'zip', 'rar'];
-  return validExtensions.includes(extension || '') ? (extension || 'unknown') : 'unknown';
+  return ['xml', 'jpg', 'jpeg', 'pdf'].includes(extension || '') ? 
+         (extension === 'jpeg' ? 'jpg' : extension || 'unknown') : 'unknown';
 }
 
 private getContentType(fileExtension: string): string {
@@ -927,54 +912,8 @@ private getContentType(fileExtension: string): string {
     'xml': 'application/xml',
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
-    'png': 'image/png',
-    'gif': 'image/gif',
-    'webp': 'image/webp',
-    'pdf': 'application/pdf',
-    'doc': 'application/msword',
-    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'xls': 'application/vnd.ms-excel',
-    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'txt': 'text/plain',
-    'csv': 'text/csv',
-    'zip': 'application/zip',
-    'rar': 'application/x-rar-compressed'
+    'pdf': 'application/pdf'
   };
   return contentTypes[fileExtension.toLowerCase()] || 'application/octet-stream';
-}
-
-/**
- * Validates a file for upload
- * @param file - The file to validate
- * @returns Error message if invalid, null if valid
- */
-validateFile(file: File): string | null {
-  const allowedExtensions = ['xml', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'zip', 'rar'];
-  const maxSize = 10 * 1024 * 1024; // 10MB
-
-  if (!file || !file.name) {
-    return 'Arquivo inválido ou sem nome.';
-  }
-
-  if (file.size === 0) {
-    return 'Arquivo está vazio.';
-  }
-
-  if (file.size > maxSize) {
-    return 'Arquivo muito grande. Limite de 10MB.';
-  }
-
-  const getFileExtension = (fileName: string): string | null => {
-    const match = fileName.match(/\.([^.]+)$/);
-    return match ? match[1].toLowerCase() : null;
-  };
-
-  const fileExt = getFileExtension(file.name);
-
-  if (!fileExt || !allowedExtensions.includes(fileExt)) {
-    return `Tipo de arquivo ${fileExt || 'desconhecido'} não permitido. Formatos suportados: imagens (jpg, png, gif, webp), documentos (pdf, doc, docx, xls, xlsx, txt, csv, xml) e arquivos compactados (zip, rar).`;
-  }
-
-  return null;
 }
 }
