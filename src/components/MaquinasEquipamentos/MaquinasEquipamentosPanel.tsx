@@ -208,6 +208,7 @@ export default function MaquinasEquipamentosPanel() {
       <MaquinasEquipamentosHeaderMobile
         numeroMaquinas={numeroMaquinas}
         custoTotal={custoTotal}
+        onOpenModal={() => setShowAddForm(true)}
       />
 
       <div className="hidden md:block">

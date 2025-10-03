@@ -3,9 +3,10 @@ import React from "react";
 interface Props {
   numeroMaquinas: number;
   custoTotal: number;
+  onOpenModal: () => void;
 }
 
-export default function MaquinasEquipamentosHeaderMobile({ numeroMaquinas, custoTotal }: Props) {
+export default function MaquinasEquipamentosHeaderMobile({ numeroMaquinas, custoTotal, onOpenModal }: Props) {
   return (
     <div className="block md:hidden">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -26,6 +27,15 @@ export default function MaquinasEquipamentosHeaderMobile({ numeroMaquinas, custo
               <span className="text-base">R$</span>
               <span>{custoTotal.toLocaleString('pt-BR')}</span>
             </p>
+          </div>
+
+          <div className="bg-[#397738]/10 p-4 rounded-lg border-2 border-dashed border-[#397738]/30">
+            <button
+              onClick={onOpenModal}
+              className="w-full text-[#397738] font-medium"
+            >
+              + Cadastrar Máquinas e Equipamentos
+            </button>
           </div>
         </div>
       </div>

@@ -113,14 +113,14 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold">Cadastrar Nova Máquina/Equipamento</h2>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl my-auto">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+          <h2 className="text-lg sm:text-xl font-bold">Cadastrar Nova Máquina/Equipamento</h2>
           <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           <div>
             <label className="block text-sm font-medium mb-1">Nome da máquina</label>
             <input
