@@ -52,7 +52,7 @@ export default function ListaProdutosMobile({
               <div>
                 <p className="text-gray-500">Qtd.</p>
                 <p className="font-bold">
-                  {item.totalEstoque} {item.unidades.join(', ')}
+                  {item.totalEstoque} {item.unidades[0]}
                 </p>
               </div>
               <div>

@@ -55,7 +55,7 @@ export default function ListaProdutosDesktop({
               <div className="text-center">
                 <p className="text-xs text-gray-500">Quantidade</p>
                 <p className="text-lg font-bold text-[#092f20]">
-                  {item.totalEstoque} {item.unidades.join(', ')}
+                  {item.totalEstoque} {item.unidades[0]}
                 </p>
               </div>
               <div className="text-center">
