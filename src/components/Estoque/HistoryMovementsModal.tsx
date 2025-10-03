@@ -138,12 +138,18 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
     }
   };
 
-  const formatDateTime = (dateStr: string) => {
+  const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleString('pt-BR', {
+    return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
-      month: '2-digit', 
-      year: 'numeric',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -213,9 +219,10 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                               {m.quantidade} {m.unidade}
                             </span>
                           </div>
-                          <span className="text-gray-500 text-xs">
-                            {formatDateTime(m.created_at)}
-                          </span>
+                          <div className="text-gray-500 text-xs text-right">
+                            <div>{formatDate(m.created_at)}</div>
+                            <div>{formatTime(m.created_at)}</div>
+                          </div>
                         </div>
 
                         {m.observacao && (
