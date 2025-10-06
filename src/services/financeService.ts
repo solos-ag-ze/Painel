@@ -375,10 +375,53 @@ export class FinanceService {
         return [];
       }
 
-      return data || []; 
+      return data || [];
 
     } catch (error) {
       console.error('Erro crítico no serviço financeiro ao buscar lançamentos futuros:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Busca as próximas 5 transações futuras ordenadas por data de pagamento
+   * Considera status 'Agendado' e 'Pago' com data_agendamento_pagamento maior que hoje
+   */
+  static async getProximas5TransacoesFuturas(userId: string): Promise<TransacaoFinanceira[]> {
+    try {
+      const agora = new Date();
+      const hoje = format(agora, 'yyyy-MM-dd HH:mm:ss');
+
+      console.log('🔍 Buscando próximas 5 transações futuras para userId:', userId);
+      console.log('📅 Data/hora atual:', hoje);
+
+      const { data, error } = await supabase
+        .from('transacoes_financeiras')
+        .select('*')
+        .eq('user_id', userId)
+        .in('status', ['Agendado', 'Pago'])
+        .gt('data_agendamento_pagamento', hoje)
+        .order('data_agendamento_pagamento', { ascending: true })
+        .limit(5);
+
+      if (error) {
+        console.error('❌ Erro ao buscar próximas 5 transações futuras:', error);
+        return [];
+      }
+
+      console.log('✅ Próximas 5 transações futuras encontradas:', data?.length || 0);
+
+      if (data && data.length > 0) {
+        console.log('📊 Detalhes das transações:');
+        data.forEach((t, index) => {
+          console.log(`  ${index + 1}. ${t.descricao} - ${t.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(t.valor))}`);
+        });
+      }
+
+      return data || [];
+
+    } catch (error) {
+      console.error('❌ Erro crítico ao buscar próximas 5 transações futuras:', error);
       return [];
     }
   }

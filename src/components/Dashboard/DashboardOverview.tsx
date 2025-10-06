@@ -87,6 +87,7 @@ export default function DashboardOverview() {
   });
   const [dadosGrafico, setDadosGrafico] = useState<DadosGrafico[]>([]);
   const [transacoes, setTransacoes] = useState<TransacaoFinanceira[]>([]);
+  const [proximas5Transacoes, setProximas5Transacoes] = useState<TransacaoFinanceira[]>([]);
   const [atividades, setAtividades] = useState<AtividadeComData[]>([]);
   const [atividadesGrafico, setAtividadesGrafico] = useState<AtividadeComData[]>([]);
   const [cotacaoAtual, setCotacaoAtual] = useState(1726);
@@ -121,11 +122,12 @@ export default function DashboardOverview() {
       // Load all data in parallel
       const [
         user,
-        resumo, 
-        grafico, 
+        resumo,
+        grafico,
         lancamentos,
+        proximas5,
         overall,
-        atividadesRecentes, 
+        atividadesRecentes,
         atividades30Dias,
         cotacao,
         cotacaoCompleta,
@@ -140,6 +142,7 @@ export default function DashboardOverview() {
         FinanceService.getResumoFinanceiro(currentUser.user_id),
         FinanceService.getDadosGrafico(currentUser.user_id),
         FinanceService.getLancamentos(currentUser.user_id, 100),
+        FinanceService.getProximas5TransacoesFuturas(currentUser.user_id),
         FinanceService.getOverallBalance(currentUser.user_id),
         ActivityService.getAtividades(currentUser.user_id, 5),
         ActivityService.getAtividadesUltimos30Dias(currentUser.user_id),
@@ -158,6 +161,7 @@ export default function DashboardOverview() {
       setResumoFinanceiro(resumo);
       setDadosGrafico(grafico);
       setTransacoes(lancamentos);
+      setProximas5Transacoes(proximas5);
       setOverallBalance(overall);
       
       // DEBUG: Log dos dados do gráfico para verificação
@@ -388,7 +392,7 @@ export default function DashboardOverview() {
       {transacoes.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           <RecentTransactions transactions={transacoes} />
-          <PlannedTransactions transactions={transacoes} />
+          <PlannedTransactions transactions={transacoes} proximas5={proximas5Transacoes} />
         </div>
       )}
 

@@ -13,9 +13,10 @@ import AttachmentModal from '../Financeiro/AttachmentModal';
 
 interface PlannedTransactionsProps {
   transactions: TransacaoFinanceira[];
+  proximas5?: TransacaoFinanceira[];
 }
 
-export default function PlannedTransactions({ transactions }: PlannedTransactionsProps) {
+export default function PlannedTransactions({ transactions, proximas5 }: PlannedTransactionsProps) {
   const [attachmentModal, setAttachmentModal] = useState<{
     isOpen: boolean;
     transactionId: string;
@@ -62,18 +63,24 @@ export default function PlannedTransactions({ transactions }: PlannedTransaction
 
   // Get the next 5 planned transactions
   const plannedTransactions = React.useMemo(() => {
-    // First, filter to get only future transactions with "Agendado" status
+    // Se temos dados otimizados vindo da prop proximas5, usa eles diretamente
+    if (proximas5 && proximas5.length > 0) {
+      console.log('✅ Usando próximas 5 transações otimizadas do backend:', proximas5.length);
+      return proximas5;
+    }
+
+    // Fallback: filtrar localmente (lógica antiga)
+    console.log('⚠️ Usando fallback: filtrando transações localmente');
     const futureTransactions = transactions.filter(transaction => isFutureTransaction(transaction));
-    
-    // Then sort by execution date (closest first) and take only 5
+
     return futureTransactions
       .sort((a, b) => {
         const dateA = new Date(a.data_agendamento_pagamento || '').getTime();
         const dateB = new Date(b.data_agendamento_pagamento || '').getTime();
-        return dateA - dateB; // Ascending order (closest dates first)
+        return dateA - dateB;
       })
-      .slice(0, 5); // Take up to 5 planned transactions
-  }, [transactions]);
+      .slice(0, 5);
+  }, [transactions, proximas5]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Data não informada';
