@@ -1,5 +1,4 @@
-<<<<<<< Updated upstream
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Download,
@@ -8,14 +7,10 @@ import {
   Paperclip,
   AlertCircle,
   CheckCircle,
-  Loader2,
-  FileText,
-  File,
-  Image as ImageIcon
+  Loader2
 } from 'lucide-react';
 import { AttachmentService } from '../../services/attachmentService';
 
-// Create AttachmentService instance
 const attachmentService = new AttachmentService();
 
 interface FileAttachmentModalProps {
@@ -50,39 +45,30 @@ export default function FileAttachmentModal({
     type: null
   });
   const [fileSlots, setFileSlots] = useState<FileSlot[]>([
-    { id: 'primeiro_envio', hasFile: false, url: null, fileType: null, fileName: null },
-    { id: 'segundo_envio', hasFile: false, url: null, fileType: null, fileName: null }
+    { id: 'primeiro_envio', label: 'Primeiro Anexo', hasFile: false, url: null, fileType: null, fileName: null },
+    { id: 'segundo_envio', label: 'Segundo Anexo', hasFile: false, url: null, fileType: null, fileName: null }
   ]);
   const [loading, setLoading] = useState(false);
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
-  const [activeUploadSlot, setActiveUploadSlot] = useState<'primeiro_envio' | 'segundo_envio' | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setMessage(null);
-      setSelectedFile(null);
-      setActiveUploadSlot(null);
       checkAttachments();
-      console.log('🆔 Modal aberto para máquina ID:', maquinaId);
     }
   }, [isOpen, maquinaId]);
 
   const checkAttachments = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Verificando anexos para máquina:', maquinaId);
-      
       const attachmentInfo = await attachmentService.getAttachmentInfo(maquinaId);
-      console.log('📋 Resultado da verificação:', attachmentInfo);
       
       if (attachmentInfo) {
         setFileSlots([
           {
             id: 'primeiro_envio',
+            label: 'Primeiro Anexo',
             hasFile: attachmentInfo.hasPrimeiroEnvio,
             url: attachmentInfo.url_primeiro_envio,
             fileType: attachmentInfo.primeiroEnvioType,
@@ -90,6 +76,7 @@ export default function FileAttachmentModal({
           },
           {
             id: 'segundo_envio',
+            label: 'Segundo Anexo',
             hasFile: attachmentInfo.hasSegundoEnvio,
             url: attachmentInfo.url_segundo_envio,
             fileType: attachmentInfo.segundoEnvioType,
@@ -98,8 +85,8 @@ export default function FileAttachmentModal({
         ]);
       } else {
         setFileSlots([
-          { id: 'primeiro_envio', hasFile: false, url: null, fileType: null, fileName: null },
-          { id: 'segundo_envio', hasFile: false, url: null, fileType: null, fileName: null }
+          { id: 'primeiro_envio', label: 'Primeiro Anexo', hasFile: false, url: null, fileType: null, fileName: null },
+          { id: 'segundo_envio', label: 'Segundo Anexo', hasFile: false, url: null, fileType: null, fileName: null }
         ]);
       }
     } catch (error) {
@@ -108,16 +95,6 @@ export default function FileAttachmentModal({
     } finally {
       setLoading(false);
     }
-  };
-
-  const getFileIcon = (fileType: string | null) => {
-    if (!fileType) return <File className="w-8 h-8" />;
-
-    if (fileType.startsWith('image/')) {
-      return <ImageIcon className="w-8 h-8" />;
-    }
-
-    return <FileText className="w-8 h-8" />;
   };
 
   const getFileNameFromUrl = (url: string | null): string | null => {
@@ -133,16 +110,12 @@ export default function FileAttachmentModal({
 
   const isImageFile = (fileType: string | null) => {
     if (!fileType) return false;
-
-    const isImage = fileType.startsWith('image/') ||
-                   fileType === 'jpg' ||
-                   fileType === 'jpeg' ||
-                   fileType === 'png' ||
-                   fileType === 'gif' ||
-                   fileType === 'webp';
-
-    console.log('🖼️ Verificando se é imagem:', { fileType, isImage });
-    return isImage;
+    return fileType.startsWith('image/') ||
+           fileType === 'jpg' ||
+           fileType === 'jpeg' ||
+           fileType === 'png' ||
+           fileType === 'gif' ||
+           fileType === 'webp';
   };
 
   const handleDownload = async (slot: FileSlot) => {
@@ -154,23 +127,17 @@ export default function FileAttachmentModal({
         throw new Error('URL do arquivo não encontrada');
       }
 
-      console.log('📥 Iniciando download para:', { slotId: slot.id, url: slot.url, fileType: slot.fileType });
-
       const result = await attachmentService.downloadFile(slot.url);
 
       if (result.error) {
-        console.error('❌ Erro no download:', result.error);
         throw new Error(result.error);
       }
 
       if (!result.data) {
-        console.error('❌ Nenhum dado retornado');
         throw new Error('Nenhum dado recebido do servidor');
       }
 
       if (result.data && result.fileType) {
-        console.log('✅ Dados recebidos:', { size: result.data.size, type: result.fileType });
-
         const tempUrl = URL.createObjectURL(result.data);
 
         let extension = 'bin';
@@ -190,14 +157,11 @@ export default function FileAttachmentModal({
         document.body.removeChild(link);
 
         URL.revokeObjectURL(tempUrl);
-
-        console.log('✅ Download concluído');
         setMessage({ type: 'success', text: 'Download iniciado com sucesso!' });
       } else {
         throw new Error('Dados inválidos retornados do servidor');
       }
     } catch (error) {
-      console.error('💥 Erro no handleDownload:', error);
       setMessage({
         type: 'error',
         text: error instanceof Error ? error.message : 'Erro ao fazer download'
@@ -205,6 +169,14 @@ export default function FileAttachmentModal({
     } finally {
       setLoading(false);
     }
+  };
+
+  const openFileExplorer = (slotId: 'primeiro_envio' | 'segundo_envio') => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xml,.jpg,.jpeg,.pdf,.png,.webp,image/jpeg,image/png,image/webp,application/xml,application/pdf';
+    input.onchange = (e) => handleFileChange(e as any, slotId);
+    input.click();
   };
 
   const handleFileSelect = (slotId: 'primeiro_envio' | 'segundo_envio', isReplace = false) => {
@@ -216,46 +188,29 @@ export default function FileAttachmentModal({
         slotId,
         onConfirm: () => {
           setConfirmState({ type: null });
-          setActiveUploadSlot(slotId);
-          // Pequeno delay para garantir que o estado foi atualizado
-          setTimeout(() => {
-            const input = fileInputRefs.current[slotId];
-            if (input) {
-              input.value = ''; // Limpa o input antes de abrir
-              input.click();
-            }
-          }, 100);
+          openFileExplorer(slotId);
         }
       });
     } else {
-      setActiveUploadSlot(slotId);
-      setTimeout(() => {
-        const input = fileInputRefs.current[slotId];
-        if (input) {
-          input.value = ''; // Limpa o input antes de abrir
-          input.click();
-        }
-      }, 100);
+      openFileExplorer(slotId);
     }
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>, slotId: 'primeiro_envio' | 'segundo_envio') => {
     const file = event.target.files?.[0];
-    if (!file || !activeUploadSlot) return;
+    if (!file || !slotId) return;
 
     try {
-      setUploadingSlot(activeUploadSlot);
+      setUploadingSlot(slotId);
       setMessage(null);
 
-      const currentSlot = fileSlots.find(slot => slot.id === activeUploadSlot);
+      const currentSlot = fileSlots.find(slot => slot.id === slotId);
       const isReplacement = currentSlot?.hasFile || false;
-
-      console.log(`📤 ${isReplacement ? 'Replacing' : 'Uploading'} file for slot:`, activeUploadSlot);
 
       const result = await attachmentService.uploadFile(
         maquinaId,
         file,
-        activeUploadSlot,
+        slotId,
       );
 
       if (result.success) {
@@ -269,15 +224,12 @@ export default function FileAttachmentModal({
       }
 
     } catch (error) {
-      console.error('Upload error:', error);
       setMessage({
         type: 'error',
         text: error instanceof Error ? error.message : 'Erro ao processar arquivo'
       });
     } finally {
       setUploadingSlot(null);
-      setSelectedFile(null);
-      setActiveUploadSlot(null);
       event.target.value = '';
     }
   };
@@ -296,15 +248,8 @@ export default function FileAttachmentModal({
         try {
           setLoading(true);
           setMessage(null);
-          console.log('🗑️ Attempting to delete:', {
-            maquinaId,
-            slotId: slot.id,
-            hasFile: slot.hasFile,
-            url: slot.url
-          });
-
-          const result = await attachmentService.deleteFile(slot.url, maquinaId, slot.id);
-          console.log('🗑️ Delete result:', result);
+          
+          const result = await attachmentService.deleteFile(slot.url!, maquinaId, slot.id);
 
           if (result.success) {
             setMessage({ type: 'success', text: 'Arquivo excluído com sucesso!' });
@@ -313,7 +258,6 @@ export default function FileAttachmentModal({
             throw new Error(result.error || 'Erro ao excluir arquivo');
           }
         } catch (error) {
-          console.error('🗑️ Delete error:', error);
           setMessage({
             type: 'error',
             text: error instanceof Error ? error.message : 'Erro ao excluir arquivo'
@@ -325,10 +269,7 @@ export default function FileAttachmentModal({
     });
   };
 
-
   if (!isOpen) return null;
-
-  const totalFiles = fileSlots.filter(slot => slot.hasFile).length;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -419,9 +360,10 @@ export default function FileAttachmentModal({
               {/* Botões de ação quando NÃO tem arquivo */}
               {!slot.hasFile && (
                 <div className="flex flex-col gap-2">
-                  <label
-                    htmlFor={`file-input-${slot.id}`}
-                    className="flex items-center justify-center gap-2 bg-[#86b646] text-white py-2 rounded hover:bg-[#397738] transition-colors cursor-pointer"
+                  <button
+                    onClick={() => handleFileSelect(slot.id)}
+                    className="flex items-center justify-center gap-2 bg-[#86b646] text-white py-2 rounded hover:bg-[#397738] transition-colors"
+                    disabled={uploadingSlot !== null}
                   >
                     {uploadingSlot === slot.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -429,38 +371,7 @@ export default function FileAttachmentModal({
                       <Upload className="w-4 h-4" />
                     )}
                     {uploadingSlot === slot.id ? 'Enviando...' : 'Anexar Arquivo'}
-                  </label>
-                  <input
-                    id={`file-input-${slot.id}`}
-                    ref={(el) => { fileInputRefs.current[slot.id] = el; }}
-                    type="file"
-                    accept=".xml,.jpg,.jpeg,.pdf,.png,.webp,image/jpeg,image/png,image/webp,application/xml,application/pdf"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setSelectedFile(file);
-                        setActiveUploadSlot(slot.id);
-                        handleFileChange(e);
-                      }
-                    }}
-                    className="hidden"
-                    disabled={uploadingSlot !== null}
-                  />
-                  {selectedFile && activeUploadSlot === slot.id && uploadingSlot !== slot.id && (
-                    <div className="flex flex-col items-center gap-2 py-3 border-2 border-dashed border-[#397738] rounded-lg bg-green-50">
-                      <div className="text-[#397738]">
-                        <Upload className="w-8 h-8" />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-bold text-[#397738]">
-                          {selectedFile.name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {selectedFile.type.split('/')[1]?.toUpperCase() || 'Arquivo'} (máx. 10MB)
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  </button>
                 </div>
               )}
 
@@ -476,15 +387,6 @@ export default function FileAttachmentModal({
                           src={slot.url}
                           alt={slot.label}
                           className="max-h-32 mx-auto rounded border"
-                          onLoad={() => console.log('✅ Imagem carregada:', slot.url)}
-                          onError={(e) => {
-                            console.error('❌ Erro ao carregar imagem:', slot.url);
-                            const img = e.target as HTMLImageElement;
-                            if (!img.dataset.retried) {
-                              img.dataset.retried = 'true';
-                              img.src = slot.url + '&retry=' + Date.now();
-                            }
-                          }}
                         />
                       ) : (
                         <div className="flex flex-col items-center justify-center gap-2 py-2">
@@ -544,10 +446,7 @@ export default function FileAttachmentModal({
             </div>
           ))}
         </div>
-
       </div>
     </div>
   );
 }
-=======
->>>>>>> Stashed changes
