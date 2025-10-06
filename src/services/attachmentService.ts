@@ -35,6 +35,81 @@ interface AttachmentInfo {
 
 export class AttachmentService {
   private static readonly BUCKET_NAME = 'notas_fiscais';
+
+  /**
+   * Busca informações do grupo de anexo de uma transação
+   */
+  private static async getTransactionAttachmentGroup(transactionId: string): Promise<{
+    id_grupo_anexo: string | null;
+    id_transacao_pai: string | null;
+    anexo_compartilhado_url: string | null;
+    numero_parcelas: number;
+  } | null> {
+    try {
+      const { data, error } = await supabase
+        .from('transacoes_financeiras')
+        .select('id_grupo_anexo, id_transacao_pai, anexo_compartilhado_url, numero_parcelas')
+        .eq('id_transacao', transactionId)
+        .single();
+
+      if (error) {
+        console.error('Erro ao buscar grupo de anexo:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar informações do grupo:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Retorna o ID usado para nomear o arquivo no storage
+   * Para parcelas: usa id_grupo_anexo
+   * Para transações individuais: usa id_transacao
+   */
+  private static async getStorageFileId(transactionId: string): Promise<string> {
+    const groupInfo = await this.getTransactionAttachmentGroup(transactionId);
+
+    if (groupInfo?.id_grupo_anexo) {
+      console.log('📦 Usando ID do grupo de anexo:', groupInfo.id_grupo_anexo);
+      return groupInfo.id_grupo_anexo;
+    }
+
+    console.log('📄 Usando ID da transação individual:', transactionId);
+    return transactionId;
+  }
+
+  /**
+   * Atualiza a URL do anexo compartilhado no banco de dados
+   * O trigger do banco propagará automaticamente para todas as parcelas do grupo
+   */
+  private static async updateSharedAttachmentUrl(
+    transactionId: string,
+    url: string | null
+  ): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('transacoes_financeiras')
+        .update({
+          anexo_compartilhado_url: url,
+          parcela_com_anexo_original: url !== null
+        })
+        .eq('id_transacao', transactionId);
+
+      if (error) {
+        console.error('Erro ao atualizar URL do anexo compartilhado:', error);
+        return false;
+      }
+
+      console.log('✅ URL do anexo compartilhado atualizada (trigger propagará para parcelas)');
+      return true;
+    } catch (error) {
+      console.error('Erro ao atualizar anexo compartilhado:', error);
+      return false;
+    }
+  }
   
   /**
    * Verifica se existe um anexo para uma transação
@@ -42,7 +117,17 @@ export class AttachmentService {
   static async hasAttachment(transactionId: string): Promise<boolean> {
     try {
       console.log('🔍 Verificando anexo para transação:', transactionId);
-      const fileName = `${transactionId}.jpg`;
+
+      // Primeiro verifica se há anexo compartilhado no banco
+      const groupInfo = await this.getTransactionAttachmentGroup(transactionId);
+      if (groupInfo?.anexo_compartilhado_url) {
+        console.log('✅ Anexo compartilhado encontrado no banco de dados');
+        return true;
+      }
+
+      // Se não, busca no storage usando o ID correto (grupo ou transação)
+      const fileId = await this.getStorageFileId(transactionId);
+      const fileName = `${fileId}.jpg`;
 
       // Método 1: Tentar buscar o arquivo específico com service role
       let { data, error } = await supabaseServiceRole.storage
@@ -128,7 +213,8 @@ export class AttachmentService {
   static async downloadAttachment(transactionId: string): Promise<void> {
     try {
       console.log('⬇️ Fazendo download do anexo:', transactionId);
-      const fileName = `${transactionId}.jpg`;
+      const fileId = await this.getStorageFileId(transactionId);
+      const fileName = `${fileId}.jpg`;
       
       // Tentar primeiro com service role
       let { data, error } = await supabaseServiceRole.storage
@@ -181,7 +267,8 @@ export class AttachmentService {
   private static async downloadViaPublicUrl(transactionId: string): Promise<void> {
     try {
       console.log('🔗 Tentando download via URL pública...');
-      const fileName = `${transactionId}.jpg`;
+      const fileId = await this.getStorageFileId(transactionId);
+      const fileName = `${fileId}.jpg`;
       
       const { data } = supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
@@ -221,7 +308,10 @@ export class AttachmentService {
     try {
       console.log('⬆️ Fazendo upload do anexo:', transactionId);
       console.log('📁 Arquivo original:', file.name, file.size, file.type);
-      const fileName = `${transactionId}.jpg`;
+
+      const fileId = await this.getStorageFileId(transactionId);
+      const fileName = `${fileId}.jpg`;
+      console.log('📦 Usando ID de arquivo:', fileId);
       
       // Converter arquivo para JPG se necessário
       const processedFile = await this.processImageFile(file, fileName);
@@ -262,6 +352,13 @@ export class AttachmentService {
       }
 
       console.log('✅ Upload concluído:', data);
+
+      // Obter URL pública e atualizar no banco
+      const publicUrl = await this.getAttachmentUrl(transactionId);
+      if (publicUrl) {
+        await this.updateSharedAttachmentUrl(transactionId, publicUrl);
+      }
+
       return true;
     } catch (error) {
       console.error('💥 Erro no upload:', error);
@@ -275,7 +372,8 @@ export class AttachmentService {
   static async replaceAttachment(transactionId: string, file: File): Promise<boolean> {
     try {
       console.log('🔄 Substituindo anexo:', transactionId);
-      const fileName = `${transactionId}.jpg`;
+      const fileId = await this.getStorageFileId(transactionId);
+      const fileName = `${fileId}.jpg`;
       
       // Converter arquivo para JPG se necessário
       const processedFile = await this.processImageFile(file, fileName);
@@ -312,6 +410,13 @@ export class AttachmentService {
       }
 
       console.log('✅ Substituição concluída:', data);
+
+      // Atualizar URL no banco
+      const publicUrl = await this.getAttachmentUrl(transactionId);
+      if (publicUrl) {
+        await this.updateSharedAttachmentUrl(transactionId, publicUrl);
+      }
+
       return true;
     } catch (error) {
       console.error('💥 Erro ao substituir anexo:', error);
@@ -325,7 +430,8 @@ export class AttachmentService {
   static async deleteAttachment(transactionId: string): Promise<boolean> {
     try {
       console.log('🗑️ Excluindo anexo:', transactionId);
-      const fileName = `${transactionId}.jpg`;
+      const fileId = await this.getStorageFileId(transactionId);
+      const fileName = `${fileId}.jpg`;
       
       // Tentar primeiro com service role
       let { data, error } = await supabaseServiceRole.storage
@@ -353,6 +459,10 @@ export class AttachmentService {
       }
 
       console.log('✅ Exclusão concluída:', data);
+
+      // Limpar URL do banco
+      await this.updateSharedAttachmentUrl(transactionId, null);
+
       return true;
     } catch (error) {
       console.error('💥 Erro ao excluir anexo:', error);
@@ -366,7 +476,16 @@ export class AttachmentService {
   static async getAttachmentUrl(transactionId: string): Promise<string | null> {
     try {
       console.log('🔗 Obtendo URL do anexo:', transactionId);
-      const fileName = `${transactionId}.jpg`;
+
+      // Primeiro tenta obter do banco (mais rápido)
+      const groupInfo = await this.getTransactionAttachmentGroup(transactionId);
+      if (groupInfo?.anexo_compartilhado_url) {
+        console.log('✅ URL obtida do banco de dados (anexo compartilhado)');
+        return groupInfo.anexo_compartilhado_url;
+      }
+
+      const fileId = await this.getStorageFileId(transactionId);
+      const fileName = `${fileId}.jpg`;
 
       // Verificar primeiro se o arquivo realmente existe
       const exists = await this.hasAttachment(transactionId);

@@ -10,12 +10,20 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { AttachmentService } from '../../services/attachmentService';
+import { supabase } from '../../lib/supabase';
 
 interface AttachmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   transactionId: string;
   transactionDescription: string;
+}
+
+interface TransactionGroupInfo {
+  id_grupo_anexo: string | null;
+  numero_parcelas: number;
+  parcela_atual: string | null;
+  tem_grupo: boolean;
 }
 
 export type AttachmentFile = {
@@ -37,6 +45,7 @@ export default function AttachmentModal({
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [groupInfo, setGroupInfo] = useState<TransactionGroupInfo | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
@@ -44,10 +53,39 @@ export default function AttachmentModal({
     if (isOpen) {
       setAttachments([]);
       setMessage(null);
+      setGroupInfo(null);
+      loadTransactionInfo();
       checkAttachments();
       console.log('🆔 Modal aberto para transação ID:', transactionId);
     }
   }, [isOpen, transactionId]);
+
+  const loadTransactionInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transacoes_financeiras')
+        .select('id_grupo_anexo, numero_parcelas, parcela, id_transacao_pai')
+        .eq('id_transacao', transactionId)
+        .single();
+
+      if (error) {
+        console.error('Erro ao carregar informações da transação:', error);
+        return;
+      }
+
+      const info: TransactionGroupInfo = {
+        id_grupo_anexo: data.id_grupo_anexo,
+        numero_parcelas: data.numero_parcelas || 1,
+        parcela_atual: data.parcela,
+        tem_grupo: !!data.id_transacao_pai || (data.numero_parcelas && data.numero_parcelas > 1)
+      };
+
+      setGroupInfo(info);
+      console.log('📊 Informações do grupo:', info);
+    } catch (error) {
+      console.error('Erro ao carregar informações do grupo:', error);
+    }
+  };
 
   const checkAttachments = async () => {
     try {
@@ -179,6 +217,10 @@ export default function AttachmentModal({
   };
 
   const handleDeleteImage = () => {
+    const mensagemConfirmacao = groupInfo?.tem_grupo
+      ? `Atenção: Este anexo é compartilhado com ${groupInfo.numero_parcelas} parcela${groupInfo.numero_parcelas > 1 ? 's' : ''}. Ao confirmar, o arquivo será excluído de forma definitiva do Painel da Fazenda e do nosso banco de dados, afetando todas as parcelas. Deseja continuar?`
+      : 'Atenção: ao confirmar, o arquivo será excluído de forma definitiva do Painel da Fazenda e do nosso banco de dados. Deseja continuar?';
+
     setConfirmState({
       type: 'delete-image',
       onConfirm: async () => {
@@ -187,7 +229,10 @@ export default function AttachmentModal({
           setLoading(true);
           setMessage(null);
           await AttachmentService.deleteAttachment(transactionId);
-          setMessage({ type: 'success', text: 'Imagem excluída!' });
+          const mensagemSucesso = groupInfo?.tem_grupo
+            ? `Imagem excluída de todas as ${groupInfo.numero_parcelas} parcelas!`
+            : 'Imagem excluída!';
+          setMessage({ type: 'success', text: mensagemSucesso });
           await checkAttachments();
         } catch (error) {
           setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Erro ao excluir imagem' });
@@ -227,7 +272,10 @@ export default function AttachmentModal({
           <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6 flex flex-col items-center">
             <AlertCircle className="w-8 h-8 text-yellow-500 mb-2" />
             <p className="text-base text-center mb-4 text-[#092f20] font-medium">
-              Atenção: ao confirmar, o arquivo{confirmState.type.startsWith('replace') ? ' atual' : ''} será excluído de forma definitiva do Painel da Fazenda e do nosso banco de dados. Deseja continuar?
+              {confirmState.type === 'delete-image' && groupInfo?.tem_grupo
+                ? `Atenção: Este anexo é compartilhado com ${groupInfo.numero_parcelas} parcela${groupInfo.numero_parcelas > 1 ? 's' : ''}. Ao confirmar, o arquivo${confirmState.type.startsWith('replace') ? ' atual' : ''} será excluído de forma definitiva do Painel da Fazenda e do nosso banco de dados, afetando todas as parcelas. Deseja continuar?`
+                : `Atenção: ao confirmar, o arquivo${confirmState.type.startsWith('replace') ? ' atual' : ''} será excluído de forma definitiva do Painel da Fazenda e do nosso banco de dados. Deseja continuar?`
+              }
             </p>
             <div className="flex gap-4 mt-2">
               <button
@@ -258,6 +306,12 @@ export default function AttachmentModal({
             <div>
               <h3 className="text-lg font-semibold text-[#092f20]">Gerenciar Anexos</h3>
               <p className="text-sm text-gray-600 truncate max-w-48">{transactionDescription}</p>
+              {groupInfo?.tem_grupo && (
+                <p className="text-xs text-blue-600 mt-1">
+                  🔗 Anexo compartilhado - {groupInfo.numero_parcelas} parcela{groupInfo.numero_parcelas > 1 ? 's' : ''}
+                  {groupInfo.parcela_atual && ` (atual: ${groupInfo.parcela_atual})`}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -317,6 +371,11 @@ export default function AttachmentModal({
           {/* Se houver imagem */}
           {attachments.find(a => a.type === 'image') && (
             <div className="flex flex-col items-center gap-2 bg-gray-50 p-3 rounded-lg border">
+              {groupInfo?.tem_grupo && (
+                <div className="w-full mb-2 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 text-center">
+                  📎 Anexo compartilhado entre {groupInfo.numero_parcelas} parcela{groupInfo.numero_parcelas > 1 ? 's' : ''}
+                </div>
+              )}
               <img
                 src={attachments.find(a => a.type === 'image')?.url}
                 alt="Imagem anexada"

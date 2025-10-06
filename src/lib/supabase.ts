@@ -60,7 +60,7 @@ export interface CotacaoDiariaCafe {
 
 export interface TransacaoFinanceira {
   id_transacao: string;
-  id_lancamento?: string; 
+  id_lancamento?: string;
   user_id: string;
   tipo_transacao: string;
   valor: number;
@@ -73,6 +73,11 @@ export interface TransacaoFinanceira {
   data_agendamento_pagamento?: Date;
   data_registro?: Date;
   parcela?: string;
+  numero_parcelas?: number;
+  id_transacao_pai?: string;
+  anexo_compartilhado_url?: string;
+  id_grupo_anexo?: string;
+  parcela_com_anexo_original?: boolean;
 }
 
 export interface AtividadeAgricola {

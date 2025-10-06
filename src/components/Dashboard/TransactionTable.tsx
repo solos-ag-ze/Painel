@@ -183,16 +183,28 @@ const filterTransactions = (transactionList: TransacaoFinanceira[]) => {
         
         {/* Botão de anexo no canto inferior direito */}
         <div className="flex justify-end mt-3">
-          <button
-            onClick={() => openAttachmentModal(
-              transaction.id_transacao || '',
-              transaction.descricao || 'Transação'
+          <div className="relative">
+            <button
+              onClick={() => openAttachmentModal(
+                transaction.id_transacao || '',
+                transaction.descricao || 'Transação'
+              )}
+              className="p-2 text-gray-500 hover:text-[#397738] hover:bg-white rounded-lg transition-colors shadow-sm border border-gray-200"
+              title="Gerenciar anexo"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
+            {transaction.anexo_compartilhado_url && (
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full border border-white"
+                   title="Tem anexo" />
             )}
-            className="p-2 text-gray-500 hover:text-[#397738] hover:bg-white rounded-lg transition-colors shadow-sm border border-gray-200"
-            title="Gerenciar anexo"
-          >
-            <Paperclip className="w-4 h-4" />
-          </button>
+            {transaction.numero_parcelas && transaction.numero_parcelas > 1 && (
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center border border-white"
+                   title={`${transaction.numero_parcelas} parcelas`}>
+                {transaction.numero_parcelas}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
