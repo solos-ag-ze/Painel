@@ -37,14 +37,21 @@ export class AttachmentService {
   private static readonly BUCKET_NAME = 'notas_fiscais';
   
   /**
-   * Verifica se existe um anexo para uma transação
+   * Verifica se existe um anexo para uma transação com retry logic
    */
-  static async hasAttachment(transactionId: string): Promise<boolean> {
+  static async hasAttachment(transactionId: string, retries = 3): Promise<boolean> {
     try {
       console.log('🔍 Verificando anexo para transação:', transactionId);
       const fileName = `${transactionId}.jpg`;
 
-      // Método 1: Tentar buscar o arquivo específico com service role
+      // Método 1: Verificar por URL pública primeiro (mais rápido e confiável)
+      const urlCheck = await this.checkFileExistsByUrl(transactionId);
+      if (urlCheck) {
+        console.log('✅ Arquivo encontrado via verificação de URL');
+        return true;
+      }
+
+      // Método 2: Listar arquivos no bucket como fallback
       let { data, error } = await supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
         .list('', {
@@ -66,58 +73,101 @@ export class AttachmentService {
 
       if (error) {
         console.error('❌ Erro ao listar arquivos:', error);
-        // Fallback: verificar por URL pública
-        return await this.checkFileExistsByUrl(transactionId);
+        // Se ainda há retries, tentar novamente após delay
+        if (retries > 0) {
+          const delay = (4 - retries) * 1000; // Backoff: 1s, 2s, 3s
+          console.log(`⏳ Aguardando ${delay}ms antes de tentar novamente... (${retries} tentativas restantes)`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return await this.hasAttachment(transactionId, retries - 1);
+        }
+        return false;
       }
 
       const hasFile = data && data.some(file => file.name === fileName);
       console.log('📁 Resultado da busca:', {
         encontrado: hasFile,
         nomeProcurado: fileName,
-        arquivosEncontrados: data?.map(f => f.name).join(', ') || 'nenhum'
+        arquivosEncontrados: data?.map(f => f.name).join(', ') || 'nenhum',
+        totalArquivos: data?.length || 0
       });
 
-      if (hasFile) {
-        return true;
-      }
-
-      // Método 2: Se não encontrou na lista, tentar verificar por URL direta
-      console.log('🔄 Arquivo não encontrado na lista, tentando verificação por URL...');
-      return await this.checkFileExistsByUrl(transactionId);
+      return hasFile;
     } catch (error) {
       console.error('💥 Erro ao verificar anexo:', error);
-      // Fallback final: tentar verificar por URL
-      return await this.checkFileExistsByUrl(transactionId);
+      // Se ainda há retries, tentar novamente
+      if (retries > 0) {
+        const delay = (4 - retries) * 1000;
+        console.log(`⏳ Aguardando ${delay}ms antes de tentar novamente... (${retries} tentativas restantes)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return await this.hasAttachment(transactionId, retries - 1);
+      }
+      return false;
     }
   }
 
   /**
-   * Verifica se arquivo existe tentando acessar a URL pública
+   * Verifica se arquivo existe tentando acessar a URL pública com retry logic
    */
-  private static async checkFileExistsByUrl(transactionId: string): Promise<boolean> {
+  private static async checkFileExistsByUrl(transactionId: string, retries = 2): Promise<boolean> {
     try {
       console.log('🔗 Verificando arquivo por URL pública...');
       const fileName = `${transactionId}.jpg`;
-      
+
       const { data } = supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
         .getPublicUrl(fileName);
 
       if (!data?.publicUrl) {
+        console.log('⚠️ URL pública não foi gerada');
         return false;
       }
 
+      // Adicionar cache-busting mais robusto
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 15);
+      const urlWithCacheBusting = `${data.publicUrl}?v=${timestamp}&r=${random}`;
+
+      console.log('📡 Testando URL:', urlWithCacheBusting.substring(0, 100) + '...');
+
       // Fazer requisição HEAD para verificar se arquivo existe
-      const response = await fetch(data.publicUrl, { 
+      const response = await fetch(urlWithCacheBusting, {
         method: 'HEAD',
-        cache: 'no-cache'
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
-      
+
       const exists = response.ok;
-      console.log('🌐 Verificação por URL:', exists ? '✅ Existe' : '❌ Não existe');
+      if (exists) {
+        const contentLength = response.headers.get('content-length');
+        const contentType = response.headers.get('content-type');
+        console.log('✅ Arquivo encontrado:', {
+          tamanho: contentLength ? `${(parseInt(contentLength) / 1024).toFixed(2)} KB` : 'desconhecido',
+          tipo: contentType || 'desconhecido'
+        });
+      } else {
+        console.log('❌ Arquivo não existe (status:', response.status, ')');
+        // Se arquivo não existe e ainda há retries, aguardar e tentar novamente
+        if (retries > 0 && response.status === 404) {
+          const delay = (3 - retries) * 1500; // 1.5s, 3s
+          console.log(`⏳ Arquivo pode estar sendo processado. Aguardando ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return await this.checkFileExistsByUrl(transactionId, retries - 1);
+        }
+      }
       return exists;
     } catch (error) {
       console.error('💥 Erro na verificação por URL:', error);
+      // Retry em caso de erro de rede
+      if (retries > 0) {
+        const delay = (3 - retries) * 1500;
+        console.log(`⏳ Erro de rede. Tentando novamente em ${delay}ms... (${retries} tentativas restantes)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return await this.checkFileExistsByUrl(transactionId, retries - 1);
+      }
       return false;
     }
   }
@@ -361,18 +411,20 @@ export class AttachmentService {
   }
 
   /**
-   * Obtém a URL pública de um anexo
+   * Obtém a URL pública de um anexo com cache-busting robusto
    */
-  static async getAttachmentUrl(transactionId: string): Promise<string | null> {
+  static async getAttachmentUrl(transactionId: string, skipExistenceCheck = false): Promise<string | null> {
     try {
       console.log('🔗 Obtendo URL do anexo:', transactionId);
       const fileName = `${transactionId}.jpg`;
 
-      // Verificar primeiro se o arquivo realmente existe
-      const exists = await this.hasAttachment(transactionId);
-      if (!exists) {
-        console.log('⚠️ Arquivo não existe no storage');
-        return null;
+      // Verificar primeiro se o arquivo realmente existe (a menos que seja pulado)
+      if (!skipExistenceCheck) {
+        const exists = await this.hasAttachment(transactionId);
+        if (!exists) {
+          console.log('⚠️ Arquivo não existe no storage');
+          return null;
+        }
       }
 
       // Tentar obter URL pública com service role primeiro
@@ -396,9 +448,10 @@ export class AttachmentService {
 
       // Adicionar timestamp com mais informação para forçar bypass completo do cache
       const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(7);
-      const urlWithTimestamp = `${data.publicUrl}?v=${timestamp}&r=${random}&nocache=true`;
-      console.log('📎 URL gerada com cache-busting:', urlWithTimestamp);
+      const random = Math.random().toString(36).substring(2, 15);
+      const sessionId = Math.random().toString(36).substring(2, 9);
+      const urlWithTimestamp = `${data.publicUrl}?v=${timestamp}&r=${random}&s=${sessionId}&cb=${Date.now()}`;
+      console.log('📎 URL gerada com cache-busting avançado');
       return urlWithTimestamp;
     } catch (error) {
       console.error('💥 Erro ao obter URL do anexo:', error);
@@ -445,23 +498,29 @@ export class AttachmentService {
   }
 
   /**
-   * Lista todos os anexos no bucket (para debug)
+   * Lista todos os anexos no bucket com informações detalhadas (para debug)
    */
   static async listAllAttachments(): Promise<string[]> {
     try {
       console.log('📋 Listando todos os anexos no bucket...');
-      
+
       // Tentar com service role primeiro
       let { data, error } = await supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
-        .list('');
+        .list('', {
+          limit: 1000,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
 
       // Fallback para cliente normal
       if (error) {
         console.log('⚠️ Tentando listar com cliente normal...');
         const result = await supabase.storage
           .from(this.BUCKET_NAME)
-          .list('');
+          .list('', {
+            limit: 1000,
+            sortBy: { column: 'created_at', order: 'desc' }
+          });
         data = result.data;
         error = result.error;
       }
@@ -472,11 +531,70 @@ export class AttachmentService {
       }
 
       const fileNames = data?.map(file => file.name) || [];
-      console.log('📁 Arquivos encontrados no bucket:', fileNames.length, 'arquivos:', fileNames);
+      const fileDetails = data?.map(file => ({
+        name: file.name,
+        size: `${(file.metadata?.size || 0 / 1024).toFixed(2)} KB`,
+        created: file.created_at,
+        updated: file.updated_at
+      })) || [];
+
+      console.log('📁 Arquivos encontrados no bucket:', fileNames.length, 'arquivos');
+      console.table(fileDetails.slice(0, 10)); // Mostrar apenas os 10 mais recentes
       return fileNames;
     } catch (error) {
       console.error('💥 Erro ao listar anexos:', error);
       return [];
+    }
+  }
+
+  /**
+   * Método auxiliar para diagnosticar problemas com um ID específico
+   */
+  static async diagnoseAttachment(transactionId: string): Promise<void> {
+    console.group(`🔬 DIAGNÓSTICO DO ANEXO: ${transactionId}`);
+
+    try {
+      console.log('1️⃣ Testando conexão com bucket...');
+      const connectionOk = await this.testS3Connection();
+      console.log('   Conexão:', connectionOk ? '✅ OK' : '❌ FALHOU');
+
+      console.log('\n2️⃣ Listando todos os arquivos do bucket...');
+      const allFiles = await this.listAllAttachments();
+      console.log(`   Total de arquivos: ${allFiles.length}`);
+
+      console.log('\n3️⃣ Procurando arquivo específico...');
+      const fileName = `${transactionId}.jpg`;
+      const fileExists = allFiles.includes(fileName);
+      console.log(`   Arquivo ${fileName}:`, fileExists ? '✅ ENCONTRADO' : '❌ NÃO ENCONTRADO');
+
+      console.log('\n4️⃣ Verificando via hasAttachment()...');
+      const hasAttachment = await this.hasAttachment(transactionId);
+      console.log('   hasAttachment():', hasAttachment ? '✅ TRUE' : '❌ FALSE');
+
+      console.log('\n5️⃣ Tentando obter URL pública...');
+      const url = await this.getAttachmentUrl(transactionId, true);
+      console.log('   URL gerada:', url ? '✅ SUCESSO' : '❌ FALHOU');
+      if (url) {
+        console.log('   URL:', url.substring(0, 100) + '...');
+      }
+
+      console.log('\n6️⃣ Testando acesso via HTTP...');
+      if (url) {
+        const response = await fetch(url, { method: 'HEAD' });
+        console.log('   Status HTTP:', response.status, response.statusText);
+        console.log('   Acessível:', response.ok ? '✅ SIM' : '❌ NÃO');
+      }
+
+      console.log('\n📊 RESUMO DO DIAGNÓSTICO:');
+      console.log('   - Bucket acessível:', connectionOk ? '✅' : '❌');
+      console.log('   - Arquivo existe no bucket:', fileExists ? '✅' : '❌');
+      console.log('   - Método hasAttachment:', hasAttachment ? '✅' : '❌');
+      console.log('   - URL gerada:', url ? '✅' : '❌');
+
+    } catch (error) {
+      console.error('💥 Erro durante diagnóstico:', error);
+    } finally {
+      console.groupEnd();
     }
   }
 

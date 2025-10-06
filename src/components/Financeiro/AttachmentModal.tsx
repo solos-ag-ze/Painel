@@ -7,7 +7,9 @@ import {
   Paperclip,
   FileText,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  RefreshCw,
+  Bug
 } from 'lucide-react';
 import { AttachmentService } from '../../services/attachmentService';
 
@@ -49,9 +51,10 @@ export default function AttachmentModal({
     }
   }, [isOpen, transactionId]);
 
-  const checkAttachments = async () => {
+  const checkAttachments = async (showSuccessMessage = false) => {
     try {
       setLoading(true);
+      setMessage(null);
       console.log('🔄 Verificando anexos para transação:', transactionId);
 
       const imageExists = await AttachmentService.hasAttachment(transactionId);
@@ -68,11 +71,20 @@ export default function AttachmentModal({
             name: `${transactionId}.jpg`
           });
           console.log('✅ Arquivo adicionado à lista:', files);
+          if (showSuccessMessage) {
+            setMessage({ type: 'success', text: 'Anexos atualizados com sucesso!' });
+          }
         } else {
           console.warn('⚠️ URL não foi gerada apesar do arquivo existir');
+          if (showSuccessMessage) {
+            setMessage({ type: 'error', text: 'Erro ao gerar URL do arquivo' });
+          }
         }
       } else {
         console.log('❌ Nenhum anexo encontrado para esta transação');
+        if (showSuccessMessage) {
+          setMessage({ type: 'error', text: 'Nenhum anexo encontrado para esta transação' });
+        }
       }
 
       console.log('📋 Total de anexos encontrados:', files.length);
@@ -80,6 +92,22 @@ export default function AttachmentModal({
     } catch (error) {
       console.error('Erro ao verificar anexos:', error);
       setMessage({ type: 'error', text: 'Erro ao verificar anexos' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefreshAttachments = () => {
+    checkAttachments(true);
+  };
+
+  const handleDiagnose = async () => {
+    setLoading(true);
+    setMessage({ type: 'success', text: 'Executando diagnóstico... Veja o console do navegador.' });
+    try {
+      await AttachmentService.diagnoseAttachment(transactionId);
+    } catch (error) {
+      console.error('Erro no diagnóstico:', error);
     } finally {
       setLoading(false);
     }
@@ -145,14 +173,15 @@ export default function AttachmentModal({
       AttachmentService.validateImageFile(file);
       await AttachmentService.uploadAttachment(transactionId, file);
       console.log('✅ Upload concluído, aguardando propagação...');
+      setMessage({ type: 'success', text: 'Upload concluído! Aguardando sincronização...' });
 
       // Aguardar um momento para garantir que o arquivo está disponível
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       console.log('🔄 Recarregando lista de anexos...');
       await checkAttachments();
 
-      setMessage({ type: 'success', text: 'Imagem salva com sucesso!' });
+      setMessage({ type: 'success', text: 'Imagem salva e sincronizada com sucesso!' });
     } catch (error) {
       console.error('❌ Erro no upload:', error);
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Erro ao processar imagem' });
@@ -260,14 +289,32 @@ export default function AttachmentModal({
               <p className="text-sm text-gray-600 truncate max-w-48">{transactionDescription}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-500 hover:text-gray-700 rounded"
-            disabled={loading}
-            aria-label="Fechar"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleRefreshAttachments}
+              className="p-2 text-[#397738] hover:bg-[#86b646]/10 rounded-lg transition-colors"
+              disabled={loading}
+              title="Recarregar anexos"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={handleDiagnose}
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+              disabled={loading}
+              title="Executar diagnóstico (ver console)"
+            >
+              <Bug className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-500 hover:text-gray-700 rounded-lg transition-colors"
+              disabled={loading}
+              aria-label="Fechar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Mensagem de feedback */}
@@ -287,6 +334,19 @@ export default function AttachmentModal({
             }`}>
               {message.text}
             </span>
+          </div>
+        )}
+
+        {/* Info sobre sincronização via WhatsApp */}
+        {attachments.length === 0 && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
+              <div className="text-xs text-blue-800">
+                <p className="font-medium mb-1">Arquivo enviado via WhatsApp?</p>
+                <p>Se você enviou um arquivo pelo WhatsApp, clique no botão de atualizar (🔄) no canto superior direito para sincronizar.</p>
+              </div>
+            </div>
           </div>
         )}
 
