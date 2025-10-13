@@ -1041,13 +1041,13 @@ static async getTotalNegativeTransactions(userId: string): Promise<number> {
       });
   
       // 2. BUSCA TODAS AS TRANSAÇÕES DO USUÁRIO
-      // Ordenação composta: primeiro por data_agendamento_pagamento, depois por data_registro
+      // Ordenação composta: primeiro por data_registro (mais recente primeiro), depois por data_agendamento_pagamento
       const { data: todasTransacoes, error } = await supabase
         .from('transacoes_financeiras')
         .select('*')
         .eq('user_id', userId)
-        .order('data_agendamento_pagamento', { ascending: false })
-        .order('data_registro', { ascending: false });
+        .order('data_registro', { ascending: false })
+        .order('data_agendamento_pagamento', { ascending: false });
   
       if (error) {
         console.error('Erro ao buscar transações:', error);

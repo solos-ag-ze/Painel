@@ -119,20 +119,20 @@ const FinanceiroPanel: React.FC = () => {
       setPeriodBalance(balance);
 
       // ✅ LÓGICA ALTERADA AQUI
-      // 1. Ordena transações realizadas: primeiro por data de pagamento, depois por data de registro (mais recente primeiro)
+      // 1. Ordena transações realizadas: primeiro por data de registro (lançamento mais recente primeiro)
       const transacoesRealizadasOrdenadas = [...transactions.realizadas].sort((a, b) => {
-        // Primeiro critério: data_agendamento_pagamento (DESC)
-        const dateA = new Date(a.data_agendamento_pagamento || '').getTime();
-        const dateB = new Date(b.data_agendamento_pagamento || '').getTime();
-
-        if (dateB !== dateA) {
-          return dateB - dateA; // Ordem decrescente: mais recente primeiro
-        }
-
-        // Segundo critério (desempate): data_registro (DESC)
+        // Critério principal: data_registro (DESC) - lançamento mais recente aparece primeiro
         const registroA = new Date(a.data_registro || '').getTime();
         const registroB = new Date(b.data_registro || '').getTime();
-        return registroB - registroA; // Ordem decrescente: lançamento mais recente primeiro
+
+        if (registroB !== registroA) {
+          return registroB - registroA; // Ordem decrescente: lançamento mais recente primeiro
+        }
+
+        // Critério secundário (desempate): data_agendamento_pagamento (DESC)
+        const dateA = new Date(a.data_agendamento_pagamento || '').getTime();
+        const dateB = new Date(b.data_agendamento_pagamento || '').getTime();
+        return dateB - dateA; // Ordem decrescente: mais recente primeiro
       });
 
       // 2. Guarda a lista COMPLETA ordenada em segundo plano
