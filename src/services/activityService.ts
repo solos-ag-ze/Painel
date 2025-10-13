@@ -9,11 +9,19 @@ export interface AtividadeComData extends AtividadeAgricola {
 }
 
 export class ActivityService {
-  static async getAtividades(limit: number = 10): Promise<AtividadeComData[]> {
+  static async getAtividades(userId: string, limit: number = 10): Promise<AtividadeComData[]> {
     try {
+      if (!userId) {
+        console.error('Erro: user_id é obrigatório para buscar atividades');
+        return [];
+      }
+
+      console.log('[ActivityService] Buscando atividades para user_id:', userId);
+
       const { data, error } = await supabase
         .from('atividades_agricolas')
         .select('*')
+        .eq('user_id', userId)
         .order('data', { ascending: false })
         .limit(limit);
 
@@ -22,6 +30,8 @@ export class ActivityService {
         return [];
       }
 
+      console.log('[ActivityService] Atividades encontradas:', data?.length || 0);
+
       return (data || []).map(atividade => ({
         ...atividade,
         dataFormatada: this.formatDate(atividade.data || '')
@@ -32,14 +42,22 @@ export class ActivityService {
     }
   }
 
-  static async getAtividadesUltimos30Dias(): Promise<AtividadeComData[]> {
+  static async getAtividadesUltimos30Dias(userId: string): Promise<AtividadeComData[]> {
     try {
+      if (!userId) {
+        console.error('Erro: user_id é obrigatório para buscar atividades');
+        return [];
+      }
+
+      console.log('[ActivityService] Buscando atividades dos últimos 30 dias para user_id:', userId);
+
       const dataInicio = new Date();
       dataInicio.setDate(dataInicio.getDate() - 30);
 
       const { data, error } = await supabase
         .from('atividades_agricolas')
         .select('*')
+        .eq('user_id', userId)
         .gte('data', dataInicio.toISOString().split('T')[0])
         .order('data', { ascending: false });
 
@@ -48,6 +66,8 @@ export class ActivityService {
         return [];
       }
 
+      console.log('[ActivityService] Atividades dos últimos 30 dias encontradas:', data?.length || 0);
+
       return (data || []).map(atividade => ({
         ...atividade,
         dataFormatada: this.formatDate(atividade.data || '')
@@ -58,16 +78,26 @@ export class ActivityService {
     }
   }
 
-  static async getAtividadesPorTipo(): Promise<{ [tipo: string]: number }> {
+  static async getAtividadesPorTipo(userId: string): Promise<{ [tipo: string]: number }> {
     try {
+      if (!userId) {
+        console.error('Erro: user_id é obrigatório para buscar atividades');
+        return {};
+      }
+
+      console.log('[ActivityService] Buscando atividades por tipo para user_id:', userId);
+
       const { data, error } = await supabase
         .from('atividades_agricolas')
-        .select('nome_atividade');
+        .select('nome_atividade')
+        .eq('user_id', userId);
 
       if (error) {
         console.error('Erro ao buscar atividades por tipo:', error);
         return {};
       }
+
+      console.log('[ActivityService] Tipos de atividades encontrados:', data?.length || 0);
 
       const contagem: { [tipo: string]: number } = {};
       (data || []).forEach(atividade => {
