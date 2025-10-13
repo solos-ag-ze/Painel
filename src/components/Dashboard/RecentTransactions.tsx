@@ -74,12 +74,20 @@ export default function RecentTransactions({ transactions, ultimas5 }: RecentTra
     // First, filter out future transactions
     const executedTransactions = transactions.filter(transaction => !isFutureTransaction(transaction));
 
-    // Then sort by execution date (most recent first) and take only 5
+    // Then sort by data_registro (most recent first) and take only 5
     return executedTransactions
       .sort((a, b) => {
-        const dateA = new Date(a.data_transacao || a.data_registro || '').getTime();
-        const dateB = new Date(b.data_transacao || b.data_registro || '').getTime();
-        return dateB - dateA; // Descending order (newest first)
+        const dateA = new Date(a.data_registro || '').getTime();
+        const dateB = new Date(b.data_registro || '').getTime();
+
+        if (dateB !== dateA) {
+          return dateB - dateA; // Descending order: most recent data_registro first
+        }
+
+        // Fallback: if data_registro is the same, use data_agendamento_pagamento
+        const pagamentoA = new Date(a.data_agendamento_pagamento || '').getTime();
+        const pagamentoB = new Date(b.data_agendamento_pagamento || '').getTime();
+        return pagamentoB - pagamentoA;
       })
       .slice(0, 5); // Exactly 5 most recent transactions
   }, [transactions, ultimas5]);

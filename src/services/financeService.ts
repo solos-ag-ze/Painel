@@ -427,7 +427,7 @@ export class FinanceService {
   }
 
   /**
-   * Busca as últimas 5 transações executadas ordenadas por data de pagamento
+   * Busca as últimas 5 transações executadas ordenadas por data de registro (lançamento mais recente primeiro)
    * Considera transações com status diferente de 'Agendado' OU com data_agendamento_pagamento menor ou igual a hoje
    */
   static async getUltimas5TransacoesExecutadas(userId: string): Promise<TransacaoFinanceira[]> {
@@ -443,6 +443,7 @@ export class FinanceService {
         .select('*')
         .eq('user_id', userId)
         .or(`status.neq.Agendado,and(status.eq.Agendado,data_agendamento_pagamento.lte.${hoje})`)
+        .order('data_registro', { ascending: false })
         .order('data_agendamento_pagamento', { ascending: false })
         .limit(5);
 
@@ -454,9 +455,9 @@ export class FinanceService {
       console.log('✅ Últimas 5 transações executadas encontradas:', data?.length || 0);
 
       if (data && data.length > 0) {
-        console.log('📊 Detalhes das transações:');
+        console.log('📊 Detalhes das transações (ordenadas por data_registro):');
         data.forEach((t, index) => {
-          console.log(`  ${index + 1}. ${t.descricao} - ${t.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(t.valor))}`);
+          console.log(`  ${index + 1}. ${t.descricao} - Lançado: ${t.data_registro} - Pagamento: ${t.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(t.valor))}`);
         });
       }
 
