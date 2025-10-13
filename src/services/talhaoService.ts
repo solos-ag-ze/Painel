@@ -11,11 +11,13 @@ export class TalhaoService {
     propriedadeId?: string
   ): Promise<number> {
     try {
+      console.log('🌾 [TalhaoService] getAreaCultivadaCafe - userId:', userId, 'propriedadeId:', propriedadeId);
+
       // First get all propriedade IDs linked to this user
       let query = supabase
         .from<VinculoUsuarioPropriedade>('vinculo_usuario_propriedade')
         .select('id_propriedade')
-        .eq('user_id', userId)  
+        .eq('user_id', userId)
         .eq('ativo', true);
 
       if (propriedadeId) {
@@ -24,8 +26,15 @@ export class TalhaoService {
 
       const { data: vinculos, error: vinculoError } = await query;
 
-      if (vinculoError || !vinculos || vinculos.length === 0) {
-        console.warn('No active properties found for user');
+      console.log('🔍 [TalhaoService] Vinculos result:', { vinculos, vinculoError });
+
+      if (vinculoError) {
+        console.error('❌ [TalhaoService] Error fetching vinculos:', vinculoError);
+        return 0;
+      }
+
+      if (!vinculos || vinculos.length === 0) {
+        console.warn('⚠️ [TalhaoService] No active properties found for user:', userId);
         return 0;
       }
 
@@ -67,6 +76,8 @@ static async getTotalProducaoFazenda(
   propriedadeId?: string
 ): Promise<number> {
   try {
+    console.log('🌾 [TalhaoService] getTotalProducaoFazenda - userId:', userId, 'propriedadeId:', propriedadeId);
+
     // 1. Buscar as propriedades vinculadas ao usuário
     let propQuery = supabase
       .from('vinculo_usuario_propriedade')
@@ -79,8 +90,16 @@ static async getTotalProducaoFazenda(
 
     const { data: vinculos, error: vinculoError } = await propQuery;
 
-    if (vinculoError) throw vinculoError;
-    if (!vinculos || !vinculos.length) return 0;
+    console.log('🔍 [TalhaoService] Vinculos for production:', { vinculos, vinculoError });
+
+    if (vinculoError) {
+      console.error('❌ [TalhaoService] Error fetching vinculos:', vinculoError);
+      throw vinculoError;
+    }
+    if (!vinculos || !vinculos.length) {
+      console.warn('⚠️ [TalhaoService] No vinculos found for user:', userId);
+      return 0;
+    }
 
     const propriedadesIds = vinculos.map(v => v.id_propriedade);
 
@@ -148,6 +167,8 @@ static async getTotalProducaoFazenda(
     }
   ): Promise<Talhao[]> {
     try {
+      console.log('🌾 [TalhaoService] getTalhoesCafe - userId:', userId, 'options:', options);
+
       // Get propriedade IDs linked to user
       let query = supabase
         .from<VinculoUsuarioPropriedade>('vinculo_usuario_propriedade')
@@ -164,7 +185,15 @@ static async getTotalProducaoFazenda(
 
       const { data: vinculos, error: vinculoError } = await query;
 
-      if (vinculoError || !vinculos || vinculos.length === 0) {
+      console.log('🔍 [TalhaoService] Vinculos for talhoes:', { vinculos, vinculoError });
+
+      if (vinculoError) {
+        console.error('❌ [TalhaoService] Error fetching vinculos:', vinculoError);
+        return [];
+      }
+
+      if (!vinculos || vinculos.length === 0) {
+        console.warn('⚠️ [TalhaoService] No vinculos found, returning empty array');
         return [];
       }
 
@@ -205,23 +234,33 @@ static async getTalhoesNonDefault(
     }
   ): Promise<Talhao[]> {
     try {
+      console.log('🌾 [TalhaoService] getTalhoesNonDefault - userId:', userId, 'options:', options);
+
       // Get propriedade IDs linked to user
       let query = supabase
         .from<VinculoUsuarioPropriedade>('vinculo_usuario_propriedade')
         .select('id_propriedade')
         .eq('user_id', userId);
-      
+
       if (options?.onlyActive !== false) {
         query = query.eq('ativo', true);
       }
-      
+
       if (options?.propriedadeId) {
         query = query.eq('id_propriedade', options.propriedadeId);
       }
-      
+
       const { data: vinculos, error: vinculoError } = await query;
-      
-      if (vinculoError || !vinculos || vinculos.length === 0) {
+
+      console.log('🔍 [TalhaoService] Vinculos for non-default talhoes:', { vinculos, vinculoError });
+
+      if (vinculoError) {
+        console.error('❌ [TalhaoService] Error fetching vinculos:', vinculoError);
+        return [];
+      }
+
+      if (!vinculos || vinculos.length === 0) {
+        console.warn('⚠️ [TalhaoService] No vinculos found for non-default talhoes');
         return [];
       }
       

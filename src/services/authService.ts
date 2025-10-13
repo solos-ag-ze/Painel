@@ -64,8 +64,8 @@ export class AuthService {
   // 🔧 Usuário fake no DEV (bypass)
   private getBypassedDevUser() {
     return {
-      user_id: '34edc8a2-9a14-4c7a-ae96-2e266d1214af',
-      nome: 'Alice - Teste',
+      user_id: 'c7f13743-67ef-45d4-807c-9f5de81d4999',
+      nome: 'Dev User - Teste',
     };
   }
 
@@ -86,11 +86,14 @@ export class AuthService {
       return null;
     }
 
+    console.log('🔍 [PRODUCTION] Token encontrado, injetando no Supabase...');
+
     // 👉 Injeta o token no Supabase (APENAS PRODUÇÃO)
     try {
       await setAccessToken(token);
+      console.log('✅ [PRODUCTION] Token injetado com sucesso no Supabase');
     } catch (e) {
-      console.error('❌ Falha ao setar token no Supabase:', e);
+      console.error('❌ [PRODUCTION] Falha ao setar token no Supabase:', e);
       return null;
     }
 
@@ -99,17 +102,29 @@ export class AuthService {
       const payloadB64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
       const payload: JWTPayload = JSON.parse(atob(payloadB64));
 
-      if (!payload?.sub) throw new Error('JWT inválido: sem `sub`');
+      console.log('🔍 [PRODUCTION] JWT Payload decodificado:', {
+        sub: payload.sub,
+        nome: payload.nome,
+        email: payload.email,
+        role: payload.role,
+        aud: payload.aud,
+      });
+
+      if (!payload?.sub) {
+        console.error('❌ [PRODUCTION] JWT inválido: sem campo `sub`');
+        throw new Error('JWT inválido: sem `sub`');
+      }
 
       this.currentUser = {
         user_id: payload.sub,
         nome: payload.nome || payload.email || 'Usuário',
       };
 
-      console.log('✅ Sessão restaurada via JWT custom:', this.currentUser);
+      console.log('✅ [PRODUCTION] Sessão restaurada via JWT custom:', this.currentUser);
+      console.log('🔑 [PRODUCTION] User ID que será usado nas queries RLS:', payload.sub);
       return this.currentUser;
     } catch (err) {
-      console.error('❌ Falha ao decodificar JWT:', err);
+      console.error('❌ [PRODUCTION] Falha ao decodificar JWT:', err);
       return null;
     }
   }
