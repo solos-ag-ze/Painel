@@ -870,15 +870,15 @@ static async getResumoMensalFinanceiro(userId: string): Promise<{ totalReceitas:
 
   switch (filterPeriod) {
     case 'ultimos-7-dias':
-      startDate = startOfDay(subDays(hoje, 7));
+      startDate = startOfDay(subDays(hoje, 6));
       // Fim do período é o final do dia de hoje (23:59:59)
-      endDate = endOfDay(subDays(hoje, 1));
+      endDate = endOfDay(hoje);
       break;
 
     case 'ultimos-30-dias':
-      startDate = startOfDay(subDays(hoje, 30));
+      startDate = startOfDay(subDays(hoje, 29));
       // Fim do período é o final do dia de hoje (23:59:59)
-      endDate = endOfDay(subDays(hoje, 1));
+      endDate = endOfDay(hoje);
       break;
 
     case 'mes-atual':
