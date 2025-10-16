@@ -64,7 +64,7 @@ export class AuthService {
   // 🔧 Usuário fake no DEV (bypass)
   private getBypassedDevUser() {
     return {
-      user_id: '34edc8a2-9a14-4c7a-ae96-2e266d1214af',
+      user_id: 'c7f13743-67ef-45d4-807c-9f5de81d4999',
       nome: 'Dev User - Teste',
     };
   }
