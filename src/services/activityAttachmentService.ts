@@ -36,40 +36,44 @@ export class ActivityAttachmentService {
 
   private static async updateImageUrl(activityId: string, url: string | null): Promise<boolean> {
     try {
+      const cleanUrl = url ? url.split('?')[0] : null;
+
       const { error } = await supabase
         .from('atividades_agricolas')
-        .update({ anexo_url: url })
+        .update({ anexo_url: cleanUrl })
         .eq('id_atividade', activityId);
 
       if (error) {
-        console.error('Erro ao atualizar URL da imagem:', error);
+        console.error('❌ Erro ao atualizar URL da imagem:', error);
         return false;
       }
 
-      console.log('✅ URL da imagem atualizada');
+      console.log('✅ URL da imagem atualizada no banco:', cleanUrl);
       return true;
     } catch (error) {
-      console.error('Erro ao atualizar imagem:', error);
+      console.error('💥 Erro ao atualizar imagem:', error);
       return false;
     }
   }
 
   private static async updateFileUrl(activityId: string, url: string | null): Promise<boolean> {
     try {
+      const cleanUrl = url ? url.split('?')[0] : null;
+
       const { error } = await supabase
         .from('atividades_agricolas')
-        .update({ anexo_arquivo_url: url })
+        .update({ anexo_arquivo_url: cleanUrl })
         .eq('id_atividade', activityId);
 
       if (error) {
-        console.error('Erro ao atualizar URL do arquivo:', error);
+        console.error('❌ Erro ao atualizar URL do arquivo:', error);
         return false;
       }
 
-      console.log('✅ URL do arquivo atualizada');
+      console.log('✅ URL do arquivo atualizada no banco:', cleanUrl);
       return true;
     } catch (error) {
-      console.error('Erro ao atualizar arquivo:', error);
+      console.error('💥 Erro ao atualizar arquivo:', error);
       return false;
     }
   }
@@ -203,19 +207,17 @@ export class ActivityAttachmentService {
 
   static async getAttachmentUrl(activityId: string, forceRefresh = false): Promise<string | null> {
     try {
-      console.log('🔗 Obtendo URL da imagem:', activityId);
+      console.log('🔗 Obtendo URL da imagem:', activityId, forceRefresh ? '(refresh forçado)' : '');
 
-      if (!forceRefresh) {
-        const info = await this.getActivityAttachmentInfo(activityId);
-        if (info?.anexo_url) {
-          console.log('✅ URL obtida do banco de dados');
-          const urlBase = info.anexo_url.split('?')[0];
-          const timestamp = Date.now();
-          const random = Math.random().toString(36).substring(7);
-          return `${urlBase}?v=${timestamp}&r=${random}&nocache=true`;
-        }
+      const info = await this.getActivityAttachmentInfo(activityId);
+      if (info?.anexo_url) {
+        console.log('✅ URL encontrada no banco de dados:', info.anexo_url);
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(7);
+        return `${info.anexo_url}?v=${timestamp}&r=${random}`;
       }
 
+      console.log('⚠️ URL não encontrada no banco, tentando gerar do storage...');
       const fileName = `${this.IMAGE_FOLDER}/${activityId}.jpg`;
 
       let { data } = supabaseServiceRole.storage
@@ -235,10 +237,11 @@ export class ActivityAttachmentService {
         return null;
       }
 
+      const cleanUrl = data.publicUrl.split('?')[0];
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
-      const urlWithTimestamp = `${data.publicUrl}?v=${timestamp}&r=${random}&nocache=true`;
-      console.log('📎 URL gerada com cache-busting:', urlWithTimestamp);
+      const urlWithTimestamp = `${cleanUrl}?v=${timestamp}&r=${random}`;
+      console.log('📎 URL gerada do storage:', urlWithTimestamp);
       return urlWithTimestamp;
     } catch (error) {
       console.error('💥 Erro ao obter URL da imagem:', error);
@@ -248,19 +251,17 @@ export class ActivityAttachmentService {
 
   static async getFileAttachmentUrl(activityId: string, forceRefresh = false): Promise<string | null> {
     try {
-      console.log('🔗 Obtendo URL do arquivo:', activityId);
+      console.log('🔗 Obtendo URL do arquivo:', activityId, forceRefresh ? '(refresh forçado)' : '');
 
-      if (!forceRefresh) {
-        const info = await this.getActivityAttachmentInfo(activityId);
-        if (info?.anexo_arquivo_url) {
-          console.log('✅ URL obtida do banco de dados');
-          const urlBase = info.anexo_arquivo_url.split('?')[0];
-          const timestamp = Date.now();
-          const random = Math.random().toString(36).substring(7);
-          return `${urlBase}?v=${timestamp}&r=${random}&nocache=true`;
-        }
+      const info = await this.getActivityAttachmentInfo(activityId);
+      if (info?.anexo_arquivo_url) {
+        console.log('✅ URL encontrada no banco de dados:', info.anexo_arquivo_url);
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(7);
+        return `${info.anexo_arquivo_url}?v=${timestamp}&r=${random}`;
       }
 
+      console.log('⚠️ URL não encontrada no banco, tentando gerar do storage...');
       const extensions = ['pdf', 'xml'];
 
       for (const ext of extensions) {
@@ -281,10 +282,11 @@ export class ActivityAttachmentService {
         if (data?.publicUrl) {
           const response = await fetch(data.publicUrl, { method: 'HEAD', cache: 'no-cache' });
           if (response.ok) {
+            const cleanUrl = data.publicUrl.split('?')[0];
             const timestamp = Date.now();
             const random = Math.random().toString(36).substring(7);
-            const urlWithTimestamp = `${data.publicUrl}?v=${timestamp}&r=${random}&nocache=true`;
-            console.log('📎 URL gerada com cache-busting:', urlWithTimestamp);
+            const urlWithTimestamp = `${cleanUrl}?v=${timestamp}&r=${random}`;
+            console.log('📎 URL gerada do storage:', urlWithTimestamp);
             return urlWithTimestamp;
           }
         }
@@ -301,9 +303,11 @@ export class ActivityAttachmentService {
   static async uploadAttachment(activityId: string, file: File): Promise<boolean> {
     try {
       console.log('⬆️ Fazendo upload da imagem:', activityId);
+      console.log('📁 Arquivo:', file.name, 'Tamanho:', file.size, 'bytes');
 
       const fileName = `${this.IMAGE_FOLDER}/${activityId}.jpg`;
       const processedFile = await this.processImageFile(file, `${activityId}.jpg`);
+      console.log('🖼️ Imagem processada:', processedFile.size, 'bytes');
 
       let { data, error } = await supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
@@ -327,17 +331,31 @@ export class ActivityAttachmentService {
       }
 
       if (error) {
-        console.error('❌ Erro no upload:', error);
+        console.error('❌ Erro no upload para storage:', error);
         throw new Error(`Erro ao fazer upload: ${error.message}`);
       }
 
-      console.log('✅ Upload concluído:', data);
+      console.log('✅ Upload para storage concluído:', data);
 
-      const publicUrl = await this.getAttachmentUrl(activityId);
-      if (publicUrl) {
-        await this.updateImageUrl(activityId, publicUrl);
+      const { data: urlData } = supabaseServiceRole.storage
+        .from(this.BUCKET_NAME)
+        .getPublicUrl(fileName);
+
+      if (!urlData?.publicUrl) {
+        console.error('❌ Erro ao gerar URL pública');
+        throw new Error('Não foi possível gerar URL pública do arquivo');
       }
 
+      const cleanUrl = urlData.publicUrl.split('?')[0];
+      console.log('🔗 URL pública gerada:', cleanUrl);
+
+      const updateSuccess = await this.updateImageUrl(activityId, cleanUrl);
+      if (!updateSuccess) {
+        console.warn('⚠️ Upload concluído mas falha ao atualizar banco de dados');
+        throw new Error('Arquivo enviado mas erro ao atualizar banco de dados');
+      }
+
+      console.log('🎉 Upload completo: storage + banco de dados');
       return true;
     } catch (error) {
       console.error('💥 Erro no upload:', error);
@@ -348,9 +366,11 @@ export class ActivityAttachmentService {
   static async replaceAttachment(activityId: string, file: File): Promise<boolean> {
     try {
       console.log('🔄 Substituindo imagem:', activityId);
+      console.log('📁 Arquivo:', file.name, 'Tamanho:', file.size, 'bytes');
 
       const fileName = `${this.IMAGE_FOLDER}/${activityId}.jpg`;
       const processedFile = await this.processImageFile(file, `${activityId}.jpg`);
+      console.log('🖼️ Imagem processada:', processedFile.size, 'bytes');
 
       let { data, error } = await supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
@@ -372,17 +392,31 @@ export class ActivityAttachmentService {
       }
 
       if (error) {
-        console.error('❌ Erro na substituição:', error);
+        console.error('❌ Erro na substituição do storage:', error);
         throw new Error(`Erro ao substituir imagem: ${error.message}`);
       }
 
-      console.log('✅ Substituição concluída:', data);
+      console.log('✅ Substituição no storage concluída:', data);
 
-      const publicUrl = await this.getAttachmentUrl(activityId, true);
-      if (publicUrl) {
-        await this.updateImageUrl(activityId, publicUrl);
+      const { data: urlData } = supabaseServiceRole.storage
+        .from(this.BUCKET_NAME)
+        .getPublicUrl(fileName);
+
+      if (!urlData?.publicUrl) {
+        console.error('❌ Erro ao gerar URL pública');
+        throw new Error('Não foi possível gerar URL pública do arquivo');
       }
 
+      const cleanUrl = urlData.publicUrl.split('?')[0];
+      console.log('🔗 URL pública gerada:', cleanUrl);
+
+      const updateSuccess = await this.updateImageUrl(activityId, cleanUrl);
+      if (!updateSuccess) {
+        console.warn('⚠️ Substituição concluída mas falha ao atualizar banco de dados');
+        throw new Error('Arquivo substituído mas erro ao atualizar banco de dados');
+      }
+
+      console.log('🎉 Substituição completa: storage + banco de dados');
       return true;
     } catch (error) {
       console.error('💥 Erro ao substituir imagem:', error);
@@ -428,11 +462,13 @@ export class ActivityAttachmentService {
   static async uploadFileAttachment(activityId: string, file: File): Promise<boolean> {
     try {
       console.log('⬆️ Fazendo upload do arquivo:', activityId);
+      console.log('📁 Arquivo:', file.name, 'Tipo:', file.type, 'Tamanho:', file.size, 'bytes');
 
       this.validateFile(file);
 
       const ext = this.getFileExtension(file);
       const fileName = `${this.FILE_FOLDER}/${activityId}.${ext}`;
+      console.log('📂 Caminho no storage:', fileName);
 
       let { data, error } = await supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
@@ -456,17 +492,31 @@ export class ActivityAttachmentService {
       }
 
       if (error) {
-        console.error('❌ Erro no upload:', error);
+        console.error('❌ Erro no upload para storage:', error);
         throw new Error(`Erro ao fazer upload: ${error.message}`);
       }
 
-      console.log('✅ Upload concluído:', data);
+      console.log('✅ Upload para storage concluído:', data);
 
-      const publicUrl = await this.getFileAttachmentUrl(activityId);
-      if (publicUrl) {
-        await this.updateFileUrl(activityId, publicUrl);
+      const { data: urlData } = supabaseServiceRole.storage
+        .from(this.BUCKET_NAME)
+        .getPublicUrl(fileName);
+
+      if (!urlData?.publicUrl) {
+        console.error('❌ Erro ao gerar URL pública');
+        throw new Error('Não foi possível gerar URL pública do arquivo');
       }
 
+      const cleanUrl = urlData.publicUrl.split('?')[0];
+      console.log('🔗 URL pública gerada:', cleanUrl);
+
+      const updateSuccess = await this.updateFileUrl(activityId, cleanUrl);
+      if (!updateSuccess) {
+        console.warn('⚠️ Upload concluído mas falha ao atualizar banco de dados');
+        throw new Error('Arquivo enviado mas erro ao atualizar banco de dados');
+      }
+
+      console.log('🎉 Upload completo: storage + banco de dados');
       return true;
     } catch (error) {
       console.error('💥 Erro no upload de arquivo:', error);
@@ -477,11 +527,13 @@ export class ActivityAttachmentService {
   static async replaceFileAttachment(activityId: string, file: File): Promise<boolean> {
     try {
       console.log('🔄 Substituindo arquivo:', activityId);
+      console.log('📁 Arquivo:', file.name, 'Tipo:', file.type, 'Tamanho:', file.size, 'bytes');
 
       this.validateFile(file);
 
       const ext = this.getFileExtension(file);
       const fileName = `${this.FILE_FOLDER}/${activityId}.${ext}`;
+      console.log('📂 Caminho no storage:', fileName);
 
       let { data, error } = await supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
@@ -503,17 +555,31 @@ export class ActivityAttachmentService {
       }
 
       if (error) {
-        console.error('❌ Erro na substituição:', error);
+        console.error('❌ Erro na substituição do storage:', error);
         throw new Error(`Erro ao substituir arquivo: ${error.message}`);
       }
 
-      console.log('✅ Substituição concluída:', data);
+      console.log('✅ Substituição no storage concluída:', data);
 
-      const publicUrl = await this.getFileAttachmentUrl(activityId, true);
-      if (publicUrl) {
-        await this.updateFileUrl(activityId, publicUrl);
+      const { data: urlData } = supabaseServiceRole.storage
+        .from(this.BUCKET_NAME)
+        .getPublicUrl(fileName);
+
+      if (!urlData?.publicUrl) {
+        console.error('❌ Erro ao gerar URL pública');
+        throw new Error('Não foi possível gerar URL pública do arquivo');
       }
 
+      const cleanUrl = urlData.publicUrl.split('?')[0];
+      console.log('🔗 URL pública gerada:', cleanUrl);
+
+      const updateSuccess = await this.updateFileUrl(activityId, cleanUrl);
+      if (!updateSuccess) {
+        console.warn('⚠️ Substituição concluída mas falha ao atualizar banco de dados');
+        throw new Error('Arquivo substituído mas erro ao atualizar banco de dados');
+      }
+
+      console.log('🎉 Substituição completa: storage + banco de dados');
       return true;
     } catch (error) {
       console.error('💥 Erro ao substituir arquivo:', error);

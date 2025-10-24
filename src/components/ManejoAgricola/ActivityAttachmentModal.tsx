@@ -59,46 +59,45 @@ export default function ActivityAttachmentModal({
   const checkAttachments = async (forceRefresh = false) => {
     try {
       setLoading(true);
-      console.log('🔄 Verificando anexos para atividade:', activityId);
+      console.log('🔄 Verificando anexos para atividade:', activityId, forceRefresh ? '(refresh forçado)' : '');
 
       const files: AttachmentFile[] = [];
 
-      const imageExists = await ActivityAttachmentService.hasAttachment(activityId);
-      console.log('📸 Imagem existe?', imageExists);
+      const imageUrl = await ActivityAttachmentService.getAttachmentUrl(activityId, forceRefresh);
+      console.log('📸 URL da imagem:', imageUrl);
 
-      if (imageExists) {
-        const imageUrl = await ActivityAttachmentService.getAttachmentUrl(activityId, forceRefresh);
-        console.log('🔗 URL da imagem obtida:', imageUrl);
-        if (imageUrl) {
-          files.push({
-            url: imageUrl,
-            type: 'image',
-            name: `${activityId}.jpg`
-          });
-        }
+      if (imageUrl) {
+        files.push({
+          url: imageUrl,
+          type: 'image',
+          name: `${activityId}.jpg`
+        });
+        console.log('✅ Imagem adicionada à lista de anexos');
       }
 
-      const fileExists = await ActivityAttachmentService.hasFileAttachment(activityId);
-      console.log('📄 Arquivo existe?', fileExists);
+      const fileUrl = await ActivityAttachmentService.getFileAttachmentUrl(activityId, forceRefresh);
+      console.log('📄 URL do arquivo:', fileUrl);
 
-      if (fileExists) {
-        const fileUrl = await ActivityAttachmentService.getFileAttachmentUrl(activityId, forceRefresh);
-        console.log('🔗 URL do arquivo obtida:', fileUrl);
-        if (fileUrl) {
-          const fileType = fileUrl.includes('.pdf') ? 'pdf' : fileUrl.includes('.xml') ? 'xml' : 'file';
-          const extension = fileType === 'pdf' ? 'pdf' : fileType === 'xml' ? 'xml' : 'file';
-          files.push({
-            url: fileUrl,
-            type: fileType as 'pdf' | 'xml' | 'file',
-            name: `${activityId}.${extension}`
-          });
-        }
+      if (fileUrl) {
+        const fileType = fileUrl.includes('.pdf') ? 'pdf' : fileUrl.includes('.xml') ? 'xml' : 'file';
+        const extension = fileType === 'pdf' ? 'pdf' : fileType === 'xml' ? 'xml' : 'file';
+        files.push({
+          url: fileUrl,
+          type: fileType as 'pdf' | 'xml' | 'file',
+          name: `${activityId}.${extension}`
+        });
+        console.log('✅ Arquivo adicionado à lista de anexos');
       }
 
       console.log('📋 Total de anexos encontrados:', files.length);
       setAttachments(files);
+
+      if (files.length > 0) {
+        setImageKey(Date.now());
+        setFileKey(Date.now());
+      }
     } catch (error) {
-      console.error('Erro ao verificar anexos:', error);
+      console.error('❌ Erro ao verificar anexos:', error);
       setMessage({ type: 'error', text: 'Erro ao verificar anexos' });
     } finally {
       setLoading(false);
@@ -169,6 +168,7 @@ export default function ActivityAttachmentModal({
       setLoading(true);
       setMessage(null);
       console.log('📤 Iniciando upload da imagem...', isReplacing ? '(substituição)' : '(nova)');
+      console.log('📁 Arquivo selecionado:', file.name, file.type, file.size, 'bytes');
 
       ActivityAttachmentService.validateImageFile(file);
 
@@ -180,18 +180,19 @@ export default function ActivityAttachmentModal({
         console.log('✅ Nova imagem carregada com sucesso');
       }
 
-      setImageKey(Date.now());
+      console.log('⏳ Aguardando propagação do upload...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      console.log('🔄 Recarregando lista de anexos...');
+      console.log('🔄 Recarregando lista de anexos com refresh forçado...');
       await checkAttachments(true);
 
       const successMessage = isReplacing ? 'Imagem substituída com sucesso!' : 'Imagem salva com sucesso!';
       setMessage({ type: 'success', text: successMessage });
+      console.log('🎉 Processo de upload concluído');
     } catch (error) {
       console.error('❌ Erro no upload:', error);
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Erro ao processar imagem' });
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao processar imagem';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setLoading(false);
       if (imageInputRef.current) imageInputRef.current.value = '';
@@ -208,6 +209,7 @@ export default function ActivityAttachmentModal({
       setLoading(true);
       setMessage(null);
       console.log('📤 Iniciando upload do arquivo...', isReplacing ? '(substituição)' : '(novo)');
+      console.log('📁 Arquivo selecionado:', file.name, file.type, file.size, 'bytes');
 
       ActivityAttachmentService.validateFile(file);
 
@@ -219,18 +221,19 @@ export default function ActivityAttachmentModal({
         console.log('✅ Novo arquivo carregado com sucesso');
       }
 
-      setFileKey(Date.now());
+      console.log('⏳ Aguardando propagação do upload...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      console.log('🔄 Recarregando lista de anexos...');
+      console.log('🔄 Recarregando lista de anexos com refresh forçado...');
       await checkAttachments(true);
 
       const successMessage = isReplacing ? 'Arquivo substituído com sucesso!' : 'Arquivo salvo com sucesso!';
       setMessage({ type: 'success', text: successMessage });
+      console.log('🎉 Processo de upload concluído');
     } catch (error) {
       console.error('❌ Erro no upload:', error);
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Erro ao processar arquivo' });
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao processar arquivo';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
