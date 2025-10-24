@@ -1,14 +1,17 @@
 // src/components/Estoque/AttachmentProductModal.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  X, 
-  Download, 
-  Upload, 
-  Trash2, 
+import {
+  X,
+  Download,
+  Upload,
+  Trash2,
   Paperclip,
   FileText,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  FileCode,
+  Table,
+  File
 } from 'lucide-react';
 import { AttachmentProductService, AttachmentFile } from '../../services/attachmentProductService';
 
@@ -190,6 +193,21 @@ export default function AttachmentProductModal({
     });
   };
 
+  const getFileIcon = (fileType: 'image' | 'pdf') => {
+    if (fileType === 'pdf') return FileText;
+    return File;
+  };
+
+  const getFileTypeLabel = (fileType: 'image' | 'pdf') => {
+    if (fileType === 'pdf') return 'PDF anexado';
+    return 'Arquivo anexado';
+  };
+
+  const getFileIconColor = (fileType: 'image' | 'pdf') => {
+    if (fileType === 'pdf') return 'text-red-600';
+    return 'text-gray-600';
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -326,10 +344,26 @@ export default function AttachmentProductModal({
           {/* Se houver PDF */}
           {attachments.find(a => a.type === 'pdf') && (
             <div className="flex flex-col items-center gap-2 bg-gray-50 p-3 rounded-lg border">
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="w-5 h-5 text-red-600" />
-                <span className="font-medium">PDF anexado</span>
-              </div>
+              {(() => {
+                const attachment = attachments.find(a => a.type === 'pdf');
+                if (!attachment) return null;
+
+                const FileIcon = getFileIcon(attachment.type);
+                const iconColor = getFileIconColor(attachment.type);
+                const fileLabel = getFileTypeLabel(attachment.type);
+
+                return (
+                  <div className="flex flex-col items-center gap-2 mb-2">
+                    <div className={iconColor}>
+                      <FileIcon className="w-8 h-8" />
+                    </div>
+                    <span className="font-medium text-[#092f20]">{fileLabel}</span>
+                    {attachment.name && (
+                      <p className="text-xs text-gray-500 truncate max-w-xs">{attachment.name}</p>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="flex gap-2 mb-2">
                 <button
                   className="bg-[#f3f4f6] text-[#092f20] px-2 py-1 rounded hover:bg-[#e5e7eb] flex items-center gap-1 transition-colors"

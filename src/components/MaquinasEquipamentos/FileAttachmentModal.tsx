@@ -7,7 +7,11 @@ import {
   Paperclip,
   AlertCircle,
   CheckCircle,
-  Loader2
+  Loader2,
+  FileText,
+  FileCode,
+  Table,
+  File
 } from 'lucide-react';
 import { AttachmentService } from '../../services/attachmentService';
 
@@ -111,14 +115,46 @@ export default function FileAttachmentModal({
   const isImageFile = (fileType: string | null) => {
     if (!fileType) return false;
     return fileType.startsWith('image/') ||
-           fileType === 'jpg' ||
-           fileType === 'jpeg' ||
-           fileType === 'png' ||
-           fileType === 'gif' ||
-           fileType === 'webp' ||
-           fileType === 'bmp' ||
-           fileType === 'svg' ||
-           fileType === 'avif';
+           ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif'].includes(fileType.toLowerCase());
+  };
+
+  const getFileIcon = (fileType: string | null) => {
+    if (!fileType) return File;
+    const type = fileType.toLowerCase();
+
+    if (['pdf'].includes(type)) return FileText;
+    if (['xml'].includes(type)) return FileCode;
+    if (['xls', 'xlsx', 'csv'].includes(type)) return Table;
+    if (['doc', 'docx', 'txt'].includes(type)) return FileText;
+
+    return File;
+  };
+
+  const getFileTypeLabel = (fileType: string | null) => {
+    if (!fileType) return 'Arquivo anexado';
+    const type = fileType.toLowerCase();
+
+    if (type === 'pdf') return 'PDF anexado';
+    if (type === 'xml') return 'XML anexado';
+    if (['xls', 'xlsx'].includes(type)) return 'Planilha Excel anexada';
+    if (type === 'csv') return 'CSV anexado';
+    if (['doc', 'docx'].includes(type)) return 'Documento Word anexado';
+    if (type === 'txt') return 'Arquivo de texto anexado';
+
+    return 'Arquivo anexado';
+  };
+
+  const getFileIconColor = (fileType: string | null) => {
+    if (!fileType) return 'text-gray-600';
+    const type = fileType.toLowerCase();
+
+    if (type === 'pdf') return 'text-red-600';
+    if (type === 'xml') return 'text-purple-600';
+    if (['xls', 'xlsx', 'csv'].includes(type)) return 'text-green-600';
+    if (['doc', 'docx'].includes(type)) return 'text-blue-600';
+    if (type === 'txt') return 'text-gray-600';
+
+    return 'text-gray-600';
   };
 
   const handleDownload = async (slot: FileSlot) => {
@@ -365,16 +401,26 @@ export default function FileAttachmentModal({
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={() => handleFileSelect(slot.id)}
-                    className="flex items-center justify-center gap-2 bg-[#86b646] text-white py-2 rounded hover:bg-[#397738] transition-colors"
+                    className="flex items-center justify-center gap-2 bg-[#86b646] text-white py-2 rounded hover:bg-[#397738] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={uploadingSlot !== null}
                   >
                     {uploadingSlot === slot.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Enviando arquivo...</span>
+                      </>
                     ) : (
-                      <Upload className="w-4 h-4" />
+                      <>
+                        <Upload className="w-4 h-4" />
+                        <span>Anexar Arquivo</span>
+                      </>
                     )}
-                    {uploadingSlot === slot.id ? 'Enviando...' : 'Anexar Arquivo'}
                   </button>
+                  {uploadingSlot === slot.id && (
+                    <p className="text-xs text-center text-gray-600">
+                      Aguarde, processando seu arquivo
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -385,21 +431,34 @@ export default function FileAttachmentModal({
                   <div className="mb-2 w-full">
                     {(() => {
                       const isImage = isImageFile(slot.fileType);
-                      return isImage ? (
-                        <img
-                          src={slot.url}
-                          alt={slot.label}
-                          className="max-h-32 mx-auto rounded border"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center gap-2 py-2">
-                          <div className="text-[#397738]">
-                            <CheckCircle className="w-8 h-8" />
+                      if (isImage) {
+                        return (
+                          <img
+                            src={slot.url}
+                            alt={slot.label}
+                            className="max-h-32 mx-auto rounded border"
+                          />
+                        );
+                      }
+
+                      const FileIcon = getFileIcon(slot.fileType);
+                      const iconColor = getFileIconColor(slot.fileType);
+                      const fileLabel = getFileTypeLabel(slot.fileType);
+
+                      return (
+                        <div className="flex flex-col items-center justify-center gap-3 py-4">
+                          <div className={iconColor}>
+                            <FileIcon className="w-12 h-12" />
                           </div>
                           <div className="text-center">
-                            <p className="text-sm font-bold text-[#397738]">
-                              Arquivo anexado
+                            <p className="text-sm font-bold text-[#092f20] mb-1">
+                              {fileLabel}
                             </p>
+                            {slot.fileName && (
+                              <p className="text-xs text-gray-500 truncate max-w-xs">
+                                {slot.fileName}
+                              </p>
+                            )}
                           </div>
                         </div>
                       );

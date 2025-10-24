@@ -7,7 +7,10 @@ import {
   Paperclip,
   FileText,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  FileCode,
+  Table,
+  File
 } from 'lucide-react';
 import { AttachmentService } from '../../services/attachmentService';
 import { supabase } from '../../lib/supabase';
@@ -330,6 +333,24 @@ export default function AttachmentModal({
     });
   };
 
+  const getFileIcon = (fileType: 'pdf' | 'xml' | 'file') => {
+    if (fileType === 'pdf') return FileText;
+    if (fileType === 'xml') return FileCode;
+    return File;
+  };
+
+  const getFileTypeLabel = (fileType: 'pdf' | 'xml' | 'file') => {
+    if (fileType === 'pdf') return 'PDF anexado';
+    if (fileType === 'xml') return 'XML anexado';
+    return 'Arquivo anexado';
+  };
+
+  const getFileIconColor = (fileType: 'pdf' | 'xml' | 'file') => {
+    if (fileType === 'pdf') return 'text-red-600';
+    if (fileType === 'xml') return 'text-purple-600';
+    return 'text-gray-600';
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -472,16 +493,26 @@ export default function AttachmentModal({
           {/* Se houver arquivo (PDF, XML) */}
           {attachments.find(a => a.type === 'pdf' || a.type === 'xml' || a.type === 'file') && (
             <div className="flex flex-col items-center gap-2 bg-gray-50 p-3 rounded-lg border">
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="w-5 h-5 text-red-600" />
-                <span className="font-medium">
-                  {attachments.find(a => a.type === 'pdf')
-                    ? 'PDF anexado'
-                    : attachments.find(a => a.type === 'xml')
-                    ? 'XML anexado'
-                    : 'Arquivo anexado'}
-                </span>
-              </div>
+              {(() => {
+                const attachment = attachments.find(a => a.type === 'pdf' || a.type === 'xml' || a.type === 'file');
+                if (!attachment) return null;
+
+                const FileIcon = getFileIcon(attachment.type as 'pdf' | 'xml' | 'file');
+                const iconColor = getFileIconColor(attachment.type as 'pdf' | 'xml' | 'file');
+                const fileLabel = getFileTypeLabel(attachment.type as 'pdf' | 'xml' | 'file');
+
+                return (
+                  <div className="flex flex-col items-center gap-2 mb-2">
+                    <div className={iconColor}>
+                      <FileIcon className="w-8 h-8" />
+                    </div>
+                    <span className="font-medium text-[#092f20]">{fileLabel}</span>
+                    {attachment.name && (
+                      <p className="text-xs text-gray-500 truncate max-w-xs">{attachment.name}</p>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="flex gap-2 mb-2">
                 <button
                   className="bg-[#f3f4f6] text-[#092f20] px-2 py-1 rounded hover:bg-[#e5e7eb] flex items-center gap-1 transition-colors"
