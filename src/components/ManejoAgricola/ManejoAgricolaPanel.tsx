@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Sprout, 
-  Calendar, 
-  Filter, 
+import {
+  Sprout,
+  Calendar,
+  Filter,
   Download,
   MapPin,
   Package,
@@ -14,13 +14,15 @@ import {
   Plus,
   Clock,
   CheckCircle,
-  Coffee
+  Coffee,
+  Paperclip
 } from 'lucide-react';
 import { AuthService } from '../../services/authService';
 import { ActivityService, AtividadeComData } from '../../services/activityService';
 import { TalhaoService } from '../../services/talhaoService';
 import LoadingSpinner from '../Dashboard/LoadingSpinner';
 import ErrorMessage from '../Dashboard/ErrorMessage';
+import ActivityAttachmentModal from './ActivityAttachmentModal';
 import type { Talhao } from '../../lib/supabase';
 
 export default function ManejoAgricolaPanel() {
@@ -30,10 +32,35 @@ export default function ManejoAgricolaPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [talhaoDefault, setTalhaoDefault] = useState<string | null>(null);
+  const [attachmentModal, setAttachmentModal] = useState<{
+    isOpen: boolean;
+    activityId: string;
+    description: string;
+  }>({
+    isOpen: false,
+    activityId: '',
+    description: ''
+  });
 
   useEffect(() => {
     loadData();
   }, []);
+
+  const openAttachmentModal = (activityId: string, description: string) => {
+    setAttachmentModal({
+      isOpen: true,
+      activityId,
+      description
+    });
+  };
+
+  const closeAttachmentModal = () => {
+    setAttachmentModal({
+      isOpen: false,
+      activityId: '',
+      description: ''
+    });
+  };
 
  const loadData = async () => {
   try {
@@ -528,11 +555,41 @@ export default function ManejoAgricolaPanel() {
                         <p className="font-medium text-[#092f20]">{atividadeDisplay.responsavel}</p>
                   </div>
                 </div>
-                
+
                     {atividadeDisplay.observacoes && (
                   <div className="mt-3 pt-3 border-t border-gray-200">
-                    <span className="text-gray-600 text-sm">Observações:</span>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <span className="text-gray-600 text-sm">Observações:</span>
                         <p className="text-sm text-[#397738] mt-1">{atividadeDisplay.observacoes}</p>
+                      </div>
+                      <button
+                        onClick={() => openAttachmentModal(
+                          atividade.id_atividade || '',
+                          atividade.nome_atividade || 'Atividade'
+                        )}
+                        className="p-2 text-gray-500 hover:text-[#397738] hover:bg-white rounded-lg transition-colors shadow-sm border border-gray-200 flex-shrink-0 ml-2"
+                        title="Gerenciar anexo"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                    )}
+                    {!atividadeDisplay.observacoes && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => openAttachmentModal(
+                          atividade.id_atividade || '',
+                          atividade.nome_atividade || 'Atividade'
+                        )}
+                        className="p-2 text-gray-500 hover:text-[#397738] hover:bg-white rounded-lg transition-colors shadow-sm border border-gray-200"
+                        title="Gerenciar anexo"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                     )}
               </div>
@@ -578,7 +635,7 @@ export default function ManejoAgricolaPanel() {
                         {atividadeDisplay.talhao}
                   </span>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-gray-600">Produto:</span>
@@ -597,11 +654,41 @@ export default function ManejoAgricolaPanel() {
                         <p className="font-medium text-[#092f20]">{atividadeDisplay.responsavel}</p>
                   </div>
                 </div>
-                
+
                     {atividadeDisplay.observacoes && (
                   <div className="mt-3 pt-3 border-t border-gray-200">
-                    <span className="text-gray-600 text-sm">Observações:</span>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <span className="text-gray-600 text-sm">Observações:</span>
                         <p className="text-sm text-[#397738] mt-1">{atividadeDisplay.observacoes}</p>
+                      </div>
+                      <button
+                        onClick={() => openAttachmentModal(
+                          atividade.id_atividade || '',
+                          atividade.nome_atividade || 'Atividade'
+                        )}
+                        className="p-2 text-gray-500 hover:text-[#397738] hover:bg-white rounded-lg transition-colors shadow-sm border border-gray-200 flex-shrink-0 ml-2"
+                        title="Gerenciar anexo"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                    )}
+                    {!atividadeDisplay.observacoes && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => openAttachmentModal(
+                          atividade.id_atividade || '',
+                          atividade.nome_atividade || 'Atividade'
+                        )}
+                        className="p-2 text-gray-500 hover:text-[#397738] hover:bg-white rounded-lg transition-colors shadow-sm border border-gray-200"
+                        title="Gerenciar anexo"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                     )}
               </div>
@@ -611,6 +698,13 @@ export default function ManejoAgricolaPanel() {
           </div>
         </div>
       </div>
+
+      <ActivityAttachmentModal
+        isOpen={attachmentModal.isOpen}
+        onClose={closeAttachmentModal}
+        activityId={attachmentModal.activityId}
+        activityDescription={attachmentModal.description}
+      />
     </div>
   );
 }
