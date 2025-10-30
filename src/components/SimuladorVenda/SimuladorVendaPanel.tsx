@@ -193,7 +193,7 @@ export default function SimuladorVendaPanel() {
             <span className="text-sm font-medium text-[#092f20]">Informação Importante</span>
           </div>
           <p className="text-sm text-[#397738] mt-1">
-            A cotação é válida até 17:00 hoje. Após fechar a venda, você receberá a confirmação via WhatsApp do ZÉ DA SAFRA.
+            A cotação é válida até 17:00 hoje. Após fechar a venda, você receberá a confirmação via WhatsApp do Zé.
           </p>
         </div>
       </div>
