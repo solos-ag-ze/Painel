@@ -67,7 +67,7 @@ export default function Sidebar({ activeTab, setActiveTab, onClose }: SidebarPro
             <Coffee className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">ZÉ DA SAFRA</h2>
+            <h2 className="text-lg font-bold text-white">Zé · Solos.ag</h2>
             <p className="text-sm text-[#cadb2a]">Painel da Fazenda</p>
           </div>
         </div>
