@@ -98,8 +98,9 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
     try {
   const allMovements: any[] = [];
   let totalMovements = 0;
+  const debugInfos: any[] = [];
 
-      for (const p of product.produtos) {
+  for (const p of product.produtos) {
         try {
           const resp = await EstoqueService.getMovimentacoesExpandidas(p.id, 1, 1000);
           const data = resp?.data || [];
@@ -158,6 +159,23 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
         }
       } catch (err) {
         console.error('Erro ao buscar lançamentos de produtos:', err);
+      }
+
+      // coletar debug por produto (opcional, ativo via VITE_DEBUG_HISTORY)
+      for (const p of product.produtos) {
+        const totalSaidasProduto = allMovements
+          .filter(m => m.produto_id === p.id && m.tipo === 'saida')
+          .reduce((s, m) => s + (Number(m.quantidade) || 0), 0);
+
+        const hasEntradaRegistrada = allMovements.some(m => m.produto_id === p.id && m.tipo === 'entrada' && m._source !== 'entrada_inicial');
+
+        debugInfos.push({
+          produto_id: p.id,
+          produto_nome: p.nome_produto,
+          estoque_atual: Number(p.quantidade) || 0,
+          totalSaidasProduto,
+          hasEntradaRegistrada,
+        });
       }
 
       // Agora que temos movimentações e lançamentos no `allMovements`, podemos
@@ -314,6 +332,13 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
               </div>
             ) : (
               <div className="space-y-6">
+                {/* Debug panel quando VITE_DEBUG_HISTORY=true */}
+                {import.meta.env.VITE_DEBUG_HISTORY === 'true' && (
+                  <div className="bg-yellow-50 border border-yellow-200 p-3 rounded mb-4 text-xs text-gray-800">
+                    <div className="font-medium text-sm mb-1">Debug histórico (apenas VITE_DEBUG_HISTORY)</div>
+                    <pre className="whitespace-pre-wrap max-h-40 overflow-auto">{JSON.stringify({ totalEntradas, totalSaidas, debugInfos: (typeof debugInfos !== 'undefined' ? debugInfos : []) }, null, 2)}</pre>
+                  </div>
+                )}
                 {/* Original movement items */}
 
                 {/* Original movement items */}
