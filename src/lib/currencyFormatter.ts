@@ -60,8 +60,8 @@ export const formatCurrencyInput = (value: string): {
     };
   }
 
-  // Converte para número (considerando centavos)
-  const numericValue = centsToDecimal(onlyNumbers);
+  // Converte para número (valor completo que o usuário digitou)
+  const numericValue = parseFloat(onlyNumbers);
 
   // Formata para exibição
   const formatted = formatCurrency(numericValue);
