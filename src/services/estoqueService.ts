@@ -310,7 +310,14 @@ export class EstoqueService {
     const userId = await this.getCurrentUserId();
 
     const converted = convertToStandardUnit(produto.quantidade, produto.unidade);
-    const valorTotal = converted.quantidade * (produto.valor || 0);
+    const valorTotal = produto.valor || 0;
+    const valorUnitario = produto.quantidade > 0 ? valorTotal / produto.quantidade : 0;
+
+    console.log('📊 Cálculo de valores do produto:');
+    console.log(`  - Quantidade original: ${produto.quantidade} ${produto.unidade}`);
+    console.log(`  - Quantidade convertida: ${converted.quantidade} ${converted.unidade}`);
+    console.log(`  - Valor total informado: R$ ${valorTotal.toFixed(2)}`);
+    console.log(`  - Valor unitário calculado: R$ ${valorUnitario.toFixed(4)} por ${produto.unidade}`);
 
     const { data, error } = await supabase
       .from('estoque_de_produtos')
@@ -322,11 +329,11 @@ export class EstoqueService {
           categoria: produto.categoria,
           unidade_de_medida: converted.unidade,
           quantidade_em_estoque: converted.quantidade,
-          valor_unitario: produto.valor,
+          valor_unitario: valorUnitario,
           valor_total: valorTotal,
           unidade_valor_original: produto.unidade,
           lote: produto.lote,
-          validade: produto.validade || '1999-12-31', // Data padrão se vazio
+          validade: produto.validade || '1999-12-31',
           fornecedor: produto.fornecedor,
           registro_mapa: produto.registro_mapa,
         },
@@ -339,7 +346,8 @@ export class EstoqueService {
       throw error;
     }
 
-    // Mapear resposta para o formato esperado
+    console.log('✅ Produto cadastrado com sucesso no banco de dados');
+
     return {
       id: data.id,
       user_id: data.user_id,
