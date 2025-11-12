@@ -429,7 +429,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                                     const badgeLabel = isLanc ? 'Aplicação' : (m.tipo === 'entrada' ? 'Entrada' : 'Saída');
                                     const qty = isLanc ? (m.quantidade_val ?? 0) : (m.quantidade ?? 0);
                                     const unit = isLanc ? (m.quantidade_un || m.unidade) : m.unidade;
-                                    const scaled = autoScaleQuantity(qty, unit);
+                                    const qtyUsed = autoScaleQuantity(qty, unit);
 
                                     return (
                                       <>
@@ -437,7 +437,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                                           {badgeLabel}
                                         </span>
                                         <span className="font-medium text-gray-900 whitespace-nowrap">
-                                          {scaled.quantidade} {formatUnitAbbreviated(scaled.unidade)}
+                                          {qtyUsed.quantidade} {qtyUsed.unidade}
                                         </span>
                                       </>
                                     );

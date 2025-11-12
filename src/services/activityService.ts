@@ -68,12 +68,42 @@ export class ActivityService {
       }
 
       const l: any = data;
+      
+      // Enriquecer produtos com unidade do estoque se quantidade_un estiver vazio
+      const produtosEnriquecidos = await Promise.all(
+        (l.lancamento_produtos || []).map(async (p: any) => {
+          let unidade = p.quantidade_un;
+          
+          // Se quantidade_un estiver vazio/null e temos produto_id, buscar do estoque
+          if ((!unidade || unidade === '') && p.produto_id) {
+            try {
+              const { data: produtoEstoque } = await supabase
+                .from('estoque_de_produtos')
+                .select('unidade_de_medida')
+                .eq('id', p.produto_id)
+                .single();
+              
+              if (produtoEstoque?.unidade_de_medida) {
+                unidade = produtoEstoque.unidade_de_medida;
+              }
+            } catch (err) {
+              console.error(`Erro ao buscar unidade do produto ${p.produto_id}:`, err);
+            }
+          }
+          
+          return {
+            ...p,
+            quantidade_un: unidade || 'un'
+          };
+        })
+      );
+      
       return {
         ...l,
         dataFormatada: this.formatDate(l.data_atividade || l.created_at || ''),
         talhoes: l.lancamento_talhoes || [],
         responsaveis: l.lancamento_responsaveis || [],
-        produtos: l.lancamento_produtos || [],
+        produtos: produtosEnriquecidos,
         maquinas: l.lancamento_maquinas || [],
       };
     } catch (err) {
