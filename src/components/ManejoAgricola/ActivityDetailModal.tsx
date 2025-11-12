@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Paperclip } from 'lucide-react';
 import { ActivityService, LancamentoComData } from '../../services/activityService';
 import ActivityAttachmentModal from './ActivityAttachmentModal';
+import { autoScaleQuantity } from '../../lib/unitConverter';
 
 interface Props {
   isOpen: boolean;
@@ -76,11 +77,11 @@ export default function ActivityDetailModal({ isOpen, onClose, activityId, activ
                     activity.produtos.map((p: any, idx: number) => {
                       const quantidade = p.quantidade_val ?? 0;
                       const unidade = p.quantidade_un || 'un';
-                      const quantidadeFormatada = quantidade % 1 === 0 ? quantidade : quantidade.toFixed(2);
+                      const scaled = autoScaleQuantity(quantidade, unidade);
                       return (
                         <li key={idx} className="flex justify-between">
                           <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
-                          <span className="text-gray-500">{quantidadeFormatada} {unidade}</span>
+                          <span className="text-gray-500">{scaled.quantidade} {scaled.unidade}</span>
                         </li>
                       );
                     })
