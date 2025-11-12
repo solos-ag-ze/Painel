@@ -270,7 +270,6 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
               fornecedor: p.fornecedor || null,
               registro_mapa: p.registro_mapa || null,
               produto_created_at: p.created_at || new Date().toISOString(),
-              unidade_valor_original: p.unidade_valor_original || null,
               _source: 'entrada_inicial'
             };
             allMovements.push(entradaInicial);
@@ -473,7 +472,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                               <div><strong>Lote:</strong> {m.lote || '—'}</div>
                               <div><strong>Validade:</strong> {formatValidity(m.validade)}</div>
                               {m.valor && (
-                                <div><strong>Valor unitário:</strong> {formatSmartCurrency(Number(m.valor))}{m.unidade_valor_original ? ` / ${m.unidade_valor_original}` : ''}</div>
+                                <div><strong>Valor unitário:</strong> {formatSmartCurrency(Number(m.valor))}</div>
                               )}
                             </div>
                           )}

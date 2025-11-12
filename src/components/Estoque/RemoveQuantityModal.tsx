@@ -99,7 +99,11 @@ export default function RemoveQuantityModal({
         </div>
         {selectedProduto && (() => {
           const scaled = autoScaleQuantity(estoqueAtual, selectedProduto.unidade);
-          const unidadeOriginal = selectedProduto.unidade_valor_original || selectedProduto.unidade;
+          const valorConvertido = convertValueToDisplayUnit(
+            selectedProduto.valor,
+            selectedProduto.unidade_valor_original || selectedProduto.unidade,
+            scaled.unidade
+          );
           return (
             <div className="mb-4 space-y-1">
               <p className="text-sm text-gray-600">
@@ -108,11 +112,11 @@ export default function RemoveQuantityModal({
                   {scaled.quantidade} {scaled.unidade}
                 </strong>
               </p>
-              {selectedProduto.valor !== null && (
+              {valorConvertido !== null && (
                 <p className="text-sm text-gray-600">
                   Valor unitário:{" "}
                   <strong className="text-[#397738]">
-                    {formatSmartCurrency(Number(selectedProduto.valor))} / {unidadeOriginal}
+                    {formatSmartCurrency(Number(valorConvertido))} / {scaled.unidade}
                   </strong>
                 </p>
               )}
