@@ -3,7 +3,7 @@ import { X, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { EstoqueService } from "../../services/estoqueService";
 import { ProdutoAgrupado } from "../../services/agruparProdutosService";
-import { convertToStandardUnit } from "../../lib/unitConverter";
+import { convertToStandardUnit, convertFromStandardUnit } from "../../lib/unitConverter";
 import { formatSmartCurrency } from "../../lib/currencyFormatter";
 
 interface RemoveQuantityModalProps {
@@ -48,31 +48,21 @@ export default function RemoveQuantityModal({
   useEffect(() => {
     if (!productGroup || !unidadeSelecionada) return;
 
-    // Converter estoque total disponível para a unidade selecionada
-    const unidadeBase = productGroup.produtos[0].unidade;
-
     try {
+      // Passo 1: Converter estoque total para unidade padrão (mg ou mL)
       const estoqueEmUnidadePadrao = convertToStandardUnit(
-        productGroup.totalEstoqueDisplay,
-        productGroup.unidadeDisplay
+        productGroup.totalEstoque,
+        productGroup.produtos[0].unidade
       );
 
-      const estoqueNaUnidadeSelecionada = convertToStandardUnit(
+      // Passo 2: Converter da unidade padrão para a unidade selecionada
+      const estoqueNaUnidadeSelecionada = convertFromStandardUnit(
         estoqueEmUnidadePadrao.quantidade,
-        estoqueEmUnidadePadrao.unidade
+        estoqueEmUnidadePadrao.unidade,
+        unidadeSelecionada
       );
 
-      // Converter de volta para unidade escolhida
-      const quantidadeConvertida =
-        estoqueNaUnidadeSelecionada.unidade === unidadeSelecionada
-          ? estoqueNaUnidadeSelecionada.quantidade
-          : convertToStandardUnit(productGroup.totalEstoque, unidadeBase).quantidade;
-
-      // Converter para unidade selecionada
-      const resultado = convertToStandardUnit(quantidadeConvertida, unidadeBase);
-      const fatorConversao = getConversionFactor(resultado.unidade, unidadeSelecionada);
-
-      setEstoqueDisponivelNaUnidade(quantidadeConvertida / fatorConversao);
+      setEstoqueDisponivelNaUnidade(estoqueNaUnidadeSelecionada);
     } catch (error) {
       console.error("Erro ao converter estoque:", error);
       setEstoqueDisponivelNaUnidade(productGroup.totalEstoqueDisplay);
@@ -94,30 +84,6 @@ export default function RemoveQuantityModal({
       setMensagemErro("");
     }
   }, [quantidade, estoqueDisponivelNaUnidade, unidadeSelecionada]);
-
-  const getConversionFactor = (fromUnit: string, toUnit: string): number => {
-    const massFactors: Record<string, number> = {
-      'mg': 1,
-      'g': 1000,
-      'kg': 1000000,
-      'ton': 1000000000
-    };
-
-    const volumeFactors: Record<string, number> = {
-      'mL': 1,
-      'L': 1000
-    };
-
-    if (massFactors[fromUnit] && massFactors[toUnit]) {
-      return massFactors[toUnit] / massFactors[fromUnit];
-    }
-
-    if (volumeFactors[fromUnit] && volumeFactors[toUnit]) {
-      return volumeFactors[toUnit] / volumeFactors[fromUnit];
-    }
-
-    return 1;
-  };
 
   if (!isOpen || !productGroup) return null;
 
