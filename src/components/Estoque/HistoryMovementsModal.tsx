@@ -474,10 +474,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                               <div><strong>Validade:</strong> {formatValidity(m.validade)}</div>
                               <div><strong>Registro MAPA:</strong> {m.registro_mapa || '—'}</div>
                               {m.valor && (
-                                <>
-                                  <div><strong>Valor unitário:</strong> {formatSmartCurrency(Number(m.valor))} / {m.unidade}</div>
-                                  <div><strong>Valor total da compra:</strong> {formatSmartCurrency(Number(m.valor) * m.quantidade)}</div>
-                                </>
+                                <div><strong>Valor unitário:</strong> {formatSmartCurrency(Number(m.valor))}</div>
                               )}
                             </div>
                           )}
