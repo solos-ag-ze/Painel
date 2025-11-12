@@ -1,6 +1,6 @@
 // src/components/Estoque/EstoquePanel.tsx
 import { useState, useEffect, useMemo } from 'react';
-import { 
+import {
   Package, Sprout, Hammer, Bug,
   Microscope, Droplets, X
 } from 'lucide-react';
@@ -16,6 +16,7 @@ import ListaProdutosDesktop from "./ListaProdutosDesktop";
 import ListaProdutosMobile from "./ListaProdutosMobile";
 import EstoqueFiltros from "./EstoqueFiltros";
 import { agruparProdutos, ProdutoAgrupado } from '../../services/agruparProdutosService';
+import SuccessToast from '../common/SuccessToast';
 
 export default function EstoquePanel() {
   // 📌 Constantes
@@ -56,6 +57,8 @@ export default function EstoquePanel() {
     productId: '',
     productName: ''
   });
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   // ...existing code...
 
@@ -138,7 +141,13 @@ export default function EstoquePanel() {
     : produtosAgrupadosFiltrados.slice(0, INITIAL_ITEM_COUNT);
 
   return (
-    <div className="space-y-6">
+    <>
+      <SuccessToast
+        message={toastMessage}
+        isVisible={showToast}
+        onClose={() => setShowToast(false)}
+      />
+      <div className="space-y-6">
       {/* Headers */}
       <EstoqueHeaderDesktop resumoEstoque={resumoEstoque} onOpenModal={() => setShowModal(true)} />
       <EstoqueHeaderMobile resumoEstoque={resumoEstoque} onOpenModal={() => setShowModal(true)} />
@@ -280,7 +289,8 @@ export default function EstoquePanel() {
             setResumoEstoque(prev => ({ ...prev, valorTotal }));
 
             setRemoveModal({ isOpen: false, productGroup: null, selectedProduto: null, quantidade: 1, observacao: '' });
-            alert('✅ Quantidade removida e movimentação registrada!');
+            setToastMessage('Quantidade removida e movimentação registrada!');
+            setShowToast(true);
           } catch (err: any) {
             console.error(err);
             alert(`❌ ${err.message || 'Erro ao remover quantidade.'}`);
@@ -298,5 +308,6 @@ export default function EstoquePanel() {
         onClose={() => setHistoryModal({ isOpen: false, product: null })}
       />
     </div>
+    </>
   );
 }

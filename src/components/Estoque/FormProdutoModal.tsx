@@ -5,6 +5,7 @@ import { EstoqueService } from '../../services/estoqueService';
 import { AuthService } from '../../services/authService';
 import { AttachmentProductService } from '../../services/attachmentProductService';
 import { formatCurrencyInput } from '../../lib/currencyFormatter';
+import SuccessToast from '../common/SuccessToast';
 
 interface Props {
   isOpen: boolean;
@@ -29,6 +30,8 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   if (!isOpen) return null;
 
@@ -97,8 +100,12 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
       }
 
       onCreated(novoProduto);
-      onClose();
-      alert('✅ Produto cadastrado com sucesso' + (formData.anexo ? ' e anexo enviado.' : '.'));
+      setToastMessage(formData.anexo ? 'Produto cadastrado com sucesso e anexo enviado!' : 'Produto cadastrado com sucesso!');
+      setShowToast(true);
+
+      setTimeout(() => {
+        onClose();
+      }, 500);
     } catch (error) {
       console.error('❌ Erro ao cadastrar produto:', error);
       alert(error instanceof Error ? error.message : 'Erro ao cadastrar produto.');
@@ -108,7 +115,13 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <>
+      <SuccessToast
+        message={toastMessage}
+        isVisible={showToast}
+        onClose={() => setShowToast(false)}
+      />
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold">Cadastrar Novo Produto</h2>
@@ -335,5 +348,6 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
         </form>
       </div>
     </div>
+    </>
   );
 }
