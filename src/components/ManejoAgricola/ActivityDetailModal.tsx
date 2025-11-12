@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Paperclip } from 'lucide-react';
 import { ActivityService, LancamentoComData } from '../../services/activityService';
 import ActivityAttachmentModal from './ActivityAttachmentModal';
+import { autoScaleQuantity } from '../../lib/unitConverter';
 
 interface Props {
   isOpen: boolean;
@@ -73,12 +74,19 @@ export default function ActivityDetailModal({ isOpen, onClose, activityId, activ
                 <span className="text-gray-600">Produtos:</span>
                 <ul className="mt-2 space-y-1">
                   {activity.produtos && activity.produtos.length > 0 ? (
-                    activity.produtos.map((p: any, idx: number) => (
-                      <li key={idx} className="flex justify-between">
-                        <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
-                        <span className="text-gray-500">{p.quantidade_val ?? '-'} {p.quantidade_un ?? ''}</span>
-                      </li>
-                    ))
+                    activity.produtos.map((p: any, idx: number) => {
+                      const scaled = p.quantidade_val && p.quantidade_un
+                        ? autoScaleQuantity(p.quantidade_val, p.quantidade_un)
+                        : null;
+                      return (
+                        <li key={idx} className="flex justify-between">
+                          <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
+                          <span className="text-gray-500">
+                            {scaled ? `${scaled.quantidade} ${scaled.unidade}` : '-'}
+                          </span>
+                        </li>
+                      );
+                    })
                   ) : (
                     <li className="text-gray-500">Não informado</li>
                   )}

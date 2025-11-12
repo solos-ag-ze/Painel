@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Sprout, Droplets, Package, Leaf, Scissors, Bug, Paperclip } from 'lucide-react';
 import ActivityAttachmentModal from '../ManejoAgricola/ActivityAttachmentModal';
+import { autoScaleQuantity } from '../../lib/unitConverter';
 
 interface Props {
   atividade: any;
@@ -65,12 +66,23 @@ export default function ActivityCard({ atividade, talhaoLabel }: Props) {
           <span className="text-gray-600">Produtos:</span>
           <ul className="mt-1 space-y-1">
             {atividade.produtos && atividade.produtos.length > 0 ? (
-              atividade.produtos.map((p: any, idx: number) => (
-                <li key={idx} className="flex justify-between">
-                  <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
-                  <span className="text-gray-500 text-right">{p.quantidade_val ?? '-'} {p.quantidade_un ?? ''}{p.dose_val ? ` · ${p.dose_val} ${p.dose_un ?? ''}` : ''}</span>
-                </li>
-              ))
+              atividade.produtos.map((p: any, idx: number) => {
+                const scaledQty = p.quantidade_val && p.quantidade_un
+                  ? autoScaleQuantity(p.quantidade_val, p.quantidade_un)
+                  : null;
+                const scaledDose = p.dose_val && p.dose_un
+                  ? autoScaleQuantity(p.dose_val, p.dose_un)
+                  : null;
+                return (
+                  <li key={idx} className="flex justify-between">
+                    <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
+                    <span className="text-gray-500 text-right">
+                      {scaledQty ? `${scaledQty.quantidade} ${scaledQty.unidade}` : '-'}
+                      {scaledDose ? ` · ${scaledDose.quantidade} ${scaledDose.unidade}` : ''}
+                    </span>
+                  </li>
+                );
+              })
             ) : (
               <li className="text-gray-500">Não informado</li>
             )}

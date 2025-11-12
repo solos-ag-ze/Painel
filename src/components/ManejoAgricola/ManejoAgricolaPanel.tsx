@@ -24,6 +24,7 @@ import LoadingSpinner from '../Dashboard/LoadingSpinner';
 import ErrorMessage from '../Dashboard/ErrorMessage';
 import ActivityAttachmentModal from './ActivityAttachmentModal';
 import type { Talhao } from '../../lib/supabase';
+import { autoScaleQuantity } from '../../lib/unitConverter';
 
 export default function ManejoAgricolaPanel() {
   const [filtroTalhao, setFiltroTalhao] = useState('todos');
@@ -574,15 +575,23 @@ export default function ManejoAgricolaPanel() {
                     <span className="text-gray-600">Produtos:</span>
                     <ul className="mt-1 space-y-1">
                       {atividade.produtos && atividade.produtos.length > 0 ? (
-                        atividade.produtos.map((p, idx) => (
-                          <li key={idx} className="flex justify-between">
-                            <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
-                            <span className="text-gray-500 text-right">
-                              {p.quantidade_val ?? '-'} {p.quantidade_un ?? ''}
-                              {p.dose_val ? ` · ${p.dose_val} ${p.dose_un ?? ''}` : ''}
-                            </span>
-                          </li>
-                        ))
+                        atividade.produtos.map((p, idx) => {
+                          const scaledQty = p.quantidade_val && p.quantidade_un
+                            ? autoScaleQuantity(p.quantidade_val, p.quantidade_un)
+                            : null;
+                          const scaledDose = p.dose_val && p.dose_un
+                            ? autoScaleQuantity(p.dose_val, p.dose_un)
+                            : null;
+                          return (
+                            <li key={idx} className="flex justify-between">
+                              <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
+                              <span className="text-gray-500 text-right">
+                                {scaledQty ? `${scaledQty.quantidade} ${scaledQty.unidade}` : '-'}
+                                {scaledDose ? ` · ${scaledDose.quantidade} ${scaledDose.unidade}` : ''}
+                              </span>
+                            </li>
+                          );
+                        })
                       ) : (
                         <li className="text-gray-500">Não informado</li>
                       )}
@@ -695,15 +704,23 @@ export default function ManejoAgricolaPanel() {
                     <span className="text-gray-600">Produtos:</span>
                     <ul className="mt-1 space-y-1">
                       {atividade.produtos && atividade.produtos.length > 0 ? (
-                        atividade.produtos.map((p, idx) => (
-                          <li key={idx} className="flex justify-between">
-                            <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
-                            <span className="text-gray-500 text-right">
-                              {p.quantidade_val ?? '-'} {p.quantidade_un ?? ''}
-                              {p.dose_val ? ` · ${p.dose_val} ${p.dose_un ?? ''}` : ''}
-                            </span>
-                          </li>
-                        ))
+                        atividade.produtos.map((p, idx) => {
+                          const scaledQty = p.quantidade_val && p.quantidade_un
+                            ? autoScaleQuantity(p.quantidade_val, p.quantidade_un)
+                            : null;
+                          const scaledDose = p.dose_val && p.dose_un
+                            ? autoScaleQuantity(p.dose_val, p.dose_un)
+                            : null;
+                          return (
+                            <li key={idx} className="flex justify-between">
+                              <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
+                              <span className="text-gray-500 text-right">
+                                {scaledQty ? `${scaledQty.quantidade} ${scaledQty.unidade}` : '-'}
+                                {scaledDose ? ` · ${scaledDose.quantidade} ${scaledDose.unidade}` : ''}
+                              </span>
+                            </li>
+                          );
+                        })
                       ) : (
                         <li className="text-gray-500">Não informado</li>
                       )}
