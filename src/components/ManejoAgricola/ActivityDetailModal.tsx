@@ -81,7 +81,7 @@ export default function ActivityDetailModal({ isOpen, onClose, activityId, activ
                       return (
                         <li key={idx} className="flex justify-between">
                           <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
-                          <span className="text-gray-500">{qtyUsed.quantidade} {qtyUsed.unidade}</span>
+                          <span className="text-gray-500">{scaled.quantidade} {scaled.unidade}</span>
                         </li>
                       );
                     })
