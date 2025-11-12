@@ -553,6 +553,127 @@ export class EstoqueService {
   }
 
   /**
+   * Retorna unidades compatíveis baseadas no tipo da unidade base
+   * @param baseUnit - Unidade base do produto (mg, mL, un, etc)
+   * @returns Array de unidades compatíveis
+   */
+  static getCompatibleUnits(baseUnit: string): string[] {
+    if (isMassUnit(baseUnit)) {
+      return ['mg', 'g', 'kg', 'ton'];
+    }
+    if (isVolumeUnit(baseUnit)) {
+      return ['mL', 'L'];
+    }
+    return ['un'];
+  }
+
+  /**
+   * Remove quantidade de produtos seguindo lógica FIFO (First In, First Out)
+   * Remove dos produtos mais antigos primeiro, mantendo registros zerados
+   * @param produtos - Array de produtos do grupo ordenados por created_at
+   * @param quantidadeRemover - Quantidade a ser removida
+   * @param unidadeEscolhida - Unidade de medida escolhida pelo usuário
+   * @param observacao - Observação sobre a remoção
+   * @returns Objeto com status da operação e número de produtos afetados
+   */
+  static async removerQuantidadeFIFO(
+    produtos: ProdutoEstoque[],
+    quantidadeRemover: number,
+    unidadeEscolhida: string,
+    observacao: string
+  ): Promise<{ success: boolean; produtosAfetados: number; message: string }> {
+    const userId = await this.getCurrentUserId();
+
+    // Filtrar apenas produtos com quantidade > 0
+    const produtosComEstoque = produtos.filter(p => p.quantidade > 0);
+
+    if (produtosComEstoque.length === 0) {
+      throw new Error('Nenhum produto disponível em estoque');
+    }
+
+    // Ordenar por created_at (mais antigo primeiro) - FIFO
+    const produtosOrdenados = [...produtosComEstoque].sort((a, b) => {
+      const dateA = new Date(a.created_at || '').getTime();
+      const dateB = new Date(b.created_at || '').getTime();
+      return dateA - dateB;
+    });
+
+    // Converter quantidade solicitada para unidade padrão
+    const unidadeBase = produtosOrdenados[0].unidade;
+    let quantidadeRestante: number;
+
+    if (isMassUnit(unidadeEscolhida) && isMassUnit(unidadeBase)) {
+      const converted = convertToStandardUnit(quantidadeRemover, unidadeEscolhida);
+      quantidadeRestante = converted.quantidade;
+    } else if (isVolumeUnit(unidadeEscolhida) && isVolumeUnit(unidadeBase)) {
+      const converted = convertToStandardUnit(quantidadeRemover, unidadeEscolhida);
+      quantidadeRestante = converted.quantidade;
+    } else {
+      quantidadeRestante = quantidadeRemover;
+    }
+
+    console.log(`🔄 Iniciando remoção FIFO de ${quantidadeRemover} ${unidadeEscolhida}`);
+    console.log(`📊 Quantidade em unidade padrão: ${quantidadeRestante}`);
+
+    let produtosAfetados = 0;
+    const movimentacoes: Array<{ produtoId: number; quantidade: number }> = [];
+
+    // Processar produtos em ordem FIFO
+    for (const produto of produtosOrdenados) {
+      if (quantidadeRestante <= 0) break;
+
+      const quantidadeDisponivel = produto.quantidade;
+      const quantidadeARemover = Math.min(quantidadeRestante, quantidadeDisponivel);
+      const novaQuantidade = quantidadeDisponivel - quantidadeARemover;
+
+      console.log(`  📦 Produto ID ${produto.id}: Disponível=${quantidadeDisponivel}, Remover=${quantidadeARemover}, Nova=${novaQuantidade}`);
+
+      // Atualizar quantidade no banco (mantém registro mesmo se zerar)
+      const { error: updateError } = await supabase
+        .from('estoque_de_produtos')
+        .update({ quantidade_em_estoque: novaQuantidade })
+        .eq('id', produto.id);
+
+      if (updateError) {
+        console.error(`❌ Erro ao atualizar produto ${produto.id}:`, updateError);
+        throw new Error(`Erro ao atualizar produto: ${updateError.message}`);
+      }
+
+      // Registrar para criar movimentação depois
+      movimentacoes.push({
+        produtoId: produto.id,
+        quantidade: quantidadeARemover
+      });
+
+      quantidadeRestante -= quantidadeARemover;
+      produtosAfetados++;
+    }
+
+    // Verificar se conseguiu remover tudo
+    if (quantidadeRestante > 0.0001) {
+      throw new Error('Quantidade insuficiente em estoque');
+    }
+
+    // Registrar todas as movimentações
+    for (const mov of movimentacoes) {
+      await this.registrarMovimentacao(
+        mov.produtoId,
+        'saida',
+        mov.quantidade,
+        observacao
+      );
+    }
+
+    console.log(`✅ Remoção FIFO concluída: ${produtosAfetados} produto(s) afetado(s)`);
+
+    return {
+      success: true,
+      produtosAfetados,
+      message: 'Quantidade removida com sucesso'
+    };
+  }
+
+  /**
    * Busca lançamentos (aplicações) de produtos para um conjunto de produtos
    * Faz join em `lancamentos_agricolas` para trazer nome_atividade e created_at da atividade
    */
