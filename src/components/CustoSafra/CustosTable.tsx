@@ -108,9 +108,9 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
 
   // Totals
   const totalRealHectare = custos.reduce((acc, item) => acc + item.realHectare, 0);
-  const totalRealSaca = produtividade > 0 ? totalRealHectare / produtividade : 0;
+  const totalRealSaca = custos.reduce((acc, item) => acc + item.realSaca, 0);
   const totalEstimadoHectare = custos.reduce((acc, item) => acc + item.estimadoHectare, 0);
-  const totalEstimadoSaca = produtividade > 0 ? totalEstimadoHectare / produtividade : 0;
+  const totalEstimadoSaca = custos.reduce((acc, item) => acc + item.estimadoSaca, 0);
   
   return (
     <div className="space-y-8">

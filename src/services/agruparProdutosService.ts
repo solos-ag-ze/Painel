@@ -122,6 +122,20 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
 
     const produtosEmEstoque = grupo.filter(p => (p.quantidade ?? 0) > 0 && p.valor !== null);
 
+    let totalValor = 0;
+    let totalQuantidade = 0;
+
+    produtosEmEstoque.forEach(p => {
+      const quantidade = p.quantidade ?? 0;
+      const valorUnitario = p.valor ?? 0;
+      totalValor += quantidade * valorUnitario;
+      totalQuantidade += quantidade;
+    });
+
+    const media = totalQuantidade > 0 ? totalValor / totalQuantidade : 0;
+
+    let mediaPrecoConvertido = media;
+
     const primeiraUnidade = grupo[0].unidade;
     let totalEstoqueEmUnidadePadrao = 0;
     let unidadePadrao: 'mg' | 'mL' | null = null;
@@ -166,16 +180,8 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
       totalEstoqueDisplay = displayResult.quantidade;
       unidadeDisplay = displayResult.unidade;
 
-      // 💰 Converter preço da unidade padrão para unidade de exibição
-      // Se quantidade foi dividida por 1000 (mg→kg), preço deve ser multiplicado por 1000
-      const fatorConversao = totalEstoqueEmUnidadePadrao / totalEstoqueDisplay;
-      mediaPrecoDisplay = mediaPrecoUnidadePadrao * fatorConversao;
-
-      console.log(`💰 Conversão de Preço para "${nomeMaisComum}":`);
-      console.log(`  - Preço na unidade padrão (${unidadePadrao}): R$ ${mediaPrecoUnidadePadrao.toFixed(6)}`);
-      console.log(`  - Quantidade: ${totalEstoqueEmUnidadePadrao} ${unidadePadrao} → ${totalEstoqueDisplay} ${unidadeDisplay}`);
-      console.log(`  - Fator conversão: ${fatorConversao}`);
-      console.log(`  - Preço convertido (${unidadeDisplay}): R$ ${mediaPrecoDisplay.toFixed(6)}`);
+      const fatorConversao = totalEstoqueDisplay / totalEstoqueEmUnidadePadrao;
+      mediaPrecoConvertido = media * fatorConversao;
     }
 
     const totalEstoque = totalEstoqueEmUnidadePadrao;

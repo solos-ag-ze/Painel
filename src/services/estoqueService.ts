@@ -2,7 +2,7 @@
 import { supabase } from '../lib/supabase';
 import { AuthService } from './authService';
 import { ActivityService } from './activityService';
-import { convertToStandardUnit, convertFromStandardUnit, isMassUnit, isVolumeUnit } from '../lib/unitConverter';
+import { convertToStandardUnit, convertFromStandardUnit } from '../lib/unitConverter';
 
 export interface ProdutoEstoque {
   id: number;
@@ -153,18 +153,101 @@ export class EstoqueService {
       return 0;
     }
 
-    // Calcular valor total baseado na quantidade ATUAL em estoque
-    let valorTotalEstoque = 0;
+    let valorTotalProdutos = 0;
     for (const produto of produtos) {
-      const quantidadeAtual = Number(produto.quantidade_em_estoque) || 0;
-      const valorUnitario = Number(produto.valor_unitario) || 0;
-      const valorProduto = quantidadeAtual * valorUnitario;
-      valorTotalEstoque += valorProduto;
-
-      console.log(`  📦 ${produto.id}: ${quantidadeAtual} × R$ ${valorUnitario.toFixed(6)} = R$ ${valorProduto.toFixed(2)}`);
+      const valorTotalProduto = Number(produto.valor_total) || 0;
+      valorTotalProdutos += valorTotalProduto;
     }
 
-    console.log(`💰 Valor total em estoque: R$ ${valorTotalEstoque.toFixed(2)}`);
+    console.log(`💰 Valor total inicial dos produtos: R$ ${valorTotalProdutos.toFixed(2)}`);
+
+    const { data: movimentacoes, error: movimentacoesError } = await supabase
+      .from('movimentacoes_estoque')
+      .select('produto_id, tipo, quantidade')
+      .eq('user_id', userId);
+
+    if (movimentacoesError) {
+      console.error('❌ Erro ao buscar movimentações:', movimentacoesError);
+      throw movimentacoesError;
+    }
+
+    let valorSaidas = 0;
+    let valorEntradas = 0;
+
+    if (movimentacoes && movimentacoes.length > 0) {
+      console.log(`📊 Processando ${movimentacoes.length} movimentações`);
+
+      for (const mov of movimentacoes) {
+        const produto = produtos.find(p => p.id === mov.produto_id);
+
+        if (produto && produto.valor_unitario) {
+          const quantidade = Number(mov.quantidade) || 0;
+          const valorUnitario = Number(produto.valor_unitario) || 0;
+          const valorMovimento = quantidade * valorUnitario;
+
+          if (mov.tipo === 'saida') {
+            valorSaidas += valorMovimento;
+            console.log(`  ➖ Saída: ${quantidade} × R$ ${valorUnitario.toFixed(2)} = R$ ${valorMovimento.toFixed(2)}`);
+          } else if (mov.tipo === 'entrada') {
+            valorEntradas += valorMovimento;
+            console.log(`  ➕ Entrada: ${quantidade} × R$ ${valorUnitario.toFixed(2)} = R$ ${valorMovimento.toFixed(2)}`);
+          }
+        } else {
+          console.warn(`⚠️ Produto ${mov.produto_id} não encontrado ou sem valor unitário`);
+        }
+      }
+    } else {
+      console.log('📊 Nenhuma movimentação encontrada');
+    }
+
+    const { data: lancamentos, error: lancamentosError } = await supabase
+      .from('lancamento_produtos')
+      .select('produto_id, quantidade_val, quantidade_un')
+      .in('produto_id', produtos.map(p => p.id));
+
+    let valorProdutosUsados = 0;
+
+    if (lancamentosError) {
+      console.warn('⚠️ Erro ao buscar lançamentos de produtos:', lancamentosError);
+    } else if (lancamentos && lancamentos.length > 0) {
+      console.log(`🌾 Processando ${lancamentos.length} produtos usados em atividades`);
+
+      for (const lancamento of lancamentos) {
+        const produto = produtos.find(p => p.id === lancamento.produto_id);
+
+        if (produto && produto.valor_unitario) {
+          const quantidadeUsada = Number(lancamento.quantidade_val) || 0;
+          const unidadeLancamento = lancamento.quantidade_un || produto.unidade_de_medida;
+          const valorUnitario = Number(produto.valor_unitario) || 0;
+          const unidadeValorOriginal = produto.unidade_valor_original || produto.unidade_de_medida;
+
+          let quantidadeConvertida = quantidadeUsada;
+
+          if (unidadeLancamento !== unidadeValorOriginal) {
+            quantidadeConvertida = convertFromStandardUnit(
+              quantidadeUsada,
+              unidadeLancamento,
+              unidadeValorOriginal
+            );
+          }
+
+          const valorUsado = quantidadeConvertida * valorUnitario;
+          valorProdutosUsados += valorUsado;
+
+          console.log(`  🌱 Produto usado: ${quantidadeUsada} ${unidadeLancamento} → ${quantidadeConvertida.toFixed(2)} ${unidadeValorOriginal} × R$ ${valorUnitario.toFixed(2)} = R$ ${valorUsado.toFixed(2)}`);
+        }
+      }
+    } else {
+      console.log('🌾 Nenhum produto usado em atividades encontrado');
+    }
+
+    console.log(`💸 Total de saídas: R$ ${valorSaidas.toFixed(2)}`);
+    console.log(`💵 Total de entradas adicionais: R$ ${valorEntradas.toFixed(2)}`);
+    console.log(`🌾 Total de produtos usados: R$ ${valorProdutosUsados.toFixed(2)}`);
+
+    const valorTotalEstoque = valorTotalProdutos + valorEntradas - valorSaidas - valorProdutosUsados;
+
+    console.log(`🏦 Valor total em estoque: R$ ${Math.max(0, valorTotalEstoque).toFixed(2)}`);
 
     return Math.max(0, valorTotalEstoque);
   }
@@ -175,7 +258,7 @@ export class EstoqueService {
     categoria: string,
     unidade: string,
     quantidade: number,
-    valorTotal: number,
+    valor: number,
     lote?: string,
     validade?: string,
     fornecedor?: string,
@@ -184,7 +267,7 @@ export class EstoqueService {
     const userId = await this.getCurrentUserId();
 
     const converted = convertToStandardUnit(quantidade, unidade);
-    const valorUnitario = converted.quantidade > 0 ? valorTotal / converted.quantidade : 0;
+    const valorTotal = converted.quantidade * valor;
 
     const { error } = await supabase
       .from('estoque_de_produtos')
@@ -196,7 +279,7 @@ export class EstoqueService {
           categoria,
           unidade_de_medida: converted.unidade,
           quantidade_em_estoque: converted.quantidade,
-          valor_unitario: valorUnitario,
+          valor_unitario: valor,
           valor_total: valorTotal,
           unidade_valor_original: unidade,
           lote: lote || null,
@@ -231,18 +314,13 @@ export class EstoqueService {
     
     // 🔧 CORREÇÃO: valor informado é o VALOR TOTAL da compra
     const valorTotal = produto.valor || 0;
-    
-    // Calcular valor unitário na unidade padrão
-    // Se comprou 1 kg por R$ 5,10 total, então:
-    // - 1 kg = 1.000 mg
-    // - R$ 5,10 / 1.000 mg = R$ 0,0051/mg
-    const valorUnitarioPadrao = converted.quantidade > 0 ? valorTotal / converted.quantidade : 0;
+    const valorUnitario = converted.quantidade > 0 ? valorTotal / converted.quantidade : 0;
 
     console.log('📊 Cálculo de valores do produto:');
     console.log(`  - Quantidade original: ${produto.quantidade} ${produto.unidade}`);
     console.log(`  - Quantidade convertida: ${converted.quantidade} ${converted.unidade}`);
     console.log(`  - Valor total informado: R$ ${valorTotal.toFixed(2)}`);
-    console.log(`  - Valor unitário calculado: R$ ${valorUnitarioPadrao.toFixed(10)}/${converted.unidade}`);
+    console.log(`  - Valor unitário calculado: R$ ${valorUnitario.toFixed(10)} por ${converted.unidade}`);
 
     const { data, error } = await supabase
       .from('estoque_de_produtos')
@@ -475,127 +553,6 @@ export class EstoqueService {
     }
 
     return (data || []) as MovimentacaoEstoque[];
-  }
-
-  /**
-   * Retorna unidades compatíveis baseadas no tipo da unidade base
-   * @param baseUnit - Unidade base do produto (mg, mL, un, etc)
-   * @returns Array de unidades compatíveis
-   */
-  static getCompatibleUnits(baseUnit: string): string[] {
-    if (isMassUnit(baseUnit)) {
-      return ['mg', 'g', 'kg', 'ton'];
-    }
-    if (isVolumeUnit(baseUnit)) {
-      return ['mL', 'L'];
-    }
-    return ['un'];
-  }
-
-  /**
-   * Remove quantidade de produtos seguindo lógica FIFO (First In, First Out)
-   * Remove dos produtos mais antigos primeiro, mantendo registros zerados
-   * @param produtos - Array de produtos do grupo ordenados por created_at
-   * @param quantidadeRemover - Quantidade a ser removida
-   * @param unidadeEscolhida - Unidade de medida escolhida pelo usuário
-   * @param observacao - Observação sobre a remoção
-   * @returns Objeto com status da operação e número de produtos afetados
-   */
-  static async removerQuantidadeFIFO(
-    produtos: ProdutoEstoque[],
-    quantidadeRemover: number,
-    unidadeEscolhida: string,
-    observacao: string
-  ): Promise<{ success: boolean; produtosAfetados: number; message: string }> {
-    const userId = await this.getCurrentUserId();
-
-    // Filtrar apenas produtos com quantidade > 0
-    const produtosComEstoque = produtos.filter(p => p.quantidade > 0);
-
-    if (produtosComEstoque.length === 0) {
-      throw new Error('Nenhum produto disponível em estoque');
-    }
-
-    // Ordenar por created_at (mais antigo primeiro) - FIFO
-    const produtosOrdenados = [...produtosComEstoque].sort((a, b) => {
-      const dateA = new Date(a.created_at || '').getTime();
-      const dateB = new Date(b.created_at || '').getTime();
-      return dateA - dateB;
-    });
-
-    // Converter quantidade solicitada para unidade padrão
-    const unidadeBase = produtosOrdenados[0].unidade;
-    let quantidadeRestante: number;
-
-    if (isMassUnit(unidadeEscolhida) && isMassUnit(unidadeBase)) {
-      const converted = convertToStandardUnit(quantidadeRemover, unidadeEscolhida);
-      quantidadeRestante = converted.quantidade;
-    } else if (isVolumeUnit(unidadeEscolhida) && isVolumeUnit(unidadeBase)) {
-      const converted = convertToStandardUnit(quantidadeRemover, unidadeEscolhida);
-      quantidadeRestante = converted.quantidade;
-    } else {
-      quantidadeRestante = quantidadeRemover;
-    }
-
-    console.log(`🔄 Iniciando remoção FIFO de ${quantidadeRemover} ${unidadeEscolhida}`);
-    console.log(`📊 Quantidade em unidade padrão: ${quantidadeRestante}`);
-
-    let produtosAfetados = 0;
-    const movimentacoes: Array<{ produtoId: number; quantidade: number }> = [];
-
-    // Processar produtos em ordem FIFO
-    for (const produto of produtosOrdenados) {
-      if (quantidadeRestante <= 0) break;
-
-      const quantidadeDisponivel = produto.quantidade;
-      const quantidadeARemover = Math.min(quantidadeRestante, quantidadeDisponivel);
-      const novaQuantidade = quantidadeDisponivel - quantidadeARemover;
-
-      console.log(`  📦 Produto ID ${produto.id}: Disponível=${quantidadeDisponivel}, Remover=${quantidadeARemover}, Nova=${novaQuantidade}`);
-
-      // Atualizar quantidade no banco (mantém registro mesmo se zerar)
-      const { error: updateError } = await supabase
-        .from('estoque_de_produtos')
-        .update({ quantidade_em_estoque: novaQuantidade })
-        .eq('id', produto.id);
-
-      if (updateError) {
-        console.error(`❌ Erro ao atualizar produto ${produto.id}:`, updateError);
-        throw new Error(`Erro ao atualizar produto: ${updateError.message}`);
-      }
-
-      // Registrar para criar movimentação depois
-      movimentacoes.push({
-        produtoId: produto.id,
-        quantidade: quantidadeARemover
-      });
-
-      quantidadeRestante -= quantidadeARemover;
-      produtosAfetados++;
-    }
-
-    // Verificar se conseguiu remover tudo
-    if (quantidadeRestante > 0.0001) {
-      throw new Error('Quantidade insuficiente em estoque');
-    }
-
-    // Registrar todas as movimentações
-    for (const mov of movimentacoes) {
-      await this.registrarMovimentacao(
-        mov.produtoId,
-        'saida',
-        mov.quantidade,
-        observacao
-      );
-    }
-
-    console.log(`✅ Remoção FIFO concluída: ${produtosAfetados} produto(s) afetado(s)`);
-
-    return {
-      success: true,
-      produtosAfetados,
-      message: 'Quantidade removida com sucesso'
-    };
   }
 
   /**
