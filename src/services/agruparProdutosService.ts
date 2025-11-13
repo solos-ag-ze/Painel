@@ -165,7 +165,7 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
       unidadeDisplay = displayResult.unidade;
 
       const fatorConversao = totalEstoqueDisplay / totalEstoqueEmUnidadePadrao;
-      mediaPrecoConvertido = media / fatorConversao;
+      mediaPrecoConvertido = media * fatorConversao;
     }
 
     const totalEstoque = totalEstoqueEmUnidadePadrao;
