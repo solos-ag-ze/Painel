@@ -122,23 +122,36 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
 
     const produtosEmEstoque = grupo.filter(p => (p.quantidade ?? 0) > 0 && p.valor !== null);
 
-    // Calculate weighted average: (sum of value × quantity) / (sum of quantity)
-    let totalValorPonderado = 0;
-    let totalQuantidadePonderada = 0;
+    // CORREÇÃO: Calcular média ponderada simples dos valores convertidos
+    // O valor_unitario já representa o preço por unidade padrão (mg/mL)
+    // Só precisamos converter para a unidade original para exibição
+    let somaValoresConvertidos = 0;
+    let contadorProdutos = 0;
 
     produtosEmEstoque.forEach(p => {
-      const quantidade = p.quantidade ?? 0;
-      const valor = p.valor ?? 0;
-      totalValorPonderado += valor * quantidade;
-      totalQuantidadePonderada += quantidade;
+      const valorUnitarioBanco = p.valor ?? 0; // valor por mg ou mL
+      const unidadeOriginal = p.unidade_valor_original || p.unidade;
+
+      // Converte o valor_unitario (em mg/mL) para a unidade original
+      const valorNaUnidadeOriginal = convertValueFromStandardUnit(valorUnitarioBanco, unidadeOriginal);
+
+      somaValoresConvertidos += valorNaUnidadeOriginal;
+      contadorProdutos++;
+
+      console.log(`  📦 Produto: ${p.nome_produto}`, {
+        valorUnitarioBanco: valorUnitarioBanco.toExponential(4),
+        unidadeOriginal: unidadeOriginal,
+        valorNaUnidadeOriginal: valorNaUnidadeOriginal.toFixed(2),
+        quantidade: p.quantidade
+      });
     });
 
-    const media = totalQuantidadePonderada > 0 ? totalValorPonderado / totalQuantidadePonderada : 0;
+    const media = contadorProdutos > 0 ? somaValoresConvertidos / contadorProdutos : 0;
 
-    console.log('📊 Cálculo de Média Ponderada:', {
-      totalValorPonderado,
-      totalQuantidadePonderada,
-      mediaPorUnidadePadrao: media,
+    console.log('📊 Cálculo de Média:', {
+      somaValoresConvertidos: somaValoresConvertidos.toFixed(2),
+      contadorProdutos,
+      mediaCalculada: media.toFixed(2),
       grupo: grupo[0].nome_produto
     });
 
@@ -207,25 +220,15 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
         ).pop() || null
       : null;
 
-    // CORREÇÃO PRINCIPAL:
-    // O valor_unitario no banco está armazenado por mg ou mL (unidade padrão)
-    // Precisamos converter para a unidade original que o usuário informou
-    // Exemplo: se unidade_valor_original = 'kg', multiplicamos por 1.000.000
+    // A média já foi calculada na unidade original, então usamos direto
+    mediaPrecoConvertido = media;
     const mediaPrecoOriginal = unidadeValorOriginal ? media : null;
 
-    if (unidadeValorOriginal) {
-      mediaPrecoConvertido = convertValueFromStandardUnit(media, unidadeValorOriginal);
-
-      console.log('💰 Conversão de Valor:', {
-        mediaEmUnidadePadrao: media,
-        unidadeValorOriginal,
-        mediaPrecoConvertido,
-        fatorAplicado: mediaPrecoConvertido / media
-      });
-    } else {
-      mediaPrecoConvertido = media;
-      console.log('⚠️ Nenhuma unidade_valor_original definida, usando valor padrão');
-    }
+    console.log('💰 Valor Final para Exibição:', {
+      mediaPrecoConvertido,
+      unidadeValorOriginal,
+      grupo: grupo[0].nome_produto
+    });
 
     return {
       nome: nomeMaisComum,
