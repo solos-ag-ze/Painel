@@ -58,15 +58,18 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
     if (!product) return;
 
     try {
-      // Primeiro, somamos todas as saídas registradas nas movimentações por produto
+      // Primeiro, somamos todas as entradas e saídas registradas nas movimentações por produto
       let allSaidas = 0;
+      let allEntradas = 0;
 
       for (const p of product.produtos) {
         try {
           const resp = await EstoqueService.getMovimentacoesExpandidas(p.id, 1, 1000);
           const data = resp?.data || [];
           const saidas = data.filter(m => m.tipo === 'saida').reduce((sum, m) => sum + m.quantidade, 0);
+          const entradas = data.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.quantidade, 0);
           allSaidas += saidas;
+          allEntradas += entradas;
         } catch (err) {
           console.error(`Erro ao buscar movimentações para totais (produto ${p.id}):`, err);
         }
@@ -84,15 +87,23 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
         console.error('Erro ao buscar lançamentos para totais:', err);
       }
 
-      // Agora inferimos as entradas históricas a partir do estoque atual:
-      // entradas_históricas = estoque_atual + total_saídas
-      // Usamos o total de estoque agregado do agrupamento quando disponível,
-      // caso contrário somamos as quantidades individuais dos produtos.
-      const totalEstoqueGroup = typeof product.totalEstoque !== 'undefined' && product.totalEstoque !== null
-        ? Number(product.totalEstoque)
-        : product.produtos.reduce((s, pr) => s + (Number(pr.quantidade) || 0), 0);
+      // Adicionamos as quantidades iniciais dos produtos que não têm entradas registradas
+      for (const p of product.produtos) {
+        const hasEntradaRegistrada = await (async () => {
+          try {
+            const resp = await EstoqueService.getMovimentacoesExpandidas(p.id, 1, 1000);
+            const data = resp?.data || [];
+            return data.some(m => m.tipo === 'entrada');
+          } catch {
+            return false;
+          }
+        })();
 
-      const allEntradas = totalEstoqueGroup + allSaidas;
+        if (!hasEntradaRegistrada) {
+          const quantidadeInicial = Number(p.quantidade_inicial) || 0;
+          allEntradas += quantidadeInicial;
+        }
+      }
 
       setTotalEntradas(allEntradas);
       setTotalSaidas(allSaidas);
@@ -135,34 +146,84 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
         const produtoInfo = product.produtos.find(p => p.id === l.produto_id as any);
         const quantidade_val = l.quantidade_val ?? 0;
         const unidade_quant = l.quantidade_un || produtoInfo?.unidade || 'un';
-        const valorUnitario = produtoInfo?.valor ?? null;
 
         let custoCalculado = null;
-        if (valorUnitario != null && quantidade_val > 0) {
-          const unidadeValorOriginal = produtoInfo?.unidade_valor_original || produtoInfo?.unidade || 'un';
+        if (quantidade_val > 0 && produtoInfo) {
+          // A unidade em que o valor unitário foi cadastrado
+          const unidadeValorOriginal = produtoInfo.unidade_valor_original || produtoInfo.unidade || 'un';
 
-          let quantidadeParaCalculo = quantidade_val;
+          // Calcular o valor unitário original na unidade_valor_original
+          let valorUnitarioNaUnidadeOriginal = 0;
+          
+          if (produtoInfo.valor_total != null && produtoInfo.quantidade_inicial > 0) {
+            // quantidade_inicial está na unidade padrão (mg/mL)
+            // Precisamos converter para unidade_valor_original
+            const unidadePadrao = produtoInfo.unidade; // mg ou mL
+            let quantidadeInicialConvertida = produtoInfo.quantidade_inicial;
+
+            if (unidadePadrao !== unidadeValorOriginal) {
+              if (isMassUnit(unidadePadrao) && isMassUnit(unidadeValorOriginal)) {
+                // Converter de mg para unidadeValorOriginal
+                quantidadeInicialConvertida = convertFromStandardUnit(
+                  produtoInfo.quantidade_inicial, 
+                  'mg', 
+                  unidadeValorOriginal
+                );
+              } else if (isVolumeUnit(unidadePadrao) && isVolumeUnit(unidadeValorOriginal)) {
+                // Converter de mL para unidadeValorOriginal
+                quantidadeInicialConvertida = convertFromStandardUnit(
+                  produtoInfo.quantidade_inicial, 
+                  'mL', 
+                  unidadeValorOriginal
+                );
+              }
+            }
+
+            // Agora calculamos: valor_total / quantidade_inicial_convertida
+            valorUnitarioNaUnidadeOriginal = produtoInfo.valor_total / quantidadeInicialConvertida;
+          } else if (produtoInfo.valor != null) {
+            // Fallback: converter valor do banco (em mg/mL) para unidade_valor_original
+            const unidadePadrao = produtoInfo.unidade; // mg ou mL
+            
+            if (unidadePadrao !== unidadeValorOriginal) {
+              if (isMassUnit(unidadePadrao) && isMassUnit(unidadeValorOriginal)) {
+                const fatorConversao = convertToStandardUnit(1, unidadeValorOriginal).quantidade;
+                valorUnitarioNaUnidadeOriginal = produtoInfo.valor * fatorConversao;
+              } else if (isVolumeUnit(unidadePadrao) && isVolumeUnit(unidadeValorOriginal)) {
+                const fatorConversao = convertToStandardUnit(1, unidadeValorOriginal).quantidade;
+                valorUnitarioNaUnidadeOriginal = produtoInfo.valor * fatorConversao;
+              } else {
+                valorUnitarioNaUnidadeOriginal = produtoInfo.valor;
+              }
+            } else {
+              valorUnitarioNaUnidadeOriginal = produtoInfo.valor;
+            }
+          }
 
           console.log('🔍 Calculando custo do produto usado:', {
             produto_id: l.produto_id,
             quantidade_val,
             unidade_quant,
-            valorUnitario,
+            valorUnitarioNaUnidadeOriginal,
             unidadeValorOriginal,
-            produtoInfo_unidade: produtoInfo?.unidade
+            valor_total: produtoInfo.valor_total,
+            quantidade_inicial: produtoInfo.quantidade_inicial
           });
 
-          // Se as unidades são diferentes, precisamos converter
+          // Converter a quantidade usada para a unidade_valor_original
+          let quantidadeNaUnidadeDoValor = quantidade_val;
+
           if (unidade_quant !== unidadeValorOriginal) {
             console.log('  → Unidades diferentes, convertendo...');
+            
             // Caso 1: ambas são unidades de massa
             if (isMassUnit(unidade_quant) && isMassUnit(unidadeValorOriginal)) {
               // Converter quantidade_val de unidade_quant para mg (padrão)
               const quantidadeEmMg = convertToStandardUnit(quantidade_val, unidade_quant).quantidade;
               console.log(`  → Convertido para mg: ${quantidadeEmMg}`);
               // Converter de mg para unidadeValorOriginal
-              quantidadeParaCalculo = convertFromStandardUnit(quantidadeEmMg, 'mg', unidadeValorOriginal);
-              console.log(`  → Convertido de mg para ${unidadeValorOriginal}: ${quantidadeParaCalculo}`);
+              quantidadeNaUnidadeDoValor = convertFromStandardUnit(quantidadeEmMg, 'mg', unidadeValorOriginal);
+              console.log(`  → Convertido de mg para ${unidadeValorOriginal}: ${quantidadeNaUnidadeDoValor}`);
             }
             // Caso 2: ambas são unidades de volume
             else if (isVolumeUnit(unidade_quant) && isVolumeUnit(unidadeValorOriginal)) {
@@ -170,11 +231,10 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
               const quantidadeEmMl = convertToStandardUnit(quantidade_val, unidade_quant).quantidade;
               console.log(`  → Convertido para mL: ${quantidadeEmMl}`);
               // Converter de mL para unidadeValorOriginal
-              quantidadeParaCalculo = convertFromStandardUnit(quantidadeEmMl, 'mL', unidadeValorOriginal);
-              console.log(`  → Convertido de mL para ${unidadeValorOriginal}: ${quantidadeParaCalculo}`);
+              quantidadeNaUnidadeDoValor = convertFromStandardUnit(quantidadeEmMl, 'mL', unidadeValorOriginal);
+              console.log(`  → Convertido de mL para ${unidadeValorOriginal}: ${quantidadeNaUnidadeDoValor}`);
             }
             // Caso 3: tipos incompatíveis (massa vs volume ou vs 'un') - manter quantidade original
-            // Isso evita conversões incorretas quando as unidades não são compatíveis
             else {
               console.log('  → Tipos incompatíveis, mantendo quantidade original');
             }
@@ -182,8 +242,9 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
             console.log('  → Unidades iguais, sem conversão necessária');
           }
 
-          custoCalculado = Number(valorUnitario) * quantidadeParaCalculo;
-          console.log(`  → Custo calculado: R$ ${custoCalculado.toFixed(2)} (${valorUnitario} × ${quantidadeParaCalculo})`);
+          // Custo = valor unitário (na unidade_valor_original) × quantidade (na unidade_valor_original)
+          custoCalculado = valorUnitarioNaUnidadeOriginal * quantidadeNaUnidadeDoValor;
+          console.log(`  → Custo calculado: R$ ${custoCalculado.toFixed(2)} (${valorUnitarioNaUnidadeOriginal}/unidade × ${quantidadeNaUnidadeDoValor} unidades)`);
         }
 
         const mapped = {
@@ -198,7 +259,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
           marca: produtoInfo?.marca || null,
           categoria: produtoInfo?.categoria || null,
           unidade: unidade_quant,
-          valor: valorUnitario,
+          valor: produtoInfo?.valor ?? null,
           lote: produtoInfo?.lote || null,
           validade: produtoInfo?.validade || null,
           fornecedor: produtoInfo?.fornecedor || null,
@@ -261,6 +322,8 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
               unidade: p.unidade,
               valor: p.valor,
               unidade_valor_original: p.unidade_valor_original,
+              valor_total: p.valor_total,
+              quantidade_inicial: p.quantidade_inicial,
               lote: p.lote,
               validade: p.validade,
               fornecedor: p.fornecedor || null,
@@ -463,24 +526,37 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
 
                           {m.tipo === 'entrada' && (() => {
                             const unidadeValorOriginal = m.unidade_valor_original || m.unidade;
-
                             let valorDisplay = null;
                             let unidadeValorDisplay = unidadeValorOriginal;
 
-                            if (m.valor !== null && m.valor !== undefined) {
-                              // m.valor está na unidade padrão (mg/mL)
-                              // Precisamos converter para unidade_valor_original
+                            // Se for entrada inicial e tivermos valor_total e quantidade_inicial
+                            if (m._source === 'entrada_inicial' && m.valor_total != null && m.quantidade_inicial > 0) {
+                              // Calcular valor unitário: valor_total / quantidade_inicial
+                              const valorUnitarioCalculado = m.valor_total / m.quantidade_inicial;
                               
-                              const unidadePadrao = m.unidade; // mg ou mL
+                              // Converter para unidade original se necessário
+                              const unidadeAtual = m.unidade;
+                              
+                              if (unidadeAtual !== unidadeValorOriginal) {
+                                if (isMassUnit(unidadeAtual) && isMassUnit(unidadeValorOriginal)) {
+                                  const fatorConversao = convertToStandardUnit(1, unidadeValorOriginal).quantidade;
+                                  valorDisplay = valorUnitarioCalculado * fatorConversao;
+                                } else if (isVolumeUnit(unidadeAtual) && isVolumeUnit(unidadeValorOriginal)) {
+                                  const fatorConversao = convertToStandardUnit(1, unidadeValorOriginal).quantidade;
+                                  valorDisplay = valorUnitarioCalculado * fatorConversao;
+                                } else {
+                                  valorDisplay = valorUnitarioCalculado;
+                                }
+                              } else {
+                                valorDisplay = valorUnitarioCalculado;
+                              }
+                            }
+                            // Para outras entradas (não iniciais), usar a lógica anterior
+                            else if (m.valor !== null && m.valor !== undefined) {
+                              const unidadePadrao = m.unidade;
                               
                               if (unidadePadrao !== unidadeValorOriginal) {
-                                // Converter valor da unidade padrão para unidade original
-                                // Se unidade padrão é mg e original é kg:
-                                // - Fator = 1.000.000 (1 kg = 1.000.000 mg)
-                                // - Valor em kg = valor em mg × 1.000.000
-                                
                                 if (isMassUnit(unidadePadrao) && isMassUnit(unidadeValorOriginal)) {
-                                  // Converter 1 unidade original para unidade padrão para obter o fator
                                   const fatorConversao = convertToStandardUnit(1, unidadeValorOriginal).quantidade;
                                   valorDisplay = m.valor * fatorConversao;
                                 } else if (isVolumeUnit(unidadePadrao) && isVolumeUnit(unidadeValorOriginal)) {

@@ -1,6 +1,6 @@
 // src/services/agruparProdutosService.ts
 import { ProdutoEstoque } from "./estoqueService";
-import { convertToStandardUnit, getBestDisplayUnit, isMassUnit, isVolumeUnit, convertValueToDisplayUnit, convertValueFromStandardUnit } from '../lib/unitConverter';
+import { convertToStandardUnit, getBestDisplayUnit, isMassUnit, isVolumeUnit, convertValueFromStandardUnit } from '../lib/unitConverter';
 
 function normalizeName(name: string | null | undefined): string {
   if (!name || typeof name !== 'string') {
@@ -120,26 +120,50 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
       nomes.filter(n => n === a).length - nomes.filter(n => n === b).length
     ).pop() || grupo[0].nome_produto;
 
+    // Considerar TODOS os produtos do grupo que possuem valor, não apenas os em estoque
+    const produtosComValor = grupo.filter(p => p.valor !== null && p.valor > 0);
     const produtosEmEstoque = grupo.filter(p => (p.quantidade ?? 0) > 0 && p.valor !== null);
 
-    // Calculate weighted average: (sum of value × quantity) / (sum of quantity)
-    let totalValorPonderado = 0;
-    let totalQuantidadePonderada = 0;
+    // Calcular média usando valor_total / quantidade_inicial quando disponível
+    // Isso garante que usamos o valor original informado pelo usuário
+    let somaValoresOriginais = 0;
+    let quantidadeProdutosComValorOriginal = 0;
 
-    produtosEmEstoque.forEach(p => {
-      const quantidade = p.quantidade ?? 0;
-      const valor = p.valor ?? 0;
-      totalValorPonderado += valor * quantidade;
-      totalQuantidadePonderada += quantidade;
+    produtosComValor.forEach(p => {
+      let valorUnitarioOriginal = p.valor ?? 0;
+      
+      // Se temos valor_total e quantidade_inicial, recalcular o valor unitário original
+      if (p.valor_total != null && p.quantidade_inicial > 0) {
+        valorUnitarioOriginal = p.valor_total / p.quantidade_inicial;
+      }
+      
+      if (valorUnitarioOriginal > 0) {
+        somaValoresOriginais += valorUnitarioOriginal;
+        quantidadeProdutosComValorOriginal++;
+      }
     });
 
-    const media = totalQuantidadePonderada > 0 ? totalValorPonderado / totalQuantidadePonderada : 0;
+    const media = quantidadeProdutosComValorOriginal > 0 
+      ? somaValoresOriginais / quantidadeProdutosComValorOriginal 
+      : 0;
 
-    console.log('📊 Cálculo de Média Ponderada:', {
-      totalValorPonderado,
-      totalQuantidadePonderada,
-      mediaPorUnidadePadrao: media,
-      grupo: grupo[0].nome_produto
+    console.log('📊 Cálculo de Média Aritmética:', {
+      totalProdutosNoGrupo: grupo.length,
+      produtosComValor: produtosComValor.length,
+      somaValoresOriginais,
+      quantidadeProdutosComValorOriginal,
+      mediaCalculada: media,
+      grupo: grupo[0].nome_produto,
+      detalhes: produtosComValor.map(p => ({
+        id: p.id,
+        nome: p.nome_produto,
+        valor: p.valor,
+        valor_total: p.valor_total,
+        quantidade_inicial: p.quantidade_inicial,
+        valorUnitarioCalculado: p.valor_total != null && p.quantidade_inicial > 0 
+          ? p.valor_total / p.quantidade_inicial 
+          : p.valor
+      }))
     });
 
     let mediaPrecoConvertido = media;
