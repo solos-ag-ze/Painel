@@ -165,8 +165,19 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
       totalEstoqueDisplay = displayResult.quantidade;
       unidadeDisplay = displayResult.unidade;
 
-      // Usa o valor original sem conversão
-      mediaPrecoConvertido = media;
+      // Convert the unit value from standard unit (mg/mL) to display unit
+      // media is price per mg or mL, we need to convert it to price per display unit
+      if (unidadePadrao === 'mg' && isMassUnit(displayResult.unidade)) {
+        // Convert from price/mg to price/displayUnit
+        const mgPerDisplayUnit = convertToStandardUnit(1, displayResult.unidade).quantidade;
+        mediaPrecoConvertido = media * mgPerDisplayUnit;
+      } else if (unidadePadrao === 'mL' && isVolumeUnit(displayResult.unidade)) {
+        // Convert from price/mL to price/displayUnit
+        const mlPerDisplayUnit = convertToStandardUnit(1, displayResult.unidade).quantidade;
+        mediaPrecoConvertido = media * mlPerDisplayUnit;
+      } else {
+        mediaPrecoConvertido = media;
+      }
     }
 
     const totalEstoque = totalEstoqueEmUnidadePadrao;

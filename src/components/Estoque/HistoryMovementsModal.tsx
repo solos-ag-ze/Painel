@@ -8,7 +8,7 @@ import ActivityAttachmentModal from '../ManejoAgricola/ActivityAttachmentModal';
 import ActivityDetailModal from '../ManejoAgricola/ActivityDetailModal';
 import Pagination from './Pagination';
 import { formatUnitAbbreviated } from '../../lib/formatUnit';
-import { autoScaleQuantity, convertFromStandardUnit, convertToStandardUnit, isMassUnit, isVolumeUnit } from '../../lib/unitConverter';
+import { autoScaleQuantity, convertFromStandardUnit, convertToStandardUnit, isMassUnit, isVolumeUnit, convertValueToDisplayUnit } from '../../lib/unitConverter';
 import { formatSmartCurrency } from '../../lib/currencyFormatter';
 
 interface Props {
@@ -465,19 +465,28 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                             );
                           })()}
 
-                          {m.tipo === 'entrada' && (
-                            <div className="text-sm text-gray-600 space-y-1 mt-2">
-                              <div><strong>Marca:</strong> {m.marca || '—'}</div>
-                              <div><strong>Categoria:</strong> {m.categoria || '—'}</div>
-                              <div><strong>Fornecedor:</strong> {m.fornecedor || '—'}</div>
-                              <div><strong>Lote:</strong> {m.lote || '—'}</div>
-                              <div><strong>Validade:</strong> {formatValidity(m.validade)}</div>
-                              <div><strong>Registro MAPA:</strong> {m.registro_mapa || '—'}</div>
-                              {m.valor && (
-                                <div><strong>Valor unitário:</strong> {formatSmartCurrency(Number(m.valor))}</div>
-                              )}
-                            </div>
-                          )}
+                          {m.tipo === 'entrada' && (() => {
+                            const produtoInfo = product?.produtos.find(p => p.id === m.produto_id);
+                            const unidadeValorOriginal = produtoInfo?.unidade_valor_original || m.unidade;
+                            const scaled = autoScaleQuantity(m.quantidade, m.unidade);
+                            const valorConvertido = m.valor && unidadeValorOriginal
+                              ? convertValueToDisplayUnit(m.valor, unidadeValorOriginal, scaled.unidade)
+                              : m.valor;
+
+                            return (
+                              <div className="text-sm text-gray-600 space-y-1 mt-2">
+                                <div><strong>Marca:</strong> {m.marca || '—'}</div>
+                                <div><strong>Categoria:</strong> {m.categoria || '—'}</div>
+                                <div><strong>Fornecedor:</strong> {m.fornecedor || '—'}</div>
+                                <div><strong>Lote:</strong> {m.lote || '—'}</div>
+                                <div><strong>Validade:</strong> {formatValidity(m.validade)}</div>
+                                <div><strong>Registro MAPA:</strong> {m.registro_mapa || '—'}</div>
+                                {valorConvertido && (
+                                  <div><strong>Valor unitário:</strong> {formatSmartCurrency(Number(valorConvertido))} / {scaled.unidade}</div>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {m.tipo === 'saida' && m.valor && m._source !== 'lancamento' && (
                             <div className="text-sm text-gray-600 space-y-1 mt-2">
