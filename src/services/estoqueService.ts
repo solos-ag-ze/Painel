@@ -19,6 +19,7 @@ export interface ProdutoEstoque {
   fornecedor?: string | null;
   registro_mapa?: string | null;
   unidade_valor_original?: string | null; // unidade que o valor foi originalmente inserido
+  quantidade_inicial?: number; // quantidade original informada pelo usuário no cadastro
 }
 
 export interface MovimentacaoEstoque {
@@ -105,7 +106,8 @@ export class EstoqueService {
         validade,
         fornecedor,
         registro_mapa,
-        unidade_valor_original
+        unidade_valor_original,
+        quantidade_inicial
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -131,6 +133,7 @@ export class EstoqueService {
       fornecedor: produto.fornecedor,
       registro_mapa: produto.registro_mapa,
       unidade_valor_original: produto.unidade_valor_original,
+      quantidade_inicial: produto.quantidade_inicial,
     }));
 
     return produtosMapeados;
@@ -330,6 +333,7 @@ export class EstoqueService {
           categoria: produto.categoria,
           unidade_de_medida: converted.unidade,
           quantidade_em_estoque: converted.quantidade,
+          quantidade_inicial: converted.quantidade,
           valor_unitario: valorUnitario,
           valor_total: valorTotal,
           unidade_valor_original: produto.unidade,
@@ -364,6 +368,7 @@ export class EstoqueService {
       fornecedor: data.fornecedor,
       registro_mapa: data.registro_mapa,
       unidade_valor_original: data.unidade_valor_original,
+      quantidade_inicial: data.quantidade_inicial,
     };
   }
 
