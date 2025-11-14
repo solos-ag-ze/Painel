@@ -1,7 +1,7 @@
 // src/components/Estoque/RemoveQuantityModal.tsx
 import { X } from "lucide-react";
 import { ProdutoAgrupado } from "../../services/agruparProdutosService";
-import { convertToStandardUnit, isMassUnit, isVolumeUnit } from "../../lib/unitConverter";
+import { convertBetweenUnits, isMassUnit, isVolumeUnit } from "../../lib/unitConverter";
 import { formatSmartCurrency } from "../../lib/currencyFormatter";
 import { useState, useEffect } from "react";
 
@@ -64,11 +64,17 @@ export default function RemoveQuantityModal({
     }
   };
 
-  // Converter a quantidade informada pelo usuário para a unidade padrão (mg/mL)
-  const quantidadeEmUnidadePadrao = convertToStandardUnit(quantidade, unidadeSelecionada).quantidade;
+  // Converter a quantidade informada pelo usuário para a unidade de referência do produto
+  // Ex: usuário digita 2 toneladas, produto está em kg → converte para 2000 kg
+  const unidadeReferencia = productGroup.unidadeValorOriginal || productGroup.unidadeDisplay;
+  const quantidadeConvertida = convertBetweenUnits(
+    quantidade,
+    unidadeSelecionada,
+    unidadeReferencia
+  );
 
-  // Validar se a quantidade é válida
-  const isInvalid = quantidade <= 0 || quantidadeEmUnidadePadrao > productGroup.totalEstoque;
+  // Validar se a quantidade é válida (comparando com totalEstoqueDisplay que está na unidade de referência)
+  const isInvalid = quantidade <= 0 || quantidadeConvertida > productGroup.totalEstoqueDisplay;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -154,6 +160,12 @@ export default function RemoveQuantityModal({
               +
             </button>
           </div>
+          {/* Feedback visual da conversão */}
+          {unidadeSelecionada !== unidadeReferencia && (
+            <p className="text-xs text-gray-500 mt-1">
+              = {quantidadeConvertida.toFixed(2)} {unidadeReferencia}
+            </p>
+          )}
         </div>
 
         {/* Validação */}
@@ -186,7 +198,7 @@ export default function RemoveQuantityModal({
             Cancelar
           </button>
           <button
-            onClick={() => onConfirm(quantidadeEmUnidadePadrao)}
+            onClick={() => onConfirm(quantidadeConvertida)}
             disabled={isInvalid}
             className={`px-4 py-2 rounded-lg text-white ${
               isInvalid

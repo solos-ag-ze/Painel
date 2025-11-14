@@ -1,6 +1,6 @@
 // src/services/agruparProdutosService.ts
 import { ProdutoEstoque } from "./estoqueService";
-import { convertToStandardUnit, convertFromStandardUnit, getBestDisplayUnit, isMassUnit, isVolumeUnit } from '../lib/unitConverter';
+import { convertToStandardUnit, convertBetweenUnits, isMassUnit, isVolumeUnit } from '../lib/unitConverter';
 
 function normalizeName(name: string | null | undefined): string {
   if (!name || typeof name !== 'string') {
@@ -133,49 +133,26 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
     // Converter TUDO para a mesma unidade de referência antes de somar
     const produtoMaisAntigo = grupo[0];
     const unidadeReferencia = produtoMaisAntigo.unidade_valor_original || produtoMaisAntigo.unidade;
-    
-    // Determinar a unidade padrão para conversão (mg ou mL)
     const primeiraUnidade = grupo[0].unidade;
-    const unidadePadraoCalculo = isMassUnit(primeiraUnidade) ? 'mg' : (isVolumeUnit(primeiraUnidade) ? 'mL' : null);
     
     let somaValorTotal = 0;
     let somaQuantidadeNaUnidadeReferencia = 0;
     
     // Somar valores e quantidades de TODOS os produtos do grupo
-    // IMPORTANTE: Converter todas as quantidades para a UNIDADE DE REFERÊNCIA
+    // IMPORTANTE: Converter todas as quantidades para a UNIDADE DE REFERÊNCIA usando convertBetweenUnits
     grupo.forEach(p => {
       const valorTotal = p.valor_total || 0;
       const quantidadeInicial = p.quantidade_inicial || 0;
       
-      // 1. Converter quantidade_inicial (que está em p.unidade) para unidade padrão (mg ou mL)
-      let quantidadeEmUnidadePadrao = quantidadeInicial;
-      if (unidadePadraoCalculo) {
-        const converted = convertToStandardUnit(quantidadeInicial, p.unidade);
-        quantidadeEmUnidadePadrao = converted.quantidade;
-      }
-      
-      // 2. Converter de unidade padrão (mg/mL) para unidade de referência
-      let quantidadeNaUnidadeRef = quantidadeEmUnidadePadrao;
-      if (unidadePadraoCalculo && unidadeReferencia !== unidadePadraoCalculo) {
-        if (isMassUnit(unidadeReferencia)) {
-          // Converter de mg para unidade de referência (ex: kg)
-          quantidadeNaUnidadeRef = convertFromStandardUnit(quantidadeEmUnidadePadrao, 'mg', unidadeReferencia);
-        } else if (isVolumeUnit(unidadeReferencia)) {
-          // Converter de mL para unidade de referência (ex: L)
-          quantidadeNaUnidadeRef = convertFromStandardUnit(quantidadeEmUnidadePadrao, 'mL', unidadeReferencia);
-        }
-      }
+      // Converter DIRETAMENTE da unidade do produto para a unidade de referência
+      const quantidadeNaUnidadeRef = convertBetweenUnits(
+        quantidadeInicial,
+        p.unidade,
+        unidadeReferencia
+      );
       
       somaValorTotal += valorTotal;
       somaQuantidadeNaUnidadeReferencia += quantidadeNaUnidadeRef;
-      
-      console.log(`  📦 Produto ${p.id}:`, {
-        unidade_original: p.unidade,
-        quantidade_inicial: quantidadeInicial,
-        quantidade_em_unidade_padrao: quantidadeEmUnidadePadrao,
-        quantidade_na_unidade_ref: quantidadeNaUnidadeRef,
-        valor_total: valorTotal
-      });
     });
     
     // Calcular média ponderada na unidade de referência
@@ -183,43 +160,35 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
       ? somaValorTotal / somaQuantidadeNaUnidadeReferencia 
       : 0;
 
-    console.log('💰 Média ponderada do grupo calculada:', {
-      grupo: produtoMaisAntigo.nome_produto,
-      total_produtos: grupo.length,
-      soma_valor_total: somaValorTotal,
-      soma_quantidade_na_unidade_ref: somaQuantidadeNaUnidadeReferencia,
-      unidade_padrao_calculo: unidadePadraoCalculo,
-      unidadeReferencia,
-      media_final: mediaPrecoFinal
+    // 3️⃣ CALCULAR totalEstoqueDisplay DIRETAMENTE na UNIDADE DE REFERÊNCIA
+    // Usar a mesma lógica do convertBetweenUnits para garantir consistência
+    let totalEstoqueDisplay = 0;
+    
+    produtosEmEstoque.forEach(p => {
+      const quantidadeConvertida = convertBetweenUnits(
+        p.quantidade ?? 0,
+        p.unidade,
+        unidadeReferencia
+      );
+      totalEstoqueDisplay += quantidadeConvertida;
     });
 
-    // Calcular total em estoque
+    const unidadeDisplay = unidadeReferencia;
+    
+    // Manter totalEstoque em unidade padrão para compatibilidade com código legado (se necessário)
     let totalEstoqueEmUnidadePadrao = 0;
-    let unidadePadrao: 'mg' | 'mL' | null = null;
-
     if (isMassUnit(primeiraUnidade)) {
-      unidadePadrao = 'mg';
       produtosEmEstoque.forEach(p => {
         const converted = convertToStandardUnit(p.quantidade ?? 0, p.unidade);
         totalEstoqueEmUnidadePadrao += converted.quantidade;
       });
     } else if (isVolumeUnit(primeiraUnidade)) {
-      unidadePadrao = 'mL';
       produtosEmEstoque.forEach(p => {
         const converted = convertToStandardUnit(p.quantidade ?? 0, p.unidade);
         totalEstoqueEmUnidadePadrao += converted.quantidade;
       });
     } else {
       totalEstoqueEmUnidadePadrao = produtosEmEstoque.reduce((sum, p) => sum + (p.quantidade ?? 0), 0);
-    }
-
-    let totalEstoqueDisplay = totalEstoqueEmUnidadePadrao;
-    let unidadeDisplay = primeiraUnidade;
-
-    if (unidadePadrao) {
-      const displayResult = getBestDisplayUnit(totalEstoqueEmUnidadePadrao, unidadePadrao);
-      totalEstoqueDisplay = displayResult.quantidade;
-      unidadeDisplay = displayResult.unidade;
     }
 
     const totalEstoque = totalEstoqueEmUnidadePadrao;

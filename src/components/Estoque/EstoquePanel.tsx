@@ -280,7 +280,7 @@ export default function EstoquePanel() {
           if (!removeModal.productGroup) return;
           try {
             // Remove quantidade usando FIFO (First In, First Out)
-            // quantidadeConvertida já vem na unidade padrão (mg ou mL)
+            // quantidadeConvertida já vem na unidade de referência do produto (kg, L, un, etc.)
             await EstoqueService.removerQuantidadeFIFO(
               removeModal.productGroup.nome,
               quantidadeConvertida,

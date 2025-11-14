@@ -203,3 +203,43 @@ export function convertValueFromStandardUnit(
   // Para outras unidades (un), retorna o valor sem conversão
   return valorPorUnidadePadrao;
 }
+
+/**
+ * Converte uma quantidade de uma unidade para outra (do mesmo tipo)
+ * Conversão DIRETA sem passar por unidade padrão intermediária
+ * Ex: convertBetweenUnits(2, 'ton', 'kg') → 2000
+ * Ex: convertBetweenUnits(500, 'g', 'kg') → 0.5
+ * Ex: convertBetweenUnits(2000, 'mL', 'L') → 2
+ *
+ * @param value - Valor a ser convertido
+ * @param fromUnit - Unidade de origem
+ * @param toUnit - Unidade de destino
+ * @returns Valor convertido para a unidade de destino
+ */
+export function convertBetweenUnits(
+  value: number,
+  fromUnit: string,
+  toUnit: string
+): number {
+  // Se as unidades são iguais, não precisa converter
+  if (fromUnit === toUnit) {
+    return value;
+  }
+
+  // Conversão DIRETA entre unidades de massa
+  if (isMassUnit(fromUnit) && isMassUnit(toUnit)) {
+    const fromFactor = MASS_TO_MG[fromUnit];  // quanto vale 1 unidade de origem em mg
+    const toFactor = MASS_TO_MG[toUnit];      // quanto vale 1 unidade de destino em mg
+    return value * (fromFactor / toFactor);
+  }
+
+  // Conversão DIRETA entre unidades de volume
+  if (isVolumeUnit(fromUnit) && isVolumeUnit(toUnit)) {
+    const fromFactor = VOLUME_TO_ML[fromUnit];  // quanto vale 1 unidade de origem em mL
+    const toFactor = VOLUME_TO_ML[toUnit];      // quanto vale 1 unidade de destino em mL
+    return value * (fromFactor / toFactor);
+  }
+
+  // Para outras unidades ou incompatíveis, retorna o valor sem conversão
+  return value;
+}

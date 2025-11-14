@@ -464,7 +464,7 @@ export class EstoqueService {
   /**
    * Remove quantidade de um produto agrupado seguindo FIFO (First In, First Out)
    * @param nomeProduto Nome do produto para buscar todos os registros
-   * @param quantidadeRemover Quantidade a remover (na unidade padrão: mg ou mL)
+   * @param quantidadeRemover Quantidade a remover (na unidade de referência do produto: kg, L, un, etc.)
    * @param observacao Observação/motivo da saída
    */
   static async removerQuantidadeFIFO(

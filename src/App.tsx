@@ -7,6 +7,7 @@ import Header from './components/Layout/Header';
 import DashboardOverview from './components/Dashboard/DashboardOverview';
 import FinanceiroPanel from './components/Financeiro/FinanceiroPanel';
 import CustoSafraPanel from './components/CustoSafra/CustoSafraPanel';
+import CustoPorTalhaoPanel from './components/CustoPorTalhao/CustoPorTalhaoPanel';
 import ManejoAgricolaPanel from './components/ManejoAgricola/ManejoAgricolaPanel';
 import MinhaFazendaPanel from './components/MinhaFazenda/MinhaFazendaPanel';
 import SimuladorVendaPanel from './components/SimuladorVenda/SimuladorVendaPanel';
@@ -102,6 +103,8 @@ function App() {
         return <FinanceiroPanel />;
       case 'custo-safra':
         return <CustoSafraPanel />;
+      case 'custo-por-talhao':
+        return <CustoPorTalhaoPanel />;
       case 'manejo-agricola':
         return <ManejoAgricolaPanel />;
       case 'minha-fazenda':

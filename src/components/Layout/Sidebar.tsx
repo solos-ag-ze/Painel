@@ -11,7 +11,8 @@ import {
   X,
   Sprout,
   Calculator,
-  LandPlot
+  LandPlot,
+  BarChart3
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ const menuItems = [
   { id: 'financeiro', icon: DollarSign, label: 'Financeiro', description: 'Fluxo de caixa' },
   { id: 'manejo-agricola', icon: Sprout, label: 'Manejo Agrícola', description: 'Atividades técnicas' },
   { id: 'custo-safra', icon: Calculator, label: 'Custo Safra', description: 'Análise de custos' },
+  { id: 'custo-por-talhao', icon: BarChart3, label: 'Custo por Talhão', description: 'Competência por Área' },
   { id: 'minha-fazenda', icon: LandPlot, label: 'Minha Fazenda', description: 'Detalhes dos talhões'},
   { id: 'estoque', icon: Package, label: 'Estoque', description: 'Controle de insumos' },
   { id: 'maquinas', icon: Settings, label: 'Máquinas e Equipamentos', description: 'Controle de máquinas' },
@@ -75,7 +77,7 @@ export default function Sidebar({ activeTab, setActiveTab, onClose }: SidebarPro
       
       <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
         {menuItems.map((item, index) => {
-          const isHighlighted = index < 7;
+          const isHighlighted = index < 8;
           const textColor = isHighlighted 
             ? (activeTab === item.id ? 'text-white' : 'text-[#cadb2a]') 
             : (activeTab === item.id ? 'text-white' : 'text-gray-300');
