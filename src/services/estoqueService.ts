@@ -313,23 +313,19 @@ export class EstoqueService {
   }): Promise<ProdutoEstoque> {
     const userId = await this.getCurrentUserId();
 
-    const converted = convertToStandardUnit(produto.quantidade, produto.unidade);
     const valorTotal = produto.valor || 0;
     
-    // ✅ Calcular valor por unidade original
+    // ✅ Valor unitário REAL na unidade ORIGINAL (sem conversão)
     // Exemplo: R$ 5.000 ÷ 1000 kg = R$ 5/kg
-    // Salvar R$ 5/kg em valor_unitario com unidade_valor_original = kg
     const valorUnitario = produto.quantidade > 0 
       ? valorTotal / produto.quantidade 
       : 0;
 
-    console.log('📊 Cadastro de produto:');
-    console.log(`  - Quantidade original: ${produto.quantidade} ${produto.unidade}`);
-    console.log(`  - Quantidade convertida: ${converted.quantidade} ${converted.unidade}`);
-    console.log(`  - Valor total informado: R$ ${valorTotal.toFixed(2)}`);
-    console.log(`  - Valor por ${produto.unidade}: R$ ${valorUnitario.toFixed(2)}/${produto.unidade}`);
-    console.log(`  - Salvo em valor_unitario: R$ ${valorUnitario.toFixed(2)}`);
-    console.log(`  - Salvo em unidade_valor_original: ${produto.unidade}`);
+    console.log('📊 Cadastro de produto (SEM CONVERSÃO):');
+    console.log(`  - Quantidade: ${produto.quantidade} ${produto.unidade}`);
+    console.log(`  - Valor total: R$ ${valorTotal.toFixed(2)}`);
+    console.log(`  - Valor unitário: R$ ${valorUnitario.toFixed(2)}/${produto.unidade}`);
+    console.log(`  - ✅ SQL fará toda a padronização de unidades`);
 
     const { data, error } = await supabase
       .from('estoque_de_produtos')
@@ -339,9 +335,11 @@ export class EstoqueService {
           nome_do_produto: produto.nome_produto,
           marca_ou_fabricante: produto.marca,
           categoria: produto.categoria,
-          unidade_de_medida: converted.unidade,
-          quantidade_em_estoque: converted.quantidade,
-          quantidade_inicial: converted.quantidade,
+          // ✅ Salvar unidade e quantidade EXATAMENTE como o usuário digitou
+          unidade_de_medida: produto.unidade,
+          quantidade_em_estoque: produto.quantidade,
+          quantidade_inicial: produto.quantidade,
+          // ✅ Valor unitário na unidade original
           valor_unitario: valorUnitario,
           valor_total: valorTotal,
           unidade_valor_original: produto.unidade,
