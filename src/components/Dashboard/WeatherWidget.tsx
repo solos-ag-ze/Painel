@@ -85,16 +85,16 @@ const loadWeatherData = async () => {
 
   if (!city) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-[#092f20]">Clima e Alertas</h3>
-          <MapPin className="w-5 h-5 text-gray-400" />
+          <h3 className="text-lg font-bold text-[#004417]">Clima e Alertas</h3>
+          <MapPin className="w-5 h-5 text-[#004417]/65" />
         </div>
         
         <div className="text-center py-8">
-          <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600">Cidade não informada</p>
-          <p className="text-sm text-gray-500 mt-1">
+          <MapPin className="w-12 h-12 text-[#004417]/65 mx-auto mb-3" />
+          <p className="text-[#004417] font-medium">Cidade não informada</p>
+          <p className="text-sm text-[#004417]/65 font-medium mt-1">
             Adicione sua cidade no perfil para ver informações meteorológicas
           </p>
         </div>
@@ -104,16 +104,16 @@ const loadWeatherData = async () => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-[#092f20]">Clima e Alertas</h3>
-          <RefreshCw className="w-5 h-5 text-[#397738] animate-spin" />
+          <h3 className="text-lg font-bold text-[#004417]">Clima e Alertas</h3>
+          <RefreshCw className="w-5 h-5 text-[#00A651] animate-spin" />
         </div>
         
         <div className="text-center py-8">
-          <RefreshCw className="w-12 h-12 text-[#397738] mx-auto mb-3 animate-spin" />
-          <p className="text-gray-600">Carregando dados meteorológicos...</p>
-          <p className="text-sm text-gray-500 mt-1">Conectando com OpenWeatherMap</p>
+          <RefreshCw className="w-12 h-12 text-[#00A651] mx-auto mb-3 animate-spin" />
+          <p className="text-[#004417] font-medium">Carregando dados meteorológicos...</p>
+          <p className="text-sm text-[#004417]/65 font-medium mt-1">Conectando com OpenWeatherMap</p>
         </div>
       </div>
     );
@@ -121,12 +121,12 @@ const loadWeatherData = async () => {
 
   if (error || !weather) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-[#092f20]">Clima e Alertas</h3>
+          <h3 className="text-lg font-bold text-[#004417]">Clima e Alertas</h3>
           <button 
             onClick={loadWeatherData}
-            className="p-1 text-[#397738] hover:bg-[#397738]/10 rounded-lg transition-colors"
+            className="p-1 text-[#00A651] hover:bg-[#00A651]/10 rounded-lg transition-colors"
             title="Tentar novamente"
           >
             <RefreshCw className="w-5 h-5" />
@@ -134,14 +134,14 @@ const loadWeatherData = async () => {
         </div>
         
         <div className="text-center py-8">
-          <AlertTriangle className="w-12 h-12 text-[#86b646] mx-auto mb-3" />
-          <p className="text-gray-600">{error}</p>
-          <p className="text-sm text-gray-500 mt-1">
+          <AlertTriangle className="w-12 h-12 text-[#F7941F] mx-auto mb-3" />
+          <p className="text-[#004417] font-medium">{error}</p>
+          <p className="text-sm text-[#004417]/65 font-medium mt-1">
             Verifique sua conexão e tente novamente
           </p>
           <button 
             onClick={loadWeatherData}
-            className="mt-3 px-4 py-2 bg-[#092f20] text-white rounded-lg hover:bg-[#397738] transition-colors text-sm"
+            className="mt-3 px-4 py-2 bg-[#004417] text-white rounded-lg hover:bg-[#00A651] transition-colors text-sm font-medium"
           >
             Tentar Novamente
           </button>
@@ -151,18 +151,18 @@ const loadWeatherData = async () => {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+    <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
-          <h3 className="text-lg font-semibold text-[#092f20]">Clima e Alertas</h3>
-          <div className="flex items-center space-x-1 text-sm text-gray-500">
+          <h3 className="text-lg font-bold text-[#004417]">Clima e Alertas</h3>
+          <div className="flex items-center space-x-1 text-sm text-[#004417]/65 font-medium">
             <MapPin className="w-4 h-4" />
             <span>{weather.cityName}</span>
           </div>
         </div>
         <button 
           onClick={loadWeatherData}
-          className="p-1 text-[#397738] hover:bg-[#397738]/10 rounded-lg transition-colors"
+          className="p-1 text-[#00A651] hover:bg-[#00A651]/10 rounded-lg transition-colors"
           title="Atualizar dados"
         >
           <RefreshCw className="w-5 h-5" />
@@ -170,18 +170,18 @@ const loadWeatherData = async () => {
       </div>
 
       {/* Clima Atual */}
-      <div className="bg-[#86b646]/10 p-4 rounded-lg mb-4">
+      <div className="bg-[#00A651]/10 p-4 rounded-xl mb-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-3">
             {getWeatherIconComponent(weather.icon)}
             <div>
-              <p className="text-2xl font-bold text-[#092f20]">
+              <p className="text-2xl font-bold text-[#004417]">
                 {WeatherService.formatTemperature(weather.temperature)}
               </p>
-              <p className="text-sm text-[#397738] capitalize">{weather.description}</p>
+              <p className="text-sm text-[#00A651] font-semibold capitalize">{weather.description}</p>
             </div>
           </div>
-          <div className="text-right text-sm text-gray-600">
+          <div className="text-right text-sm text-[#004417]/65 font-medium">
             <p>Sensação: {WeatherService.formatTemperature(weather.feelsLike)}</p>
             <p>Umidade: {weather.humidity}%</p>
           </div>

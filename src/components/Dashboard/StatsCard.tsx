@@ -14,73 +14,48 @@ const StatsCard = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const colorClasses = {
-    green: {
-      bg: 'bg-[#397738]/10',
-      icon: 'text-[#397738]',
-      iconBg: 'bg-[#397738]'
-    },
-    orange: {
-      bg: 'bg-orange-50',
-      icon: 'text-orange-600',
-      iconBg: 'bg-orange-600'
-    },
-    red: {
-      bg: 'bg-red-50',
-      icon: 'text-red-600',
-      iconBg: 'bg-red-600'
-    },
-    blue: {
-      bg: 'bg-blue-50',
-      icon: 'text-blue-600',
-      iconBg: 'bg-blue-600'
-    }
-  };
-
   const changeTypeClasses = {
-    positive: 'text-[#397738] bg-[#397738]/10',
-    negative: 'text-red-600 bg-red-50',
-    neutral: 'text-gray-600 bg-gray-100'
+    positive: 'text-[#00A651] bg-[#00A651]/10',
+    negative: 'text-[#F7941F] bg-[#F7941F]/10',
+    neutral: 'text-[#004417]/65 bg-gray-100'
   };
-
-  const currentColor = colorClasses.green;
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 relative">
-        <div className={`absolute top-4 right-4 w-10 h-10 ${currentColor.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-          <Icon className="w-5 h-5 text-white" />
+      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] p-5 relative transition-transform duration-200 hover:scale-[1.01]">
+        <div className="absolute top-5 right-5 w-10 h-10 bg-[#00A651]/20 rounded-lg flex items-center justify-center flex-shrink-0">
+          <Icon className="w-5 h-5 text-[#00A651]" />
         </div>
         
         {modalContent && (
           <button
             onClick={() => setIsModalOpen(true)}
-            className="absolute top-4 right-16 p-1 hover:bg-gray-100 rounded-full transition-colors group z-10"
+            className="absolute top-5 right-[72px] p-1 hover:bg-gray-100 rounded-full transition-colors group z-10"
             aria-label="Mais informações"
           >
             <Info 
               size={14} 
-              className="text-gray-400 group-hover:text-gray-600 transition-colors" 
+              className="text-gray-400 group-hover:text-[#00A651] transition-colors" 
             />
           </button>
         )}
         
         <div className="pr-16">
           <div className="flex items-center space-x-2 mb-1">
-            <h3 className="text-sm font-medium text-gray-900 leading-tight flex-1">
+            <h3 className="text-sm font-semibold text-[#004417] leading-tight flex-1">
               {title}
             </h3>
           </div>
           
           {subtitle && (
-            <div className="text-xs text-gray-600 mb-3 leading-tight">
+            <div className="text-xs text-[#004417]/65 mb-3 leading-tight">
               {subtitle}
             </div>
           )}
           
           <div className="mb-2">
             {typeof value === 'string' ? (
-              <span className="text-sm md:text-base font-semibold text-gray-900 leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
+              <span className="text-base md:text-lg font-bold text-[#004417] leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
                 {value}
               </span>
             ) : (
@@ -89,7 +64,7 @@ const StatsCard = ({
           </div>
           
           {change && (
-            <div className={`text-xs px-2 py-1 rounded-md inline-block ${changeTypeClasses[changeType] || changeTypeClasses.neutral} leading-tight`}>
+            <div className={`text-xs px-2 py-1 rounded-md inline-block ${changeTypeClasses[changeType] || changeTypeClasses.neutral} leading-tight font-medium`}>
               {change}
             </div>
           )}

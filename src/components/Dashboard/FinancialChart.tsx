@@ -30,10 +30,10 @@ export default function FinancialChart({ data }: FinancialChartProps) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-medium text-[#092f20] mb-2">{label}</p>
+        <div className="bg-white p-3 border border-[rgba(0,68,23,0.08)] rounded-lg shadow-[0_4px_10px_rgba(0,0,0,0.05)]">
+          <p className="font-semibold text-[#004417] mb-2">{label}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={index} style={{ color: entry.color }} className="text-sm">
+            <p key={index} style={{ color: entry.color }} className="text-sm font-medium">
               {entry.name}: {FinanceService.formatCurrency(entry.value)}
             </p>
           ))}
@@ -44,45 +44,51 @@ export default function FinancialChart({ data }: FinancialChartProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] p-6 transition-transform duration-200 hover:scale-[1.01]">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-[#092f20]">Evolução Financeira</h3>
-        <div className="text-sm text-gray-600">Últimos 6 meses</div>
+        <h3 className="text-lg font-bold text-[#004417]">Evolução Financeira</h3>
+        <div className="text-sm text-[#004417]/65 font-medium">Últimos 6 meses</div>
       </div>
 
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,68,23,0.08)" vertical={false} />
             <XAxis 
               dataKey="mes" 
-              stroke="#666"
+              stroke="rgba(0,68,23,0.6)"
               fontSize={12}
+              fontWeight={500}
+              tickLine={false}
+              axisLine={false}
             />
             <YAxis 
-              stroke="#666"
+              stroke="rgba(0,68,23,0.6)"
               fontSize={12}
+              fontWeight={500}
+              tickLine={false}
+              axisLine={false}
               tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Legend />
+            <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 600 }} />
             <Line 
               type="monotone" 
               dataKey="receitas" 
-              stroke="#397738" 
-              strokeWidth={3}
+              stroke="#00A651" 
+              strokeWidth={2.5}
               name="Receitas"
-              dot={{ fill: '#397738', strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 6, stroke: '#397738', strokeWidth: 2 }}
+              dot={{ fill: '#CADB2A', strokeWidth: 0, r: 3 }}
+              activeDot={{ r: 5, fill: '#00A651', stroke: 'white', strokeWidth: 2 }}
             />
             <Line 
               type="monotone" 
               dataKey="despesas" 
-              stroke="#dc2626" 
-              strokeWidth={3}
+              stroke="#F7941F" 
+              strokeWidth={2.5}
               name="Despesas"
-              dot={{ fill: '#dc2626', strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 6, stroke: '#dc2626', strokeWidth: 2 }}
+              dot={{ fill: '#F7941F', strokeWidth: 0, r: 3 }}
+              activeDot={{ r: 5, stroke: 'white', strokeWidth: 2 }}
             />
           </LineChart>
         </ResponsiveContainer>

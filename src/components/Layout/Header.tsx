@@ -45,9 +45,9 @@ export default function Header({ onMenuClick, sidebarOpen, user, onLogout }: Hea
   const displayName = userData?.nome || user?.nome || 'Usuário';
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 px-4 md:px-6 py-3 md:py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3 md:space-x-4">
+    <header className="bg-white shadow-sm border-b-2 border-[rgba(0,68,23,0.12)] px-6 h-[72px] flex items-center">
+      <div className="flex items-center justify-between w-full">
+        <div className="flex items-center space-x-4">
           {/* Mobile menu button */}
           <button
             onClick={onMenuClick}
@@ -57,14 +57,14 @@ export default function Header({ onMenuClick, sidebarOpen, user, onLogout }: Hea
           </button>
           
           <div>
-            <h1 className="text-lg md:text-2xl font-bold text-[#092f20]">
+            <h1 className="text-lg md:text-2xl font-bold text-[#004417]">
               Bom dia, {displayName}!
             </h1>
-            <p className="text-xs md:text-sm text-gray-600">Safra 2025/26</p>
+            <p className="text-xs md:text-sm text-[#004417]/65">Safra 2025/26</p>
           </div>
         </div>
         
-        <div className="flex items-center space-x-2 md:space-x-4">
+        <div className="flex items-center space-x-4">
           {isDevelopment && (
             <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
               <Code className="w-4 h-4 text-amber-600" />
@@ -72,28 +72,20 @@ export default function Header({ onMenuClick, sidebarOpen, user, onLogout }: Hea
             </div>
           )}
 
-          <div className="hidden sm:flex items-center space-x-2 text-[#397738]">
+          {/* WhatsApp conectado */}
+          <div className="flex items-center space-x-2 text-[#00A651]">
             <Wifi className="w-4 h-4" />
-            <span className="text-xs md:text-sm font-medium">WhatsApp conectado</span>
+            <span className="text-sm font-medium">WhatsApp conectado</span>
           </div>
 
+          {/* Logo Zé (oculto em mobile ≤1024px) */}
+          <div className="hidden lg:block px-2 py-1 shadow-[0_4px_10px_rgba(0,0,0,0.05)] rounded-lg">
+            <span className="text-sm font-bold text-[#004417]">Zé — a IA da Solos.ag</span>
+          </div>
 
-
-          <div className="flex items-center space-x-1 md:space-x-3 pl-2 md:pl-4 border-l border-gray-200">
-            <div className="w-6 h-6 md:w-8 md:h-8 bg-gradient-to-br from-[#092f20] to-[#397738] rounded-full flex items-center justify-center">
-              <User className="w-4 h-4 text-white" />
-            </div>
-            <div className="text-right hidden sm:block">
-              <p className="text-xs md:text-sm font-medium text-[#092f20]">{displayName}</p>
-              <p className="text-xs text-gray-500">Produtor(a) Rural</p>
-            </div>
-            <button
-              onClick={onLogout}
-              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Sair"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+          {/* Avatar */}
+          <div className="w-9 h-9 bg-[#004417] rounded-full flex items-center justify-center">
+            <User className="w-5 h-5 text-white" />
           </div>
         </div>
       </div>

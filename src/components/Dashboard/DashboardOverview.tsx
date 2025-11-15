@@ -379,26 +379,26 @@ export default function DashboardOverview() {
       </div>
     
       <div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
-          <h3 className="text-lg font-semibold text-[#092f20] mb-4">
+        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] p-4 md:p-6">
+          <h3 className="text-lg font-bold text-[#004417] mb-4">
             Resumo Financeiro do Mês {isDataLoaded ? '' : '(Carregando...)'}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-[#397738]/10 p-3 rounded-lg">
+            <div className="bg-[#00A651]/10 p-4 rounded-xl">
               <div className="flex items-center space-x-2 mb-3">
-                <TrendingUp className="w-4 h-4 text-[#397738] flex-shrink-0" />
-                <span className="text-xs font-medium text-[#092f20]">Receitas</span>
+                <TrendingUp className="w-4 h-4 text-[#00A651] flex-shrink-0" />
+                <span className="text-xs font-semibold text-[#004417]">Receitas</span>
               </div>
-              <p className="text-lg font-bold text-[#092f20] leading-tight break-words">
+              <p className="text-lg font-bold text-[#004417] leading-tight break-words">
                 {FinanceService.formatCurrency(resumoMensalFinanceiro.totalReceitas)}
               </p>
             </div>
-            <div className="bg-red-50 p-3 rounded-lg">
+            <div className="bg-[#F7941F]/10 p-4 rounded-xl">
               <div className="flex items-center space-x-2 mb-3">
-                <TrendingDown className="w-4 h-4 text-red-600 flex-shrink-0" />
-                <span className="text-xs font-medium text-red-900">Despesas</span>
+                <TrendingDown className="w-4 h-4 text-[#F7941F] flex-shrink-0" />
+                <span className="text-xs font-semibold text-[#004417]">Despesas</span>
               </div>
-              <p className="text-lg font-bold text-red-800 leading-tight break-words">
+              <p className="text-lg font-bold text-[#004417] leading-tight break-words">
                 {FinanceService.formatCurrency(resumoMensalFinanceiro.totalDespesas)}
               </p>
              

@@ -93,15 +93,15 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] p-4 md:p-6">
         <div className="grid grid-cols-3 items-center mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Transações Futuras</h3>
+            <h3 className="text-lg font-bold text-[#004417]">Transações Futuras</h3>
           </div>
           <div></div>
-          <div className="flex items-center justify-end space-x-2 text-gray-600">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm text-right">Próximas {plannedTransactions.length} transações</span>
+          <div className="flex items-center justify-end space-x-2 text-[#004417]/65">
+            <Clock className="w-4 h-4 text-[#F7941F]" />
+            <span className="text-sm text-right font-medium">Próximas {plannedTransactions.length} transações</span>
           </div>
         </div>
         
@@ -119,28 +119,28 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
               return (
                 <div
                   key={transaction.id_transacao}
-                  className={`relative p-4 rounded-lg border-2 hover:shadow-sm transition-shadow ${
+                  className={`relative p-4 rounded-xl border transition-all duration-200 hover:scale-[1.01] ${
                     isIncome 
-                      ? 'bg-green-50 border-green-200' 
-                      : 'bg-red-50 border-red-200'
+                      ? 'bg-[#00A651]/5 border-[#00A651]/20' 
+                      : 'bg-[#F7941F]/5 border-[#F7941F]/20'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-3 pr-8">
                       {isIncome ? (
-                        <TrendingUp className="w-5 h-5 text-green-600" />
+                        <TrendingUp className="w-5 h-5 text-[#00A651]" />
                       ) : (
-                        <TrendingDown className="w-5 h-5 text-red-600" />
+                        <TrendingDown className="w-5 h-5 text-[#F7941F]" />
                       )}
                       <div>
-                        <h4 className="font-medium text-gray-900">{transaction.descricao}</h4>
+                        <h4 className="font-semibold text-[#004417]">{transaction.descricao}</h4>
                         {transaction.pagador_recebedor && (
-                          <p className="text-sm text-gray-600">{transaction.pagador_recebedor}</p>
+                          <p className="text-sm text-[#004417]/65 font-medium">{transaction.pagador_recebedor}</p>
                         )}
                       </div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      isIncome ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      isIncome ? 'bg-[#00A651]/20 text-[#00A651]' : 'bg-[#F7941F]/20 text-[#F7941F]'
                     }`}>
                       {isIncome ? 'Entrada' : 'Saída'}
                     </span>
@@ -148,31 +148,31 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
                   
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <span className="text-gray-600">Valor:</span>
-                      <p className={`font-medium ${
-                        isIncome ? 'text-green-600' : 'text-red-600'
+                      <span className="text-[#004417]/65 font-medium">Valor:</span>
+                      <p className={`font-bold ${
+                        isIncome ? 'text-[#00A651]' : 'text-[#F7941F]'
                       }`}>
                         {FinanceService.formatCurrency(Math.abs(Number(transaction.valor)))}
                       </p>
                     </div>
                     <div>
-                      <span className="text-gray-600">Categoria:</span>
-                      <p className="font-medium text-gray-900">{transaction.categoria || 'Sem categoria'}</p>
+                      <span className="text-[#004417]/65 font-medium">Categoria:</span>
+                      <p className="font-semibold text-[#004417]">{transaction.categoria || 'Sem categoria'}</p>
                     </div>
                     <div>
-                      <span className="text-gray-600">Data de pagamento:</span>
-                      <p className="font-medium text-gray-900">
+                      <span className="text-[#004417]/65 font-medium">Data de pagamento:</span>
+                      <p className="font-semibold text-[#004417]">
                         {FinanceService.formatDataPagamento(transaction.data_agendamento_pagamento || '')}
                       </p>
                     </div>
                     <div>
-                      <span className="text-gray-600">Forma de pagamento:</span>
-                      <p className="font-medium text-gray-900">{transaction.forma_pagamento_recebimento || 'Não informado'}</p>
+                      <span className="text-[#004417]/65 font-medium">Forma de pagamento:</span>
+                      <p className="font-semibold text-[#004417]">{transaction.forma_pagamento_recebimento || 'Não informado'}</p>
                     </div>
                     {/* Campo Parcela - só aparece se tiver valor */}
                     {transaction.parcela && (
                       <div>
-                        <p className="font-medium text-gray-900"><span className="text-gray-600">Parcela: </span>{transaction.parcela}</p>
+                        <p className="font-semibold text-[#004417]"><span className="text-[#004417]/65 font-medium">Parcela: </span>{transaction.parcela}</p>
                       </div>
                     )}
                   </div>
@@ -181,7 +181,7 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
                   <div className="flex justify-between items-center mt-3">
                     {/* Informação de lançamento */}
                     {transaction.data_registro && (
-                      <div className="text-xs text-gray-500 flex-shrink-0">
+                      <div className="text-xs text-[#004417]/65 font-medium flex-shrink-0">
                         Lançado em {new Date(transaction.data_registro).toLocaleDateString('pt-BR')}
                       </div>
                     )}
@@ -193,7 +193,7 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
                         transaction.id_transacao || '',
                         transaction.descricao || 'Transação'
                       )}
-                      className="p-2 text-gray-500 hover:text-[#397738] hover:bg-white rounded-lg transition-colors shadow-sm border border-gray-200 flex-shrink-0"
+                      className="p-2 text-[#004417]/65 hover:text-[#00A651] hover:bg-white rounded-lg transition-colors border border-[rgba(0,68,23,0.08)] flex-shrink-0"
                       title="Gerenciar anexo"
                     >
                       <Paperclip className="w-4 h-4" />

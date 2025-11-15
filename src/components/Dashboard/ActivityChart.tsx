@@ -43,9 +43,9 @@ export default function ActivityChart({ activities }: ActivityChartProps) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-medium text-[#092f20]">{label}</p>
-          <p className="text-sm text-[#397738]">
+        <div className="bg-white p-3 border border-[rgba(0,68,23,0.08)] rounded-lg shadow-[0_4px_10px_rgba(0,0,0,0.05)]">
+          <p className="font-semibold text-[#004417]">{label}</p>
+          <p className="text-sm text-[#00A651] font-medium">
             {payload[0].value} {payload[0].value === 1 ? 'atividade' : 'atividades'}
           </p>
         </div>
@@ -55,35 +55,41 @@ export default function ActivityChart({ activities }: ActivityChartProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-[#092f20]">Cronograma de Atividades</h3>
-        <div className="text-sm text-gray-600">Últimos 30 dias</div>
+        <h3 className="text-lg font-bold text-[#004417]">Cronograma de Atividades</h3>
+        <div className="text-sm text-[#004417]/65 font-medium">Últimos 30 dias</div>
       </div>
 
       {sortedData.length > 0 ? (
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={sortedData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,68,23,0.08)" vertical={false} />
               <XAxis 
                 dataKey="data" 
-                stroke="#666"
+                stroke="rgba(0,68,23,0.6)"
                 fontSize={12}
+                fontWeight={500}
                 angle={-45}
                 textAnchor="end"
                 height={60}
+                tickLine={false}
+                axisLine={false}
               />
               <YAxis 
-                stroke="#666"
+                stroke="rgba(0,68,23,0.6)"
                 fontSize={12}
+                fontWeight={500}
                 allowDecimals={false}
+                tickLine={false}
+                axisLine={false}
               />
               <Tooltip content={<CustomTooltip />} />
               <Bar 
                 dataKey="quantidade" 
-                fill="#397738"
-                radius={[4, 4, 0, 0]}
+                fill="#00A651"
+                radius={[8, 8, 0, 0]}
               />
             </BarChart>
           </ResponsiveContainer>

@@ -31,10 +31,10 @@ export default function ActivityList({ activities }: ActivityListProps) {
   // No need to re-sort on frontend
   const sortedActivities = activities;
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-[#092f20]">Atividades Agrícolas</h3>
-        <div className="text-sm text-gray-600">Últimas {activities.length} atividades</div>
+        <h3 className="text-lg font-bold text-[#004417]">Atividades Agrícolas</h3>
+        <div className="text-sm text-[#004417]/65 font-medium">Últimas {activities.length} atividades</div>
       </div>
 
       <div className="space-y-4">
