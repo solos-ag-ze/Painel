@@ -664,35 +664,37 @@ export default function HistoryMovementsModal({ isOpen, product, onClose, onProd
                       </div>
 
                       {m.tipo === 'entrada' && (
-                        <button
-                          onClick={() => openAttachmentModal(
-                            m.produto_id.toString(),
-                            m.nome_produto || 'Produto'
-                          )}
-                          className="absolute bottom-4 right-4 text-[#004417] hover:text-[#00A651] transition-colors p-1.5 rounded-lg hover:bg-[rgba(0,166,81,0.08)]"
-                          title="Gerenciar Anexos"
-                        >
-                          <Paperclip className="w-[18px] h-[18px]" />
-                        </button>
+                        <div className="md:absolute md:bottom-4 md:right-4 mt-3 md:mt-0 flex justify-end">
+                          <button
+                            onClick={() => openAttachmentModal(
+                              m.produto_id.toString(),
+                              m.nome_produto || 'Produto'
+                            )}
+                            className="text-[#004417] hover:text-[#00A651] transition-colors p-1.5 rounded-lg hover:bg-[rgba(0,166,81,0.08)]"
+                            title="Gerenciar Anexos"
+                          >
+                            <Paperclip className="w-[18px] h-[18px]" />
+                          </button>
+                        </div>
                       )}
-                                          {m._source === 'lancamento' && m.atividade_id && (
-                                            <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                                              <button
-                                                onClick={() => setActivityAttachmentModal({ isOpen: true, activityId: String(m.atividade_id), activityDescription: m.nome_atividade || 'Atividade' })}
-                                                className="p-2 text-[#004417] hover:text-[#00A651] hover:bg-[rgba(0,166,81,0.08)] rounded-lg transition-colors"
-                                                title="Gerenciar anexo da atividade"
-                                              >
-                                                <Paperclip className="w-4 h-4" />
-                                              </button>
-                                              <button
-                                                onClick={() => setActivityDetailModal({ isOpen: true, activityId: String(m.atividade_id) })}
-                                                className="p-2 text-[#004417] hover:text-[#00A651] hover:bg-[rgba(0,166,81,0.08)] rounded-lg transition-colors"
-                                                title="Abrir atividade"
-                                              >
-                                                <Plus className="w-4 h-4" />
-                                              </button>
-                                            </div>
-                                          )}
+                      {m._source === 'lancamento' && m.atividade_id && (
+                        <div className="md:absolute md:bottom-4 md:right-4 mt-3 md:mt-0 flex items-center gap-2 justify-end">
+                          <button
+                            onClick={() => setActivityAttachmentModal({ isOpen: true, activityId: String(m.atividade_id), activityDescription: m.nome_atividade || 'Atividade' })}
+                            className="p-2 text-[#004417] hover:text-[#00A651] hover:bg-[rgba(0,166,81,0.08)] rounded-lg transition-colors"
+                            title="Gerenciar anexo da atividade"
+                          >
+                            <Paperclip className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setActivityDetailModal({ isOpen: true, activityId: String(m.atividade_id) })}
+                            className="p-2 text-[#004417] hover:text-[#00A651] hover:bg-[rgba(0,166,81,0.08)] rounded-lg transition-colors"
+                            title="Abrir atividade"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -201,7 +201,7 @@ export default function AttachmentProductModal({
   };
 
   const getFileIconColor = (fileType: 'image' | 'pdf') => {
-    if (fileType === 'pdf') return 'text-red-600';
+    if (fileType === 'pdf') return 'text-orange-600';
     return 'text-gray-600';
   };
 

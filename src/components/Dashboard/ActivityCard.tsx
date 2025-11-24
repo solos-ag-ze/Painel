@@ -48,62 +48,65 @@ export default function ActivityCard({ atividade, talhaoLabel }: Props) {
   };
 
   return (
-    <div className={`p-4 rounded-lg bg-white shadow-[0_1px_4px_rgba(0,68,23,0.04)] transition-shadow`}> 
+    <div className={`relative p-4 rounded-xl bg-white transition-all duration-200 hover:scale-[1.01]`}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center space-x-3">
           {getIconByType(atividade.nome_atividade || '')}
           <div>
-            <h4 className="font-medium text-[#004417]">{atividadeDisplay.descricao}</h4>
-            <p className="text-sm text-[#004417]/70">{atividade.dataFormatada || atividade.data || atividade.data_atividade}</p>
+              <h4 className="font-semibold text-[#004417]">{atividadeDisplay.descricao}</h4>
+              <p className="text-sm text-[#004417]/65 font-medium">{atividade.dataFormatada || atividade.data || atividade.data_atividade}</p>
           </div>
         </div>
         <span className="text-xs bg-[rgba(0,166,81,0.08)] text-[#00A651] px-2 py-1 rounded-md">{atividadeDisplay.talhao}</span>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
         <div>
-          <span className="text-[#004417]/70">Produtos:</span>
+          <span className="text-[#004417]/65 font-medium">Produtos:</span>
           <ul className="mt-1 space-y-1">
             {atividade.produtos && atividade.produtos.length > 0 ? (
-              atividade.produtos.map((p: any, idx: number) => (
+                atividade.produtos.map((p: any, idx: number) => ( 
                 <li key={idx} className="flex justify-between">
-                  <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
-                  <span className="text-[#004417]/70 text-right">{p.quantidade_val ?? '-'} {p.quantidade_un ?? ''}{p.dose_val ? ` · ${p.dose_val} ${p.dose_un ?? ''}` : ''}</span>
+                  <span className="font-semibold text-[#004417]">{p.nome_produto}</span>
+                    <span className="text-[#004417]/65 text-right font-medium">{p.quantidade_val ?? '-'} {p.quantidade_un ?? ''}{p.dose_val ? ` · ${p.dose_val} ${p.dose_un ?? ''}` : ''}</span>
                 </li>
               ))
-            ) : (
-              <li className="text-[#004417]/70">Não informado</li>
+                ) : (
+                <li className="text-[#004417]/65 font-medium">Não informado</li>
             )}
           </ul>
         </div>
         <div>
-          <span className="text-[#004417]/70">Máquinas:</span>
+          <span className="text-[#004417]/65 font-medium">Máquinas:</span>
           <ul className="mt-1 space-y-1">
             {atividade.maquinas && atividade.maquinas.length > 0 ? (
-              atividade.maquinas.map((m: any, idx: number) => (
+                atividade.maquinas.map((m: any, idx: number) => ( 
                 <li key={idx} className="flex justify-between">
-                  <span className="font-medium text-[#092f20]">{m.nome_maquina}</span>
-                  <span className="text-[#004417]/70">{m.horas_maquina ?? '-'} h</span>
+                  <span className="font-semibold text-[#004417]">{m.nome_maquina}</span>
+                    <span className="text-[#004417]/65 font-medium">{m.horas_maquina ?? '-'} h</span>
                 </li>
               ))
             ) : (
-                <li className="text-[#004417]/70">Não informado</li>
+               <li className="text-[#004417]/65 font-medium">Não informado</li>
             )}
-
-            <div className="mt-2">
-              <span className="text-[#004417]/70">Responsável:</span>
-              <p className="mt-1 text-sm text-[#004417]">{atividade.responsaveis && atividade.responsaveis.length > 0 ? atividade.responsaveis.map((r: any) => r.nome).join(', ') : 'Não informado'}</p>
-            </div>
           </ul>
+        </div>
+        <div />
+        <div>
+          <span className="text-[#004417]/65 font-medium">Responsável:</span>
+          {atividade.responsaveis && atividade.responsaveis.length > 0 ? (
+            <p className="mt-1 text-sm font-semibold text-[#004417]">{atividade.responsaveis.map((r: any) => r.nome).join(', ')}</p>
+          ) : (
+            <p className="mt-1 text-[#004417]/65 font-medium">Não informado</p>
+          )}
         </div>
       </div>
 
       {atividadeDisplay.observacoes && (
-        <div className="mt-3 pt-3 border-t border-gray-200">
+        <div className="mt-3 pt-3">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <span className="text-[#004417]/70 text-sm">Observações:</span>
-              <p className="text-sm text-[#004417] mt-1">{atividadeDisplay.observacoes}</p>
+              <span className="text-[#004417]/65 font-medium">Observações:</span>
+                <p className="text-sm text-[#004417] mt-1">{atividadeDisplay.observacoes}</p>
             </div>
             <button onClick={() => openAttachmentModal(atividade.id_atividade || atividade.atividade_id, atividade.nome_atividade || 'Atividade')} className="p-2 text-[#004417]/65 hover:text-[#00A651] hover:bg-white rounded-lg transition-colors shadow-sm border-0 flex-shrink-0 ml-2" title="Gerenciar anexo">
               <Paperclip className="w-4 h-4" />
@@ -113,7 +116,7 @@ export default function ActivityCard({ atividade, talhaoLabel }: Props) {
       )}
 
       {!atividadeDisplay.observacoes && (
-        <div className="mt-3 pt-3 border-t border-[rgba(0,68,23,0.06)]">
+        <div className="mt-3 pt-3">
           <div className="flex items-center justify-end">
             <button onClick={() => openAttachmentModal(atividade.id_atividade || atividade.atividade_id, atividade.nome_atividade || 'Atividade')} className="p-2 text-[#004417]/65 hover:text-[#00A651] hover:bg-white rounded-lg transition-colors shadow-sm border-0" title="Gerenciar anexo">
               <Paperclip className="w-4 h-4" />

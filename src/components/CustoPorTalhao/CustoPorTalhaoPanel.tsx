@@ -7,7 +7,6 @@ import {
   ChevronRight,
   X,
   Info,
-  Paperclip,
   ExternalLink
 } from 'lucide-react';
 import { AuthService } from '../../services/authService';
@@ -57,6 +56,7 @@ import { AuthService } from '../../services/authService';
       macrogrupo: 'Todos',
       mesAno: ''
     });
+    const [filtroTalhao, setFiltroTalhao] = useState('todos');
 
     const [custosPorTalhao, setCustosPorTalhao] = useState<CustoTalhao[]>([]);
     const [talhaoSelecionado, setTalhaoSelecionado] = useState<CustoTalhao | null>(null);
@@ -162,6 +162,11 @@ import { AuthService } from '../../services/authService';
       }, 500);
     };
 
+    // Carrega dados iniciais ao montar para popular lista de talhões
+    useEffect(() => {
+      handleFiltrar();
+    }, []);
+
     const handleClickTalhao = (talhao: CustoTalhao) => {
       setTalhaoSelecionado(talhao);
       setDetalhesCusto(detalhesCustoMock);
@@ -186,111 +191,39 @@ import { AuthService } from '../../services/authService';
         <div>
           <h1 className="text-2xl font-bold text-[#004417] flex items-center gap-3">
             <BarChart3 className="w-8 h-8" />
-            Custo por Talhão (Competência por Área)
+            Custo por Talhão
           </h1>
-          <p className="text-[#1d3a2d] mt-1">Custos agrícolas consolidados por área e macrogrupo</p>
+          <p className="text-[#1d3a2d] mt-1">Resumo dos custos por área</p>
         </div>
 
-        {/* Filtros */}
-        <div className="bg-white rounded-xl shadow-sm p-6" style={{ border: '1px solid rgba(0,0,0,0.06)' }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-[#004417] mb-2">
-                Safra
-              </label>
-              <select
-                value={filtros.safra}
-                onChange={(e) => setFiltros({ ...filtros, safra: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-white text-[#1d3a2d] appearance-none focus:ring-2 focus:ring-[#00A651] focus:border-transparent pr-3"
-                style={{ border: '1px solid rgba(0,0,0,0.06)' }}
-              >
-                <option value="2024/2025">2024/2025</option>
-                <option value="2023/2024">2023/2024</option>
-                <option value="2022/2023">2022/2023</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-[#004417] mb-2">
-                Fazenda
-              </label>
-              <select
-                value={filtros.fazenda}
-                onChange={(e) => setFiltros({ ...filtros, fazenda: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-white text-[#1d3a2d] appearance-none focus:ring-2 focus:ring-[#00A651] focus:border-transparent pr-3"
-                style={{ border: '1px solid rgba(0,0,0,0.06)' }}
-              >
-                <option value="">Todas as fazendas</option>
-                <option value="fazenda1">Fazenda Santa Maria</option>
-                <option value="fazenda2">Fazenda Boa Vista</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-[#004417] mb-2">
-                Talhão
-              </label>
-              <select
-                multiple
-                value={filtros.talhoes}
-                onChange={(e) => {
-                  const values = Array.from(e.target.selectedOptions, option => option.value);
-                  setFiltros({ ...filtros, talhoes: values });
-                }}
-                className="w-full px-3 py-2 rounded-lg bg-white text-[#1d3a2d] appearance-none focus:ring-2 focus:ring-[#00A651] focus:border-transparent pr-3"
-                style={{ border: '1px solid rgba(0,0,0,0.06)' }}
-              >
-                <option value="talhao1">Talhão 1A</option>
-                <option value="talhao2">Talhão 2B</option>
-                <option value="talhao3">Talhão 3C</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-[#004417] mb-2">
-                Macrogrupo
-              </label>
-              <select
-                value={filtros.macrogrupo}
-                onChange={(e) => setFiltros({ ...filtros, macrogrupo: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-white text-[#1d3a2d] appearance-none focus:ring-2 focus:ring-[#00A651] focus:border-transparent pr-3"
-                style={{ border: '1px solid rgba(0,0,0,0.06)' }}
-              >
-                <option value="Todos">Todos</option>
-                <option value="Insumos">Insumos</option>
-                <option value="Operacional">Operacional</option>
-                <option value="Serviços/Logística">Serviços/Logística</option>
-                <option value="Administrativos">Administrativos</option>
-                <option value="Outros">Outros</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-[#004417] mb-2">
-                Período (mês/ano)
-              </label>
-              <input
-                type="month"
-                value={filtros.mesAno}
-                onChange={(e) => setFiltros({ ...filtros, mesAno: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-white text-[#1d3a2d] appearance-none focus:ring-2 focus:ring-[#00A651] focus:border-transparent pr-3"
-                style={{ border: '1px solid rgba(0,0,0,0.06)' }}
-              />
+        {/* Filtro por Talhões (igual ao Manejo Agrícola) */}
+        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-[#004417]">Filtrar por Talhão</h3>
+            <div className="text-[13px] text-[rgba(0,68,23,0.75)] font-medium">
+              {custosPorTalhao.length} {custosPorTalhao.length === 1 ? 'talhão encontrado' : 'talhões encontrados'}
             </div>
           </div>
 
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={handleFiltrar}
-              className="px-6 py-2.5 bg-[#00A651] text-white font-semibold rounded-lg hover:bg-[#004417] transition-colors duration-200"
-            >
-              Filtrar resultados
-            </button>
+          <div className="flex items-center flex-row flex-nowrap gap-2 overflow-x-auto pb-2 snap-x snap-mandatory">
+            {['todos', ...custosPorTalhao.map(c => c.talhao)].map((opcao) => (
+              <button
+                key={opcao}
+                onClick={() => setFiltroTalhao(opcao)}
+                className={`px-4 py-2 rounded-[10px] text-sm font-semibold transition-all duration-200 whitespace-nowrap snap-start flex-shrink-0 ${
+                  filtroTalhao === opcao
+                    ? 'bg-[rgba(0,166,81,0.10)] border border-[#00A651] text-[#004417] font-semibold'
+                    : 'bg-white border border-[rgba(0,68,23,0.10)] text-[#004417] hover:bg-[rgba(0,68,23,0.03)] hover:border-[rgba(0,68,23,0.12)]'
+                }`}
+              >
+                {opcao === 'todos' ? 'Sem Filtro' : opcao}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Cards de Indicadores */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-5">
           {/* Total de Custos */}
           <div className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-5 transition-transform duration-200 hover:scale-101">
             <div className="flex items-start justify-between">
@@ -320,70 +253,30 @@ import { AuthService } from '../../services/authService';
               </p>
             </div>
           </div>
-
-          {/* % por Macrogrupo */}
-          <div className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-5 transition-transform duration-200 hover:scale-101">
-            <div className="flex items-start justify-between">
-              <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-[#004417]" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <p className="text-sm text-[#1d3a2d] font-medium">% por Macrogrupo</p>
-              <div className="mt-2 space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#1d3a2d]">Insumos</span>
-                  <span className="font-semibold text-[#004417]">58%</span>
-                </div>
-                <div className="w-full rounded-full h-1.5" style={{ backgroundColor: 'rgba(0,0,0,0.04)' }}>
-                  <div className="bg-[#00A651] h-1.5 rounded-full" style={{ width: '58%' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Pendências */}
-          <div 
-            className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-5 transition-transform duration-200 hover:scale-101 cursor-pointer"
-            onClick={() => setModalPendenciasAberto(true)}
-          >
-            <div className="flex items-start justify-between">
-              <div className="w-12 h-12 rounded-lg bg-[#F7941F]/20 flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-[#F7941F]" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <p className="text-sm text-[#1d3a2d] font-medium">Pendências</p>
-              <p className="text-2xl font-bold text-[#004417] mt-1 flex items-center gap-2">
-                {totalPendencias}
-                <span className="text-xs text-[#1d3a2d]/70 font-normal">Ver detalhes →</span>
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Tabela Principal - Desktop (≥1024px) */}
         <div className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-6 hidden lg:block">
           <h3 className="text-lg font-bold text-[#004417] mb-4">Custo por Talhão</h3>
         
-          <div className="overflow-hidden rounded-t-xl">
-            <table className="w-full">
+          <div className="overflow-x-auto bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] overflow-hidden">
+            <table className="min-w-full">
               <thead>
-                <tr className="h-14 align-middle" style={{ backgroundColor: '#004417' }}>
-                  <th className="text-left p-3 text-sm font-bold text-white">Talhão</th>
+                <tr className="bg-[rgba(0,166,81,0.06)] rounded-t-2xl">
+                  <th className="px-6 py-4 text-left text-[14px] font-bold text-[#004417]">Talhão</th>
                   {macrogrupos.map(grupo => (
-                    <th key={grupo.key} className="text-right p-3 text-sm font-bold text-white relative group">
+                    <th key={grupo.key} className="px-6 py-4 text-right text-[14px] font-bold text-[#004417] relative group">
                       <span className="flex items-center justify-end gap-1">
                         <span className="whitespace-nowrap">{grupo.label}</span>
-                        <Info className="w-3.5 h-3.5 text-white" />
+                        <Info className="w-3.5 h-3.5 text-[#004417]" />
                       </span>
                       <div className="hidden group-hover:block absolute top-full right-0 mt-1 bg-[#004417] text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
                         {grupo.tooltip}
                       </div>
                     </th>
                   ))}
-                  <th className="text-right p-3 text-sm font-bold text-white">Total</th>
-                  <th className="text-right p-3 text-sm font-bold text-white">R$/ha</th>
+                  <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Total</th>
+                  <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">R$/ha</th>
                 </tr>
               </thead>
               <tbody>
@@ -391,17 +284,16 @@ import { AuthService } from '../../services/authService';
                   <tr
                     key={index}
                     onClick={() => handleClickTalhao(talhao)}
-                    className="hover:shadow-[0_2px_6px_rgba(0,0,0,0.06)] cursor-pointer transition-all"
-                    style={{ backgroundColor: index % 2 === 0 ? 'rgba(0,166,81,0.04)' : 'white', minHeight: 56 }}
+                    className="bg-white border-b border-[rgba(0,0,0,0.06)] hover:shadow-[0_2px_6px_rgba(0,0,0,0.06)] cursor-pointer transition-all"
                   >
-                    <td className="p-3 text-sm font-medium text-[#004417]">{talhao.talhao}</td>
-                    <td className="p-3 text-sm text-[#1d3a2d] text-right font-semibold">{formatCurrency(talhao.insumos)}</td>
-                    <td className="p-3 text-sm text-[#1d3a2d] text-right font-semibold">{formatCurrency(talhao.operacional)}</td>
-                    <td className="p-3 text-sm text-[#1d3a2d] text-right font-semibold">{formatCurrency(talhao.servicosLogistica)}</td>
-                    <td className="p-3 text-sm text-[#1d3a2d] text-right font-semibold">{formatCurrency(talhao.administrativos)}</td>
-                    <td className="p-3 text-sm text-[#1d3a2d] text-right font-semibold">{formatCurrency(talhao.outros)}</td>
-                    <td className="p-3 text-sm font-bold text-[#004417] text-right">{formatCurrency(talhao.total)}</td>
-                    <td className="p-3 text-sm font-semibold text-[#00A651] text-right">{formatCurrency(talhao.custoHa)}/ha</td>
+                    <td className="px-6 py-5 text-sm text-[#004417] font-medium align-top">{talhao.talhao}</td>
+                    <td className="px-6 py-5 text-sm text-right text-[#1d3a2d] font-semibold align-top">{formatCurrency(talhao.insumos)}</td>
+                    <td className="px-6 py-5 text-sm text-right text-[#1d3a2d] font-semibold align-top">{formatCurrency(talhao.operacional)}</td>
+                    <td className="px-6 py-5 text-sm text-right text-[#1d3a2d] font-semibold align-top">{formatCurrency(talhao.servicosLogistica)}</td>
+                    <td className="px-6 py-5 text-sm text-right text-[#1d3a2d] font-semibold align-top">{formatCurrency(talhao.administrativos)}</td>
+                    <td className="px-6 py-5 text-sm text-right text-[#1d3a2d] font-semibold align-top">{formatCurrency(talhao.outros)}</td>
+                    <td className="px-6 py-5 text-sm font-bold text-[#004417] text-right align-top">{formatCurrency(talhao.total)}</td>
+                    <td className="px-6 py-5 text-sm font-semibold text-[#00A651] text-right align-top">{formatCurrency(talhao.custoHa)}/ha</td>
                   </tr>
                 ))}
               </tbody>
@@ -520,48 +412,64 @@ import { AuthService } from '../../services/authService';
 
               {/* Conteúdo do Painel */}
               <div className="flex-1 overflow-y-auto p-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ backgroundColor: '#004417' }}>
-                        <th className="text-left p-3 text-sm font-bold text-white">Data</th>
-                        <th className="text-left p-3 text-sm font-bold text-white">Categoria</th>
-                        <th className="text-left p-3 text-sm font-bold text-white">Descrição</th>
-                        <th className="text-left p-3 text-sm font-bold text-white">Origem</th>
-                        <th className="text-right p-3 text-sm font-bold text-white">Valor</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detalhesCusto.map((detalhe, index) => (
-                        <tr
-                          key={index}
-                          className="hover:bg-white"
-                          style={{ backgroundColor: index % 2 === 0 ? 'rgba(0,166,81,0.04)' : 'white', borderBottom: '1px solid rgba(0,0,0,0.06)' }}
-                        >
-                          <td className="p-3 text-sm text-[#1d3a2d]">{detalhe.data}</td>
-                          <td className="p-3 text-sm text-[#1d3a2d]">{detalhe.categoria}</td>
-                          <td className="p-3 text-sm text-[#1d3a2d]">{detalhe.descricao}</td>
-                          <td className="p-3 text-sm">
-                            <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                              detalhe.origem === 'Financeiro' 
-                                ? 'bg-[#004417]/10 text-[#004417]' 
-                                : 'bg-[#00A651]/10 text-[#00A651]'
-                            }`}>
-                              {detalhe.origem === 'Financeiro' ? '💸' : '🌱'} {detalhe.origem}
-                            </span>
-                          </td>
-                          <td className="p-3 text-sm font-semibold text-[#004417] text-right">
-                            {formatCurrency(detalhe.valor)}
-                          </td>
+                <div>
+                  {/* Desktop: tabela */}
+                  <div className="hidden lg:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-[rgba(0,166,81,0.06)] rounded-t-2xl">
+                          <th className="px-6 py-4 text-left text-[14px] font-bold text-[#004417]">Data</th>
+                          <th className="px-6 py-4 text-left text-[14px] font-bold text-[#004417]">Categoria</th>
+                          <th className="px-6 py-4 text-left text-[14px] font-bold text-[#004417]">Descrição</th>
+                          <th className="px-6 py-4 text-left text-[14px] font-bold text-[#004417]">Origem</th>
+                          <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Valor</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {detalhesCusto.map((detalhe, index) => (
+                          <tr key={index} className="bg-white border-b border-[rgba(0,0,0,0.06)]">
+                            <td className="px-6 py-5 text-sm text-[#1d3a2d]">{detalhe.data}</td>
+                            <td className="px-6 py-5 text-sm text-[#1d3a2d]">{detalhe.categoria}</td>
+                            <td className="px-6 py-5 text-sm text-[#1d3a2d]">{detalhe.descricao}</td>
+                            <td className="px-6 py-5 text-sm">
+                              <span className={`text-sm font-medium ${
+                                detalhe.origem === 'Financeiro' ? 'text-[#004417]' : 'text-[#00A651]'
+                              }`}>
+                                {detalhe.origem}
+                              </span>
+                            </td>
+                            <td className="px-6 py-5 text-sm font-semibold text-[#004417] text-right">{formatCurrency(detalhe.valor)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile: cards separados */}
+                  <div className="lg:hidden space-y-4">
+                    {detalhesCusto.map((detalhe, index) => (
+                      <div key={index} className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="text-sm text-[#1d3a2d]">{detalhe.data}</div>
+                            <div className="text-base font-bold text-[#004417] truncate">{detalhe.categoria}</div>
+                            <div className="text-sm text-[#1d3a2d] mt-1 truncate">{detalhe.descricao}</div>
+                          </div>
+                          <div className="flex-shrink-0 text-right">
+                            <div className={`text-sm font-medium ${detalhe.origem === 'Financeiro' ? 'text-[#004417]' : 'text-[#00A651]'}`}>
+                              {detalhe.origem}
+                            </div>
+                            <div className="text-lg font-bold text-[#004417] mt-2">{formatCurrency(detalhe.valor)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               {/* Rodapé do Painel */}
-              <div className="p-6" style={{ borderTop: '1px solid rgba(0,0,0,0.06)', backgroundColor: 'white' }}>
+                <div className="p-6" style={{ borderTop: '1px solid rgba(0,0,0,0.06)', backgroundColor: 'white' }}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-sm">
                     <span className="text-[#1d3a2d]">💰 Total: </span>
@@ -572,12 +480,6 @@ import { AuthService } from '../../services/authService';
                     <span className="font-bold text-[#00A651]">{formatCurrency(talhaoSelecionado.custoHa)}/ha</span>
                   </div>
                 </div>
-                <button
-                  className="w-full px-4 py-2.5 bg-[#00A651] text-white font-semibold rounded-lg hover:bg-[#004417] transition-colors flex items-center justify-center gap-2"
-                >
-                  <Paperclip className="w-4 h-4 text-white" />
-                  Ver anexos
-                </button>
               </div>
             </div>
           </div>

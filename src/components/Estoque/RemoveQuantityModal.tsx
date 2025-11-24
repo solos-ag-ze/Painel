@@ -243,7 +243,7 @@ export default function RemoveQuantityModal({
 
         {/* Validação */}
         {isInvalid && (
-          <p className="text-[#E74C3C] text-[13px] mb-4 font-medium">
+          <p className="text-[#F7941F] text-[13px] mb-4 font-medium">
             Valor inválido: deve ser maior que 0 e não pode exceder o estoque disponível.
           </p>
         )}
@@ -276,7 +276,7 @@ export default function RemoveQuantityModal({
             className={`px-8 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
               isInvalid
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-[#E74C3C] text-white hover:bg-[#C0392B]"
+                : "bg-[#F7941F] text-white hover:bg-[#D97706]"
             }`}
           >
             Remover

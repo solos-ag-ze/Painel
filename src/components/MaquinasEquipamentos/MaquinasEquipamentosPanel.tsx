@@ -89,11 +89,10 @@ export default function MaquinasEquipamentosPanel() {
     d ? new Date(d).toLocaleDateString('pt-BR') : '-';
 
   return (
-    <div className="bg-[#F5FDF8] rounded-[16px] shadow-[0_4px_8px_rgba(0,68,23,0.06)] p-6">
+    <div className="bg-white rounded-[14px] border border-[rgba(0,68,23,0.06)] shadow-[0_1px_3px_rgba(0,68,23,0.06)] p-6">
       <div className="px-0 py-0">
         <h3 className="text-[16px] font-bold text-[#004417]">{title}</h3>
       </div>
-
       {maquinas.length === 0 ? (
         <div className="p-6 text-center bg-white rounded-[12px] shadow-[0_1px_3px_rgba(0,68,23,0.04)] mt-4">
           <Truck className="w-12 h-12 text-[#00A651] mx-auto mb-4" />
@@ -102,7 +101,7 @@ export default function MaquinasEquipamentosPanel() {
       ) : (
         <div className="grid grid-cols-1 gap-5 p-0 mt-4">
           {maquinas.map((maquina) => (
-            <div key={maquina.id_maquina} className="relative bg-[#FFFFFF] rounded-[16px] p-6 shadow-[0_4px_8px_rgba(0,68,23,0.04)] transition-all">
+            <div key={maquina.id_maquina} className="relative bg-white rounded-[16px] p-6 border border-[rgba(0,68,23,0.04)] transition-all">
               {/* Cabeçalho do card */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -112,7 +111,7 @@ export default function MaquinasEquipamentosPanel() {
                   <p className="text-[14px] text-[#00441799] mb-2">
                     {maquina.marca_modelo || '-'}
                   </p>
-                  <span className="inline-block text-[12px] font-medium px-3 py-1 bg-[rgba(205,219,42,0.12)] text-[#004417] rounded-[20px]">
+                  <span className="inline-block text-[12px] font-medium px-2 py-0.5 text-[#004417] border border-[rgba(0,68,23,0.06)] rounded-[20px]">
                     {maquina.categoria || '-'}
                   </span>
                 </div>
@@ -174,38 +173,33 @@ export default function MaquinasEquipamentosPanel() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="hidden md:block bg-white rounded-[14px] shadow-[0_1px_4px_rgba(0,68,23,0.08)] p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[18px] font-bold text-[#004417]">Máquinas e Equipamentos</h2>
-          <p className="text-[14px] font-medium text-[#00441799]">
-            Controle de máquinas e equipamentos da fazenda
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="bg-white p-6 rounded-[12px] transition-transform hover:scale-[1.005] shadow-[0_1px_3px_rgba(0,68,23,0.04)]">
-            <p className="text-[13px] text-[#00441799] mb-1">Total de Máquinas</p>
-            <p className="text-[22px] font-bold text-[#00A651]">{numeroMaquinas}</p>
-          </div>
-          <div className="bg-white p-6 rounded-[12px] transition-transform hover:scale-[1.005] shadow-[0_1px_3px_rgba(0,68,23,0.04)]">
-            <p className="text-[13px] text-[#00441799] mb-1">Valor Total</p>
-            <p className="text-[22px] font-bold text-[#00A651]">
-              {formatCurrency(custoTotal)}
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-[12px] border-2 border-dashed border-[rgba(0,68,23,0.08)] transition-all duration-200 shadow-[0_1px_3px_rgba(0,68,23,0.04)]">
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="w-full h-[60px] text-[#004417] font-bold flex items-center justify-center gap-2"
-            >
-              <span className="text-[#00A651] text-xl">➕</span>
-              Cadastrar Máquinas e Equipamentos
-            </button>
+    <div className="space-y-6">
+      <div className="hidden md:block">
+        <h2 className="text-xl font-bold text-[#004417] mb-4">Máquinas e Equipamentos</h2>
+        <div className="bg-white rounded-[14px] shadow-[0_1px_4px_rgba(0,68,23,0.08)] p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="bg-white p-6 rounded-[12px] transition-transform hover:scale-[1.005] shadow-[0_1px_3px_rgba(0,68,23,0.04)] border border-[rgba(0,68,23,0.04)]">
+              <p className="text-[13px] text-[#00441799] mb-1">Total de Máquinas</p>
+              <p className="text-[22px] font-bold text-[#004417]">{numeroMaquinas}</p>
+            </div>
+            <div className="bg-white p-6 rounded-[12px] transition-transform hover:scale-[1.005] shadow-[0_1px_3px_rgba(0,68,23,0.04)] border border-[rgba(0,68,23,0.04)]">
+              <p className="text-[13px] text-[#00441799] mb-1">Valor Total</p>
+              <p className="text-[22px] font-bold text-[#004417]">
+                {formatCurrency(custoTotal)}
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-[12px] border-2 border-dashed border-[rgba(0,68,23,0.08)] transition-all duration-200 shadow-[0_1px_3px_rgba(0,68,23,0.04)]">
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="w-full h-[60px] text-[#004417] font-bold flex items-center justify-center gap-2"
+              >
+                <span className="text-[#00A651] text-xl">➕</span>
+                Cadastrar Máquinas e Equipamentos
+              </button>
+            </div>
           </div>
         </div>
       </div>
-
       <MaquinasEquipamentosHeaderMobile
         numeroMaquinas={numeroMaquinas}
         custoTotal={custoTotal}

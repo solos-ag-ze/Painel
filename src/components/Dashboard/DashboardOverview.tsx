@@ -13,7 +13,6 @@ import {
   LandPlot
 } from 'lucide-react';
 import StatsCard from './StatsCard';
-import UserProfile from './UserProfile';
 import FinancialChart from './FinancialChart';
 import TransactionTable from './TransactionTable';
 import RecentTransactions from './RecentTransactions';
@@ -248,7 +247,6 @@ export default function DashboardOverview() {
   const stats = [
   {
   title: 'Saldo Atual',
-  subtitle: 'Disponível',
   value: FinanceService.formatCurrency(somaTransacoesAteHoje),
   change: (
     <div className="flex flex-col">
@@ -269,7 +267,6 @@ export default function DashboardOverview() {
 },
   {
     title: 'Cotação Café (sc 60kg)',
-    subtitle: 'Preço atual (sc/60kg)',
     value: `R$ ${cotacaoAtual.toLocaleString()}`,
     change: `${variacaoCotacao} hoje`,
     changeType: 'neutral', // Changed from 'positive' to neutral
@@ -277,13 +274,12 @@ export default function DashboardOverview() {
     color: 'orange',
     modalContent: (
       <div className="text-[#004417]/80">
-        <p>Cotação Café (sc/60kg) — Cereja Descascado (referência Cooxupé).</p>
+        <p>Cotação Café (sc/60kg) — Cereja Descascado (referência Cooxupé) - cotação do dia.</p>
       </div>
     )
   },
   {
   title: 'Receita Estimada da Safra',
-  subtitle: 'Estimativa baseada na produção',
   value: (
     <span className="text-sm md:text-base font-medium whitespace-nowrap">
       {areaCultivada > 0 
@@ -314,8 +310,7 @@ export default function DashboardOverview() {
   )
 },
   {
-    title: 'Custo Médio por saca',
-    subtitle: 'Custo por saca estimado',
+    title: 'Custo Médio por Saca',
     value: (
       <span className="text-sm md:text-base font-medium whitespace-nowrap">
         {producaoTotal > 0
@@ -335,8 +330,7 @@ export default function DashboardOverview() {
     )
   },
   {
-    title: 'Custo Médio por Hectare (estimado)',
-    subtitle: 'Custo por hectare estimado',
+    title: 'Custo Médio por Hectare',
     value: (
       <span className="text-sm md:text-base font-medium whitespace-nowrap">
         {areaCultivada > 0
@@ -370,7 +364,7 @@ export default function DashboardOverview() {
         </div>
       )}
 
-      {userData && <UserProfile user={userData} />}
+      {/* User profile moved to header modal; removed card from dashboard */}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {stats.map((stat, index) => (

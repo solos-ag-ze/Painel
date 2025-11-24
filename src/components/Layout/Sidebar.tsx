@@ -24,9 +24,9 @@ interface SidebarProps {
 const menuItems = [
   { id: 'dashboard', icon: Home, label: 'Dashboard', description: 'Visão geral' },
   { id: 'financeiro', icon: DollarSign, label: 'Financeiro', description: 'Fluxo de caixa' },
-  { id: 'manejo-agricola', icon: Sprout, label: 'Manejo Agrícola', description: 'Atividades técnicas' },
   { id: 'custo-safra', icon: Calculator, label: 'Custo Safra', description: 'Análise de custos' },
   { id: 'custo-por-talhao', icon: BarChart3, label: 'Custo por Talhão', description: 'Competência por Área' },
+  { id: 'manejo-agricola', icon: Sprout, label: 'Manejo Agrícola', description: 'Atividades técnicas' },
   { id: 'minha-fazenda', icon: LandPlot, label: 'Minha Fazenda', description: 'Detalhes dos talhões'},
   { id: 'estoque', icon: Package, label: 'Estoque', description: 'Controle de insumos' },
   { id: 'maquinas', icon: Settings, label: 'Máquinas e Equipamentos', description: 'Controle de máquinas' },
@@ -44,7 +44,7 @@ export default function Sidebar({ activeTab, setActiveTab, onClose }: SidebarPro
 
   return (
     <div className="fixed top-0 left-0 w-72 bg-[#004417] shadow-lg h-full flex flex-col font-nunito z-30">
-      <div className="pt-4 pb-4 px-4 relative">
+      <div className="pt-4 pb-2 px-4 relative">
         {/* Mobile close button */}
         {onClose && (
           <button
@@ -55,24 +55,8 @@ export default function Sidebar({ activeTab, setActiveTab, onClose }: SidebarPro
           </button>
         )}
         
-        <div className="flex items-center space-x-3">
-          <img
-            src="/LOGO-ZE.png"
-            alt="Zé · Solos.ag"
-            className="w-10 h-10 object-contain rounded-full"
-            style={{ objectFit: 'contain' }}
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-          <div className="w-10 h-10 bg-gradient-to-br from-[#86b646] to-[#397738] rounded-full flex items-center justify-center hidden">
-            <Coffee className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-[15px] font-medium text-white">Zé · Solos.ag</h2>
-            <p className="text-sm text-[rgba(255,255,255,0.85)]">Painel da Fazenda</p>
-          </div>
+        <div className="flex items-start justify-center">
+          <img src="/21.png" alt="solos.ag" className="h-8 w-auto object-contain mx-auto" />
         </div>
       </div>
       

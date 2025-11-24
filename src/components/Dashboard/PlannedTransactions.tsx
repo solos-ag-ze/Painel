@@ -113,14 +113,12 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
               <p className="text-sm">Programe transações via WhatsApp do ZÉ</p>
             </div>
           ) : (
-            plannedTransactions.map((transaction) => {
+            plannedTransactions.map((transaction, idx) => {
               const isIncome = Number(transaction.valor) > 0;
               
               return (
-                <div
-                  key={transaction.id_transacao}
-                  className="relative p-4 rounded-xl bg-white transition-all duration-200 hover:scale-[1.01]"
-                >
+                <div key={transaction.id_transacao}>
+                  <div className="relative p-4 rounded-xl bg-white transition-all duration-200 hover:scale-[1.01]">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-3 pr-8">
                       {isIncome ? (
@@ -195,6 +193,12 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
                       <Paperclip className="w-4 h-4" />
                     </button>
                   </div>
+                  </div>
+
+                  {/* Divider between items (except last) */}
+                  {idx < plannedTransactions.length - 1 && (
+                    <div className="h-[1px] bg-[rgba(0,68,23,0.06)] my-3 mx-1 rounded-sm" />
+                  )}
                 </div>
               );
             })

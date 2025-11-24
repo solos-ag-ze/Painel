@@ -137,11 +137,11 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
               type="text"
               value={formData.nome}
               onChange={(e) => handleInputChange('nome', e.target.value)}
-              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.nome ? 'ring-2 ring-red-500' : ''} text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
+              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.nome ? 'ring-2 ring-orange-500' : ''} text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
               placeholder="Ex.: Opera Ultra, Roundup Original, YaraBela Nitromag"
               required
             />
-            {errors.nome && <p className="text-red-500 text-xs">{errors.nome}</p>}
+            {errors.nome && <p className="text-orange-500 text-xs">{errors.nome}</p>}
           </div>
 
           {/* Marca */}
@@ -151,11 +151,11 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
               type="text"
               value={formData.marca}
               onChange={(e) => handleInputChange('marca', e.target.value)}
-              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.marca ? 'ring-2 ring-red-500' : ''} text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
+              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.marca ? 'ring-2 ring-orange-500' : ''} text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
               placeholder="Ex.: Bayer, BASF, Syngenta, Yara"
               required
             />
-            {errors.marca && <p className="text-red-500 text-xs">{errors.marca}</p>}
+            {errors.marca && <p className="text-orange-500 text-xs">{errors.marca}</p>}
           </div>
 
           {/* Categoria */}
@@ -164,7 +164,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
             <select
               value={formData.categoria}
               onChange={(e) => handleInputChange('categoria', e.target.value)}
-              className={`w-full px-4 py-3 rounded-[12px] bg-white text-[#004417] appearance-none shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.categoria ? 'ring-2 ring-red-500' : ''}`}
+              className={`w-full px-4 py-3 rounded-[12px] bg-white text-[#004417] appearance-none shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.categoria ? 'ring-2 ring-orange-500' : ''}`}
               required
             >
               <option value="">Selecione...</option>
@@ -185,7 +185,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
             <select
               value={formData.unidade}
               onChange={(e) => handleInputChange('unidade', e.target.value)}
-              className={`w-full px-4 py-3 rounded-[12px] bg-white text-[#004417] appearance-none shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.unidade ? 'ring-2 ring-red-500' : ''}`}
+              className={`w-full px-4 py-3 rounded-[12px] bg-white text-[#004417] appearance-none shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.unidade ? 'ring-2 ring-orange-500' : ''}`}
               required
             >
               <option value="">Selecione...</option>
@@ -207,7 +207,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
               step="0.01"
               value={formData.quantidade}
               onChange={(e) => handleInputChange('quantidade', e.target.value)}
-              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.quantidade ? 'ring-2 ring-red-500' : ''} text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
+              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.quantidade ? 'ring-2 ring-orange-500' : ''} text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
               placeholder="Ex.: 12,5 L ou 300 kg"
               required
             />
@@ -239,11 +239,11 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
                   }));
                 }
               }}
-              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.valor ? 'ring-2 ring-red-500' : ''} font-medium text-lg text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
+              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.valor ? 'ring-2 ring-orange-500' : ''} font-medium text-lg text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
               placeholder="R$ 0,00"
               required
             />
-            {errors.valor && <p className="text-red-500 text-xs">{errors.valor}</p>}
+            {errors.valor && <p className="text-orange-500 text-xs">{errors.valor}</p>}
             <p className="text-xs text-[rgba(0,68,23,0.6)] mt-1">
               Digite apenas números: 450 = R$ 4,50 | 45000 = R$ 450,00 | 2500 = R$ 25,00
             </p>

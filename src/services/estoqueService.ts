@@ -146,6 +146,30 @@ export class EstoqueService {
     return produtosMapeados;
   }
 
+  /**
+   * Busca déficits do usuário em `estoque_deficit_produto`
+   */
+  static async getDeficits(): Promise<{ nome_do_produto: string; unidade_base: string; deficit_quantidade: number; updated_at?: string }[]> {
+    const userId = await this.getCurrentUserId();
+
+    const { data, error } = await supabase
+      .from('estoque_deficit_produto')
+      .select('nome_do_produto, unidade_base, deficit_quantidade, updated_at')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('❌ Erro ao buscar déficits:', error);
+      throw error;
+    }
+
+    return (data || []).map((r: any) => ({
+      nome_do_produto: r.nome_do_produto,
+      unidade_base: r.unidade_base,
+      deficit_quantidade: Number(r.deficit_quantidade) || 0,
+      updated_at: r.updated_at
+    }));
+  }
+
   static async calcularValorTotalEstoque(): Promise<number> {
     const userId = await this.getCurrentUserId();
 
@@ -502,6 +526,30 @@ export class EstoqueService {
     if (error) {
       console.error('❌ Erro ao registrar movimentação:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Chama a função RPC `processar_entrada_estoque` no banco.
+   * O backend faz o abatimento do déficit e o restante entra no lote.
+   */
+  static async processarEntrada(p_produto_id: number, p_qtd: number, p_preco_unit: number): Promise<any> {
+    try {
+      const { data, error } = await supabase.rpc('processar_entrada_estoque', {
+        p_produto_id: p_produto_id,
+        p_qtd: p_qtd,
+        p_preco_unit: p_preco_unit,
+      });
+
+      if (error) {
+        console.error('❌ Erro ao chamar RPC processar_entrada_estoque:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (err) {
+      console.error('❌ processarEntrada falhou:', err);
+      throw err;
     }
   }
 

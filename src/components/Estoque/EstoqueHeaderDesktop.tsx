@@ -12,15 +12,12 @@ interface Props {
 export default function EstoqueHeaderDesktop({ resumoEstoque, onOpenModal }: Props) {
   return (
     <div className="hidden md:block">
-      <div className="bg-white rounded-[14px] shadow-[0_1px_4px_rgba(0,68,23,0.10)] p-6">
-        {/* Título e subtítulo */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[18px] font-bold text-[#004417]">Controle de Estoque</h2>
-          <p className="text-[13px] font-medium text-[rgba(0,68,23,0.7)]">
-            Produtos cadastrados via WhatsApp
-          </p>
-        </div>
+      {/* Título separado (fora da div que contém os cards) */}
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-[#004417]">Controle de Estoque</h2>
+      </div>
 
+      <div className="bg-white rounded-[14px] shadow-[0_1px_4px_rgba(0,68,23,0.10)] p-6">
         {/* Cards resumo */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Total de produtos */}

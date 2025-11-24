@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="40" viewBox="0 0 240 40">
+  <rect width="100%" height="100%" fill="transparent" />
+  <!-- flower mark on left -->
+  <g transform="translate(4,2) scale(0.9)">
+    <path d="M18 0c4.5 0 9 4.5 9 9s-4.5 9-9 9-9-4.5-9-9S13.5 0 18 0z" fill="#ffffff"/>
+    <path d="M36 9c4.5 0 9 4.5 9 9s-4.5 9-9 9-9-4.5-9-9 4.5-9 9-9z" fill="#ffffff" transform="rotate(45 36 18)" />
+    <path d="M18 18c4.5 0 9 4.5 9 9s-4.5 9-9 9-9-4.5-9-9 4.5-9 9-9z" fill="#ffffff" transform="rotate(90 18 27)" />
+    <path d="M0 9c4.5 0 9 4.5 9 9s-4.5 9-9 9S-9 27-9 18  -4.5 9 0 9z" fill="#ffffff" transform="translate(9 9) rotate(135 9 9)"/>
+    <circle cx="18" cy="18" r="4.2" fill="#ffffff" />
+  </g>
+  <!-- text to the right -->
+  <g transform="translate(68,26)">
+    <text x="0" y="0" font-family="Nunito, Arial, Helvetica, sans-serif" font-size="18" fill="#ffffff">solos.ag</text>
+  </g>
+</svg>
