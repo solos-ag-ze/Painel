@@ -526,20 +526,57 @@ export class FinanceService {
         return 0;
       }
 
-      // Usa a regra padronizada do serviço para determinar se a transação
-      // já foi processada (não é futura). Filtramos client-side.
-      const transacoesProcessadas = (data || []).filter((t: any) =>
-        this.isTransacaoProcessada(t)
-      );
+      // Implementação atualizada para seguir exatamente a lógica SQL fornecida:
+      // saldo_atual: SUM(valor) quando (
+      //   (data_agendamento_pagamento IS NOT NULL AND date <= CURRENT_DATE)
+      //   OR (data_agendamento_pagamento IS NULL AND status IS DISTINCT FROM 'Agendado')
+      // )
+      // saldo_futuro: SUM(valor) quando (
+      //   (data_agendamento_pagamento IS NOT NULL AND date > CURRENT_DATE)
+      //   OR (data_agendamento_pagamento IS NULL AND status = 'Agendado')
+      // )
 
-      const somaTotal = transacoesProcessadas.reduce((acc: number, transacao: any) => {
+      const hoje = startOfDay(new Date());
+
+      let saldoAtual = 0;
+      let saldoFuturo = 0;
+
+      (data || []).forEach((transacao: any) => {
         const valor = Number(transacao.valor) || 0;
-        return acc + valor;
-      }, 0);
+        const dp = transacao.data_agendamento_pagamento;
 
-      console.log(`Soma de transações processadas (até hoje) para usuário ${userId}:`, {
-        totalTransacoes: transacoesProcessadas.length,
-        somaTotal: this.formatCurrency(somaTotal)
+        if (dp) {
+          try {
+            const dataAg = typeof dp === 'string' ? parseISO(dp) : new Date(dp as Date);
+            const dataAgSemHora = startOfDay(dataAg);
+
+            if (dataAgSemHora <= hoje) {
+              // conta como atual
+              saldoAtual += valor;
+            } else {
+              // data > hoje => futuro
+              saldoFuturo += valor;
+            }
+          } catch {
+            // se falhar no parse, ignora (não conta)
+          }
+        } else {
+          // data_agendamento_pagamento IS NULL -> usa status
+          const status = transacao.status;
+          if (status === 'Agendado') {
+            saldoFuturo += valor;
+          } else {
+            // status IS DISTINCT FROM 'Agendado'
+            saldoAtual += valor;
+          }
+        }
+      });
+
+      const somaTotal = saldoAtual; // conforme contrato da função: retorna saldo_atual
+
+      console.log(`Soma de transações (saldo_atual) para usuário ${userId}:`, {
+        saldoAtual: this.formatCurrency(saldoAtual),
+        saldoFuturo: this.formatCurrency(saldoFuturo)
       });
 
       return somaTotal;
@@ -547,6 +584,61 @@ export class FinanceService {
     } catch (error) {
       console.error('Erro ao calcular soma total de transações até hoje:', error);
       return 0;
+    }
+  }
+
+  /**
+   * Calcula e retorna os saldos atual, futuro e projetado seguindo exatamente
+   * a lógica da query SQL fornecida pelo produto.
+   */
+  static async getSaldosAtualEFuturo(userId: string): Promise<{ saldoAtual: number; saldoFuturo: number; saldoProjetado: number }> {
+    try {
+      const { data, error } = await supabase
+        .from('transacoes_financeiras')
+        .select('valor, status, data_agendamento_pagamento')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Erro ao buscar transações para saldos:', error);
+        return { saldoAtual: 0, saldoFuturo: 0, saldoProjetado: 0 };
+      }
+
+      const hoje = startOfDay(new Date());
+      let saldoAtual = 0;
+      let saldoFuturo = 0;
+
+      (data || []).forEach((transacao: any) => {
+        const valor = Number(transacao.valor) || 0;
+        const dp = transacao.data_agendamento_pagamento;
+
+        if (dp) {
+          try {
+            const dataAg = typeof dp === 'string' ? parseISO(dp) : new Date(dp as Date);
+            const dataAgSemHora = startOfDay(dataAg);
+
+            if (dataAgSemHora <= hoje) {
+              saldoAtual += valor;
+            } else {
+              saldoFuturo += valor;
+            }
+          } catch {
+            // ignore malformed dates
+          }
+        } else {
+          const status = transacao.status;
+          if (status === 'Agendado') {
+            saldoFuturo += valor;
+          } else {
+            saldoAtual += valor;
+          }
+        }
+      });
+
+      const saldoProjetado = saldoAtual + saldoFuturo;
+      return { saldoAtual, saldoFuturo, saldoProjetado };
+    } catch (error) {
+      console.error('Erro ao calcular saldos atual/futuro:', error);
+      return { saldoAtual: 0, saldoFuturo: 0, saldoProjetado: 0 };
     }
   }
 
@@ -686,19 +778,18 @@ static async getResumoMensalFinanceiro(userId: string): Promise<{ totalReceitas:
       }
 
       const hoje = new Date();
-      const em7Dias = new Date();
-      em7Dias.setDate(hoje.getDate() + 7);
-      const em30Dias = new Date();
-      em30Dias.setDate(hoje.getDate() + 30);
+      const inicioAmanha = startOfDay(addDays(hoje, 1));
+      const em7Dias = startOfDay(addDays(hoje, 7));
+      const em30Dias = startOfDay(addDays(hoje, 30));
 
       // Separa transações em categorias baseadas no status e data
       const transacoesReais = data.filter(t => this.isTransacaoProcessada(t));
       const transacoesFuturas = data.filter(t => this.isTransacaoFutura(t));
       const transacoesFuturas7Dias = transacoesFuturas.filter(t => 
-        this.isTransacaoNoPeriodo(t, hoje, em7Dias)
+        this.isTransacaoNoPeriodo(t, inicioAmanha, em7Dias)
       );
       const transacoesFuturas30Dias = transacoesFuturas.filter(t => 
-        this.isTransacaoNoPeriodo(t, hoje, em30Dias)
+        this.isTransacaoNoPeriodo(t, inicioAmanha, em30Dias)
       );
 
       // Calcula saldos
@@ -867,9 +958,10 @@ static async getResumoMensalFinanceiro(userId: string): Promise<{ totalReceitas:
       const totalEntradas = this.calcularEntradas(transacoesParaCards);
       const totalSaidas = this.calcularSaidas(transacoesParaCards);
 
-      // 6. 🔄 NOVA LÓGICA: Calcula o saldo real APENAS com transações status 'Pago' até hoje
-      //    Replica a query: SELECT SUM(valor) WHERE status = 'Pago' AND data <= hoje
-      const saldoRealGlobal = await this.getSaldoRealApenasPago(userId);
+      // 6. 🔄 Ajuste: usar o mesmo critério SQL para 'saldo_atual' (inclui transações sem data quando status != 'Agendado')
+      //    Assim o saldo usado para projeção fica consistente com a query fornecida pelo produto.
+      const saldosSql = await this.getSaldosAtualEFuturo(userId);
+      const saldoRealGlobal = saldosSql.saldoAtual;
 
       const result: PeriodBalance = {
         totalEntradas,
@@ -883,32 +975,56 @@ static async getResumoMensalFinanceiro(userId: string): Promise<{ totalReceitas:
       if (includeFuture) {
         // Para o filtro "todos", usa TODAS as transações futuras do usuário
         // Para outros filtros, usa apenas as transações futuras do período
-        const transacoesFuturasParaProjecao = filterPeriod === 'todos'
-          ? data.filter(t => this.isTransacaoFutura(t))
-          : transacoesFuturasPeriodo;
+        // Para projeção, considerar apenas transações futuras agendadas a partir de amanhã (exclui hoje)
+        const inicioAmanha = startOfDay(addDays(new Date(), 1));
 
-        const saldoFuturoPeriodo = this.calcularSaldoTransacoes(transacoesFuturasParaProjecao);
+        // Quando o filtro é 'todos', podemos usar diretamente o saldo_futuro calculado pela query SQL
+        let saldoFuturoPeriodo = 0;
+        if (filterPeriod === 'todos') {
+          saldoFuturoPeriodo = saldosSql.saldoFuturo;
+        } else {
+          // Para outros filtros, calculamos apenas as transações futuras do período.
+          // Inclui transações com data >= amanhã, e também transações SEM data quando status = 'Agendado'
+          const todasFuturas = transacoesFuturasPeriodo || [];
+
+          const transacoesFuturasParaProjecao = todasFuturas.filter(t => {
+            const dt = this.getTransactionDate(t);
+            if (dt) {
+              const dtSemHora = startOfDay(dt);
+              return dtSemHora >= inicioAmanha;
+            }
+            // sem data: incluir se status = 'Agendado'
+            return (t.status || '').toString() === 'Agendado';
+          });
+
+          saldoFuturoPeriodo = this.calcularSaldoTransacoes(transacoesFuturasParaProjecao as TransacaoFinanceira[]);
+        }
         // O saldo projetado agora é o saldo real (apenas Pago) + o impacto futuro do período selecionado.
         result.saldoProjetado = saldoRealGlobal + saldoFuturoPeriodo;
 
         // A lógica de impacto futuro para 7/30 dias permanece a mesma e funcional.
         if (filterPeriod === 'todos' || filterPeriod === 'safra-atual' || filterPeriod === 'mes-atual') {
           const hoje = new Date();
-          const em7Dias = new Date();
-          em7Dias.setDate(hoje.getDate() + 7);
-          const em30Dias = new Date();
-          em30Dias.setDate(hoje.getDate() + 30);
+          const inicioAmanha = startOfDay(addDays(hoje, 1));
+          const em7Dias = startOfDay(addDays(hoje, 7));
+          const em30Dias = startOfDay(addDays(hoje, 30));
 
-          const todasTransacoesFuturas = data.filter(t => this.isTransacaoFutura(t));
+          const todasTransacoesFuturas = (data.filter(t => this.isTransacaoFutura(t))) || [];
 
-          const transacoesFuturas7Dias = todasTransacoesFuturas.filter(t =>
-            this.isTransacaoNoPeriodo(t, hoje, em7Dias)
-          );
-          const transacoesFuturas30Dias = todasTransacoesFuturas.filter(t =>
-            this.isTransacaoNoPeriodo(t, hoje, em30Dias)
-          );
+          // Para janelas 7/30 dias, só consideramos transações com data (compare com início de amanhã)
+          const transacoesFuturas7Dias = todasTransacoesFuturas.filter(t => {
+            const dt = this.getTransactionDate(t);
+            if (!dt) return false;
+            return this.isTransacaoNoPeriodo(t, inicioAmanha, em7Dias);
+          });
 
-          // ✅ NOVA LÓGICA: Calcula entradas e saídas separadamente usando saldo real (apenas Pago)
+          const transacoesFuturas30Dias = todasTransacoesFuturas.filter(t => {
+            const dt = this.getTransactionDate(t);
+            if (!dt) return false;
+            return this.isTransacaoNoPeriodo(t, inicioAmanha, em30Dias);
+          });
+
+          // ✅ NOVA LÓGICA: Calcula entradas e saídas separadamente usando saldo real (baseado em SQL)
           const entradas7Dias = this.calcularEntradas(transacoesFuturas7Dias);
           const saidas7Dias = this.calcularSaidas(transacoesFuturas7Dias);
           result.impactoFuturo7Dias = saldoRealGlobal + entradas7Dias - saidas7Dias;
