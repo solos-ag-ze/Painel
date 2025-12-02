@@ -22,6 +22,9 @@ export interface ProdutoEstoque {
   quantidade_inicial: number; // quantidade original informada no cadastro
   valor_total?: number | null; // valor total do produto (valor_unitario × quantidade_inicial)
   valor_medio?: number | null; // valor médio calculado pela function do banco
+  tipo_de_movimentacao?: 'entrada' | 'saida' | null; // tipo da movimentação
+  entrada_referencia_id?: number | null; // ID da entrada de referência (para saídas FIFO)
+  produto_id?: string | null; // UUID do produto (para agrupar entradas/saídas)
 }
 
 export interface MovimentacaoEstoque {
@@ -90,6 +93,52 @@ export class EstoqueService {
     throw new Error("⚠️ Usuário não autenticado!");
   }
 
+  /**
+   * Busca a propriedade ativa do usuário via vinculo_usuario_propriedade
+   */
+  private static async getPropriedadeIdDoUsuario(userId: string): Promise<string | null> {
+    try {
+      console.log('🔍 Buscando propriedade para o usuário:', userId);
+      
+      // Usar maybeSingle() ao invés de single() para não dar erro se não encontrar
+      const { data, error } = await supabase
+        .from('vinculo_usuario_propriedade')
+        .select('id_propriedade')
+        .eq('user_id', userId)
+        .eq('ativo', true)
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ Erro ao buscar propriedade do usuário:', error);
+        console.error('❌ Detalhes do erro:', JSON.stringify(error, null, 2));
+        return null;
+      }
+
+      if (!data) {
+        console.warn('⚠️ Nenhuma propriedade ativa encontrada para o usuário:', userId);
+        
+        // Tentar buscar sem o filtro de ativo para debug
+        const { data: todasPropriedades, error: errDebug } = await supabase
+          .from('vinculo_usuario_propriedade')
+          .select('id_propriedade, ativo')
+          .eq('user_id', userId);
+        
+        if (!errDebug && todasPropriedades) {
+          console.log('🔍 Debug - Todas as propriedades do usuário:', todasPropriedades);
+        }
+        
+        return null;
+      }
+
+      console.log('✅ Propriedade encontrada para o usuário:', data.id_propriedade);
+      return data.id_propriedade;
+    } catch (err) {
+      console.error('❌ Falha ao buscar propriedade do usuário:', err);
+      return null;
+    }
+  }
+
   static async getProdutos(): Promise<ProdutoEstoque[]> {
     const userId = await this.getCurrentUserId();
 
@@ -112,7 +161,9 @@ export class EstoqueService {
         unidade_valor_original,
         quantidade_inicial,
         valor_total,
-        valor_medio
+        valor_medio,
+        tipo_de_movimentacao,
+        produto_id
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -123,7 +174,7 @@ export class EstoqueService {
     }
 
     // Mapear nomes das colunas
-    const produtosMapeados: ProdutoEstoque[] = (data || []).map(produto => ({
+    const produtosMapeados: ProdutoEstoque[] = (data || []).map((produto: any) => ({
       id: produto.id,
       user_id: produto.user_id,
       nome_produto: produto.nome_do_produto,
@@ -141,6 +192,8 @@ export class EstoqueService {
       quantidade_inicial: produto.quantidade_inicial,
       valor_total: produto.valor_total,
       valor_medio: produto.valor_medio,
+      tipo_de_movimentacao: produto.tipo_de_movimentacao,
+      produto_id: produto.produto_id,
     }));
 
     return produtosMapeados;
@@ -337,6 +390,9 @@ export class EstoqueService {
     registro_mapa: string | null;
   }): Promise<ProdutoEstoque> {
     const userId = await this.getCurrentUserId();
+    
+    // ✅ Buscar propriedade ativa do usuário
+    const propriedadeId = await this.getPropriedadeIdDoUsuario(userId);
 
     const valorTotal = produto.valor || 0;
     
@@ -354,12 +410,14 @@ export class EstoqueService {
     console.log(`  - Conversão: ${converted.quantidade} ${converted.unidade}`);
     console.log(`  - Valor total: R$ ${valorTotal.toFixed(2)}`);
     console.log(`  - Valor unitário: R$ ${valorUnitario.toFixed(2)}/${produto.unidade}`);
+    console.log(`  - Propriedade ID: ${propriedadeId || 'N/A'}`);
 
     const { data, error } = await supabase
       .from('estoque_de_produtos')
       .insert([
         {
           user_id: userId,
+          propriedade_id: propriedadeId,
           nome_do_produto: produto.nome_produto,
           marca_ou_fabricante: produto.marca,
           categoria: produto.categoria,
@@ -375,6 +433,8 @@ export class EstoqueService {
           validade: produto.validade || '1999-12-31',
           fornecedor: produto.fornecedor,
           registro_mapa: produto.registro_mapa,
+          // ✅ Tipo de movimentação inicial sempre é 'entrada'
+          tipo_de_movimentacao: 'entrada',
         },
       ])
       .select()
@@ -595,9 +655,13 @@ export class EstoqueService {
 
   /**
    * Remove quantidade de um produto agrupado seguindo FIFO (First In, First Out)
-   * @param nomeProduto Nome do produto para buscar todos os registros
+   * NOVO SISTEMA: Cria registros de SAÍDA na tabela estoque_de_produtos
+   * 
+   * @param nomeProduto Nome do produto para buscar todas as entradas
    * @param quantidadeRemover Quantidade a remover (na unidade de referência do produto: kg, L, un, etc.)
    * @param observacao Observação/motivo da saída
+   * @param mediaPrecoGrupo Preço médio do grupo (para registrar no histórico)
+   * @param unidadeValorGrupo Unidade de valor do grupo
    */
   static async removerQuantidadeFIFO(
     nomeProduto: string,
@@ -607,37 +671,68 @@ export class EstoqueService {
     unidadeValorGrupo?: string | null
   ): Promise<void> {
     const userId = await this.getCurrentUserId();
+    const propriedadeId = await this.getPropriedadeIdDoUsuario(userId);
 
-    console.log('🔄 Iniciando remoção FIFO:', {
+    console.log('🔄 Iniciando remoção FIFO (novo sistema):', {
       produto: nomeProduto,
       quantidadeRemover,
       observacao,
     });
 
-    // Buscar todos os produtos com esse nome, ordenados por created_at (FIFO)
-    const { data: produtos, error: fetchError } = await supabase
+    // Buscar todas as ENTRADAS deste produto, ordenadas por created_at (FIFO)
+    const { data: entradas, error: fetchError } = await supabase
       .from('estoque_de_produtos')
       .select('*')
       .eq('user_id', userId)
       .ilike('nome_do_produto', nomeProduto)
-      .gt('quantidade_em_estoque', 0)
+      .or('tipo_de_movimentacao.eq.entrada,tipo_de_movimentacao.is.null') // Entradas ou legado (null = entrada)
       .order('created_at', { ascending: true }); // Mais antigos primeiro (FIFO)
 
     if (fetchError) {
-      console.error('❌ Erro ao buscar produtos para remoção FIFO:', fetchError);
+      console.error('❌ Erro ao buscar entradas para remoção FIFO:', fetchError);
       throw fetchError;
     }
 
-    if (!produtos || produtos.length === 0) {
-      throw new Error('Nenhum produto encontrado com estoque disponível.');
+    if (!entradas || entradas.length === 0) {
+      throw new Error('Nenhuma entrada encontrada para este produto.');
     }
 
-    // 🔄 CONVERSÃO CRÍTICA: quantidadeRemover vem na unidade de referência do GRUPO (ex: ton)
-    // mas o banco armazena em unidade padrão (mg para massa, mL para volume)
-    // Precisamos converter para a unidade padrão antes de comparar com quantidade_em_estoque
-    // ✅ USAR unidadeValorGrupo se fornecida, senão usa do produto individual
-    const primeiroProduto = produtos[0];
-    const unidadeReferencia = unidadeValorGrupo || primeiroProduto.unidade_valor_original || primeiroProduto.unidade_de_medida;
+    // Buscar todas as SAÍDAS já existentes para calcular saldo de cada entrada
+    const { data: saidasExistentes, error: saidasError } = await supabase
+      .from('estoque_de_produtos')
+      .select('*')
+      .eq('user_id', userId)
+      .ilike('nome_do_produto', nomeProduto)
+      .eq('tipo_de_movimentacao', 'saida');
+
+    if (saidasError) {
+      console.error('❌ Erro ao buscar saídas existentes:', saidasError);
+      throw saidasError;
+    }
+
+    // Calcular saldo disponível por entrada
+    // Saldo = quantidade_em_estoque da entrada - soma das saídas referenciando essa entrada
+    const saldoPorEntrada: Map<number, number> = new Map();
+    
+    for (const entrada of entradas) {
+      const saidasDestaEntrada = (saidasExistentes || []).filter(
+        (s: any) => s.entrada_referencia_id === entrada.id
+      );
+      const totalSaido = saidasDestaEntrada.reduce(
+        (sum: number, s: any) => sum + (s.quantidade_em_estoque || 0), 
+        0
+      );
+      const saldo = (entrada.quantidade_em_estoque || 0) - totalSaido;
+      saldoPorEntrada.set(entrada.id, Math.max(0, saldo));
+      
+      console.log(`   📦 Entrada ID ${entrada.id}: ${entrada.quantidade_em_estoque} - ${totalSaido} = ${saldo}`);
+    }
+
+    // Determinar unidade de referência
+    const primeiraEntrada = entradas[0];
+    const unidadeReferencia = unidadeValorGrupo || primeiraEntrada.unidade_valor_original || primeiraEntrada.unidade_de_medida;
+    
+    // Converter quantidade a remover para unidade padrão (mg/mL)
     const converted = convertToStandardUnit(quantidadeRemover, unidadeReferencia);
     const quantidadeRemoverPadrao = converted.quantidade;
 
@@ -650,60 +745,58 @@ export class EstoqueService {
 
     let quantidadeRestante = quantidadeRemoverPadrao;
 
-    console.log(`📦 Encontrados ${produtos.length} registros de "${nomeProduto}"`);
-
-    for (const produto of produtos) {
+    // Processar FIFO: remover das entradas mais antigas primeiro
+    for (const entrada of entradas) {
       if (quantidadeRestante <= 0) break;
 
-      const quantidadeDisponivel = produto.quantidade_em_estoque;
-      const quantidadeARemover = Math.min(quantidadeRestante, quantidadeDisponivel);
-      const novaQuantidade = quantidadeDisponivel - quantidadeARemover;
+      const saldoDisponivel = saldoPorEntrada.get(entrada.id) || 0;
+      if (saldoDisponivel <= 0) continue; // Entrada já esgotada
 
-      console.log(`  🔹 Processando produto ID ${produto.id}:`, {
-        disponivel: quantidadeDisponivel,
-        remover: quantidadeARemover,
-        novo: novaQuantidade,
-        created_at: produto.created_at,
-      });
+      const quantidadeARemover = Math.min(quantidadeRestante, saldoDisponivel);
 
-      // ⚠️ NÃO ATUALIZAMOS O ESTOQUE AQUI!
-      // O trigger trg_processar_movimentacao fará isso automaticamente quando inserirmos
-      // o registro em movimentacoes_estoque. Se atualizarmos aqui, a quantidade será
-      // subtraída em dobro (uma vez por nós, outra vez pelo trigger).
-
-      // Buscar valor_medio para armazenar no histórico
-      // ✅ PRIORIZAR média ponderada do grupo se fornecida, caso contrário usar valor individual
-      const valorUnitarioMomento = mediaPrecoGrupo != null ? Number(mediaPrecoGrupo) : (produto.valor_medio != null ? Number(produto.valor_medio) : null);
-      const unidadeValorMomento = unidadeValorGrupo || produto.unidade_valor_original || produto.unidade_de_medida || null;
-      const unidadeMomento = produto.unidade_de_medida || null;
-
-      console.log(`  💰 Armazenando valor histórico:`, {
-        produto_id: produto.id,
-        valor_medio: produto.valor_medio,
-        valorUnitarioMomento,
-        unidadeValorMomento,
-        unidadeMomento,
-        quantidadeARemover
-      });
-
-      // Registrar a movimentação com valores e unidade do momento
-      await this.registrarMovimentacao(
-        produto.id,
-        'saida',
+      console.log(`  🔹 Criando saída da entrada ID ${entrada.id}:`, {
+        saldoDisponivel,
         quantidadeARemover,
-        observacao,
-        valorUnitarioMomento,
-        unidadeValorMomento,
-        unidadeMomento
-      );
+        created_at: entrada.created_at,
+      });
+
+      // Criar registro de SAÍDA referenciando esta entrada
+      const valorUnitario = mediaPrecoGrupo ?? entrada.valor_medio ?? entrada.valor_unitario ?? null;
+      
+      const { error: insertError } = await supabase
+        .from('estoque_de_produtos')
+        .insert({
+          user_id: userId,
+          propriedade_id: propriedadeId,
+          nome_do_produto: entrada.nome_do_produto,
+          marca_ou_fabricante: entrada.marca_ou_fabricante,
+          categoria: entrada.categoria,
+          unidade_de_medida: entrada.unidade_de_medida, // Mesma unidade da entrada (mg/mL)
+          quantidade_em_estoque: quantidadeARemover,    // Quantidade removida
+          quantidade_inicial: quantidadeARemover,
+          valor_unitario: valorUnitario,
+          valor_total: valorUnitario ? valorUnitario * quantidadeARemover : null,
+          unidade_valor_original: unidadeValorGrupo || entrada.unidade_valor_original,
+          lote: entrada.lote,
+          validade: entrada.validade,
+          fornecedor: entrada.fornecedor,
+          registro_mapa: entrada.registro_mapa,
+          tipo_de_movimentacao: 'saida',
+          entrada_referencia_id: entrada.id,           // Referência à entrada (FIFO)
+          produto_id: entrada.produto_id,              // Mesmo produto_id do grupo
+          observacoes_das_movimentacoes: observacao || null,
+        });
+
+      if (insertError) {
+        console.error('❌ Erro ao criar registro de saída:', insertError);
+        throw insertError;
+      }
 
       quantidadeRestante -= quantidadeARemover;
-
-      console.log(`  ✅ Produto ${produto.id} atualizado. Restante a remover: ${quantidadeRestante}`);
+      console.log(`  ✅ Saída criada. Restante a remover: ${quantidadeRestante}`);
     }
 
-    // Usar tolerância para evitar erros de precisão de ponto flutuante
-    // Aumentado para 10mg/10mL (0.01g/0.01L) para permitir zerar estoque com variações de arredondamento
+    // Verificar se conseguiu remover tudo (com tolerância)
     const TOLERANCE = 10000; // 10.000 mg ou 10 mL
     if (quantidadeRestante > TOLERANCE) {
       console.warn('⚠️ Quantidade solicitada excede o estoque disponível.');
