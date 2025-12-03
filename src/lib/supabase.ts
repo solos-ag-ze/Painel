@@ -174,6 +174,7 @@ export interface ProdutoEstoque {
 export interface MaquinasEquipamentos {
   id_maquina: string;
   user_id: string;
+  id_propriedade: string | null;
   nome: string;
   marca_modelo: string | null;
   categoria: string | null;
