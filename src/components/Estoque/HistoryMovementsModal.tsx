@@ -510,11 +510,38 @@ function MovementCard({ movement: m, onOpenAttachment, onOpenActivityAttachment,
   const badgeLabel = isLancamento ? 'Aplicação' : isEntrada ? 'Entrada' : 'Saída';
   const qty = isLancamento ? (m.quantidade_val ?? 0) : (m.quantidade ?? 0);
   const unit = isLancamento ? (m.quantidade_un || m.unidade || 'un') : (m.unidade || 'un');
-  const qtyScaled = autoScaleQuantity(qty, unit);
-  
-  // Garantir que quantidade exibida não seja NaN
-  const quantidadeDisplay = isNaN(qtyScaled.quantidade) ? 0 : qtyScaled.quantidade;
-  const unidadeDisplay = qtyScaled.unidade || 'un';
+
+  // Validar quantidade de entrada - se for NaN, null ou inválida, usar 0
+  let qtySegura = 0;
+  if (typeof qty === 'number' && !isNaN(qty) && isFinite(qty)) {
+    qtySegura = qty;
+  }
+
+  // Validar unidade - se vazia ou inválida, usar 'un'
+  const unitSegura = (unit && typeof unit === 'string' && unit.trim() !== '') ? unit : 'un';
+
+  // Escalar com try-catch e validação completa
+  let resultadoFinal = { quantidade: qtySegura, unidade: unitSegura };
+
+  try {
+    const scaled = autoScaleQuantity(qtySegura, unitSegura);
+
+    // Validar resultado do autoScaleQuantity
+    if (scaled &&
+        typeof scaled.quantidade === 'number' &&
+        !isNaN(scaled.quantidade) &&
+        isFinite(scaled.quantidade) &&
+        scaled.unidade &&
+        typeof scaled.unidade === 'string') {
+      resultadoFinal = scaled;
+    }
+  } catch (error) {
+    console.error('Erro ao escalar quantidade no badge:', error);
+  }
+
+  // Formatar para exibição com garantia de formato numérico válido
+  const quantidadeDisplay = resultadoFinal.quantidade.toFixed(2);
+  const unidadeDisplay = resultadoFinal.unidade;
 
   return (
     <div className="bg-white border border-[rgba(0,68,23,0.08)] shadow-[0_2px_8px_rgba(0,68,23,0.04)] rounded-xl p-5 relative">
@@ -527,7 +554,7 @@ function MovementCard({ movement: m, onOpenAttachment, onOpenActivityAttachment,
                 {badgeLabel}
               </span>
               <span className="font-bold text-[18px] whitespace-nowrap text-[#004417]">
-                {quantidadeDisplay} {unidadeDisplay}
+                {String(quantidadeDisplay).replace(/NaN/g, '0.00')} {String(unidadeDisplay).replace(/NaN/g, 'un')}
               </span>
               {m._agrupado && (
                 <span className="text-[11px] text-[#004417] bg-[rgba(0,68,23,0.05)] px-2 py-1 rounded">
@@ -611,17 +638,6 @@ function LancamentoDetails({ nomeAtividade, quantidade, unidade, custoCalculado 
   unidade: string;
   custoCalculado?: number | null;
 }) {
-  // Log de debug para identificar o problema
-  console.log('LancamentoDetails - Props recebidas:', {
-    nomeAtividade,
-    quantidade,
-    unidade,
-    custoCalculado,
-    tipoQuantidade: typeof quantidade,
-    tipoUnidade: typeof unidade,
-    tipoCusto: typeof custoCalculado
-  });
-
   // Validar quantidade de entrada - se for NaN, null ou inválida, usar 0
   let quantidadeSegura = 0;
   if (typeof quantidade === 'number' && !isNaN(quantidade) && isFinite(quantidade)) {
@@ -667,13 +683,6 @@ function LancamentoDetails({ nomeAtividade, quantidade, unidade, custoCalculado 
   const atividadeTexto = String(nomeAtividade || '—').replace(/NaN/g, '—');
   const quantidadeTexto = String(quantidadeFormatada).replace(/NaN/g, '0.00');
   const unidadeTexto = String(unidadeFormatada).replace(/NaN/g, 'un');
-
-  console.log('LancamentoDetails - Valores finais:', {
-    atividadeTexto,
-    quantidadeTexto,
-    unidadeTexto,
-    temCustoValido
-  });
 
   return (
     <div className="mt-3 rounded-lg border border-[rgba(0,68,23,0.08)] bg-[rgba(202,219,42,0.08)] p-3 text-[13px] text-[rgba(0,68,23,0.85)] space-y-2">
