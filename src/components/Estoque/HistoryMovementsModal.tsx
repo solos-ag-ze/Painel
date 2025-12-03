@@ -557,24 +557,7 @@ function MovementCard({ movement: m, onOpenAttachment, onOpenActivityAttachment,
         </div>
       )}
 
-      {isLancamento && m.atividade_id && (
-        <div className="md:absolute md:bottom-4 md:right-4 mt-3 md:mt-0 flex items-center gap-2 justify-end">
-          <button
-            onClick={() => onOpenActivityAttachment(String(m.atividade_id), m.nome_atividade || 'Atividade')}
-            className="p-2 text-[#004417] hover:text-[#00A651] hover:bg-[rgba(0,166,81,0.08)] rounded-lg transition-colors"
-            title="Gerenciar anexo da atividade"
-          >
-            <Paperclip className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onOpenActivityDetail(String(m.atividade_id))}
-            className="p-2 text-[#004417] hover:text-[#00A651] hover:bg-[rgba(0,166,81,0.08)] rounded-lg transition-colors"
-            title="Abrir atividade"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      
     </div>
   );
 }
