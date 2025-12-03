@@ -17,8 +17,6 @@ interface Props {
   getCategoryIcon: (categoria: string) => JSX.Element;
   setHistoryModal: (params: ModalParams) => void;
   setRemoveModal: (params: ModalParams) => void;
-  // Mapa de déficits por nome normalizado -> { deficit_quantidade, unidade_base }
-  deficits?: Record<string, { deficit_quantidade: number; unidade_base: string }>; 
   onRegisterEntry?: (product: ProdutoAgrupado) => void;
   // notificações (opcionais)
   unreadCount?: number;
@@ -31,7 +29,6 @@ export default function ListaProdutosDesktop({
   getCategoryIcon,
   setHistoryModal,
   setRemoveModal,
-  deficits,
   onRegisterEntry,
   unreadCount,
   toggleNotifications,
@@ -100,18 +97,6 @@ export default function ListaProdutosDesktop({
                 <span className="inline-block text-[12px] font-medium px-2 py-0.5 bg-[rgba(0,166,81,0.1)] text-[#00A651] rounded-xl">
                   {item.categorias.join(', ')}
                 </span>
-                {(() => {
-                  const key = normalizeName(item.nome);
-                  const deficit = deficits?.[key];
-                  if (deficit && Number(deficit.deficit_quantidade) > 0) {
-                    return (
-                      <span className="inline-block text-[12px] font-medium px-2 py-0.5 bg-[rgba(217,115,13,0.08)] text-[#D97706] rounded-xl">
-                        {`Déficit: ${Number(deficit.deficit_quantidade).toFixed(2)} ${deficit.unidade_base}`}
-                      </span>
-                    );
-                  }
-                  return null;
-                })()}
               </div>
             </div>
 
@@ -133,23 +118,9 @@ export default function ListaProdutosDesktop({
               </div>
             </div>
 
-            {/* 4) AÇÕES: se tiver déficit, mostrar apenas Registrar entrada */}
+            {/* 4) AÇÕES */}
             <div className="flex items-center justify-end gap-2 shrink-0">
-              {(() => {
-                const key = normalizeName(item.nome);
-                const deficit = deficits?.[key];
-                if (deficit && Number(deficit.deficit_quantidade) > 0) {
-                  return (
-                    <button
-                      onClick={() => onRegisterEntry && onRegisterEntry(item)}
-                      className="bg-[rgba(0,166,81,0.1)] text-[#00A651] px-3 py-1.5 rounded-lg hover:bg-[rgba(0,166,81,0.15)] flex items-center gap-2 transition-all font-medium text-[13px]"
-                    >
-                      Registrar entrada
-                    </button>
-                  );
-                }
-
-                return (
+              {(
                   <>
                     <button
                       onClick={() => setHistoryModal({ isOpen: true, product: item })}
@@ -170,8 +141,7 @@ export default function ListaProdutosDesktop({
                       Remover
                     </button>
                   </>
-                );
-              })()}
+                )}
             </div>
 
           </div>

@@ -1,5 +1,5 @@
 // src/services/agruparProdutosService.ts
-import { ProdutoEstoque } from "./estoqueService";
+import { ProdutoEstoque, EstoqueService } from "./estoqueService";
 import { convertToStandardUnit, convertBetweenUnits, isMassUnit, isVolumeUnit } from '../lib/unitConverter';
 
 /**
@@ -162,16 +162,17 @@ export interface ProdutoAgrupado {
   mediaPrecoOriginal: number | null;
 }
 
-export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
-  if (!produtos.length) return [];
+export async function agruparProdutos(produtos: ProdutoEstoque[]): Promise<ProdutoAgrupado[]> {
+  try {
+    if (!produtos.length) return [];
 
-  const produtosValidos = produtos.filter(p => 
-    p.nome_produto && 
-    typeof p.nome_produto === 'string' && 
-    p.nome_produto.trim()
-  );
-  
-  if (!produtosValidos.length) return [];
+    const produtosValidos = produtos.filter(p => 
+      p.nome_produto && 
+      typeof p.nome_produto === 'string' && 
+      p.nome_produto.trim()
+    );
+    
+    if (!produtosValidos.length) return [];
 
   const grupos: Record<string, ProdutoEstoque[]> = {};
   grupos[produtosValidos[0].nome_produto] = [produtosValidos[0]];
@@ -191,6 +192,32 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
     if (!encontrouGrupo) {
       grupos[produto.nome_produto] = [produto];
     }
+  }
+
+  // ✅ Buscar lançamentos de produtos uma única vez
+  const todosIds = produtosValidos.map(p => p.id);
+  const lancamentosPorProduto = new Map<number, number>();
+  
+  try {
+    const lancamentos = await EstoqueService.getLancamentosPorProdutos(todosIds);
+    
+    if (lancamentos && Array.isArray(lancamentos)) {
+      lancamentos.forEach(l => {
+        const produtoId = Number(l.produto_id);
+        const quantidade = l.quantidade_val ?? 0;
+        const unidade = l.quantidade_un || 'un';
+        
+        const produto = produtosValidos.find(p => Number(p.id) === produtoId);
+        if (produto) {
+          const quantidadeConvertida = convertBetweenUnits(quantidade, unidade, produto.unidade);
+          const atual = lancamentosPorProduto.get(produtoId) || 0;
+          lancamentosPorProduto.set(produtoId, atual + quantidadeConvertida);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('⚠️ Erro ao buscar lançamentos (continuando sem eles):', err);
+    // Continuar sem lançamentos em caso de erro
   }
 
   return Object.values(grupos).map(grupo => {
@@ -223,10 +250,6 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
     let totalSaidas = 0;
     let somaValorTotal = 0;
     
-    console.log(`\n📊 Calculando estoque do grupo: ${nomeMaisComum}`);
-    console.log(`   Unidade de referência: ${unidadeReferencia}`);
-    console.log(`   Entradas: ${entradas.length} | Saídas: ${saidas.length}`);
-    
     // Somar entradas (quantidade positiva)
     entradas.forEach(p => {
       const quantidadeAtual = p.quantidade ?? 0;
@@ -243,8 +266,6 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
       const fatorConversaoValor = convertBetweenUnits(1, unidadeReferencia, unidadeValorProduto);
       const valorMedioNaUnidadeRef = valorMedio * fatorConversaoValor;
       somaValorTotal += valorMedioNaUnidadeRef * quantidadeNaUnidadeRef;
-      
-      console.log(`   ➕ Entrada ID ${p.id}: ${quantidadeNaUnidadeRef.toFixed(2)} ${unidadeReferencia}`);
     });
     
     // Subtrair saídas (quantidade negativa no cálculo)
@@ -256,22 +277,29 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
         unidadeReferencia
       );
       totalSaidas += quantidadeNaUnidadeRef;
-      
-      console.log(`   ➖ Saída ID ${p.id}: ${quantidadeNaUnidadeRef.toFixed(2)} ${unidadeReferencia}`);
     });
     
-    // Estoque real = entradas - saídas
-    const totalEstoqueDisplay = Math.max(0, totalEntradas - totalSaidas);
+    // ✅ Subtrair lançamentos (produtos usados em atividades)
+    let totalLancamentos = 0;
+    entradas.forEach(p => {
+      const quantidadeLancada = lancamentosPorProduto.get(p.id) || 0;
+      if (quantidadeLancada > 0) {
+        const quantidadeNaUnidadeRef = convertBetweenUnits(
+          quantidadeLancada,
+          p.unidade,
+          unidadeReferencia
+        );
+        totalLancamentos += quantidadeNaUnidadeRef;
+      }
+    });
+    
+    // Estoque real = entradas - saídas - lançamentos
+    const totalEstoqueDisplay = Math.max(0, totalEntradas - totalSaidas - totalLancamentos);
     
     // Média ponderada (baseada apenas nas entradas)
     const mediaPrecoFinal = totalEntradas > 0 
       ? somaValorTotal / totalEntradas 
       : 0;
-    
-    console.log(`   📦 Total Entradas: ${totalEntradas.toFixed(2)} ${unidadeReferencia}`);
-    console.log(`   📤 Total Saídas: ${totalSaidas.toFixed(2)} ${unidadeReferencia}`);
-    console.log(`   ✅ Estoque Real: ${totalEstoqueDisplay.toFixed(2)} ${unidadeReferencia}`);
-    console.log(`   💰 Média ponderada: R$ ${mediaPrecoFinal.toFixed(2)}/${unidadeReferencia}\n`);
 
     // 5️⃣ CALCULAR totalEstoque em unidade padrão (para compatibilidade)
     let totalEstoqueEmUnidadePadrao = 0;
@@ -325,7 +353,12 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
       validades,
       fornecedores: Object.values(fornecedoresMap),
       unidadeValorOriginal: unidadeReferencia,
-      mediaPrecoOriginal: mediaPrecoFinal
+      mediaPrecoOriginal: mediaPrecoFinal,
     };
   });
+
+  } catch (error) {
+    console.error('❌ Erro crítico em agruparProdutos:', error);
+    return [];
+  }
 }

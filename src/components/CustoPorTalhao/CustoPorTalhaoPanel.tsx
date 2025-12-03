@@ -39,8 +39,8 @@ import { CustoPorTalhaoService, CustoTalhao, FiltrosCustoPorTalhao } from '../..
     const [filtroTalhao, setFiltroTalhao] = useState('todos');
 
     const [custosTalhoes, setCustosTalhoes] = useState<CustoTalhao[]>([]);
-    const [talhaoSelecionado, _setTalhaoSelecionado] = useState<CustoTalhao | null>(null);
-    const [detalhesCusto, _setDetalhesCusto] = useState<DetalheCusto[]>([]);
+    const [talhaoSelecionado, setTalhaoSelecionado] = useState<CustoTalhao | null>(null);
+    const [detalhesCusto] = useState<DetalheCusto[]>([]);
     const [painelLateralAberto, setPainelLateralAberto] = useState(false);
     const [modalPendenciasAberto, setModalPendenciasAberto] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
@@ -121,15 +121,31 @@ import { CustoPorTalhaoService, CustoTalhao, FiltrosCustoPorTalhao } from '../..
       }
     }, [userId, filtros, carregarCustos]);
 
-    // Função para atualizar filtro de safra
-    const handleSafraChange = (novaSafra: string) => {
-      setFiltros(prev => ({ ...prev, safra: novaSafra, mesAno: '' }));
+    const toggleTalhaoFiltroSelecao = (talhaoNome: string) => {
+      setFiltros(prev => {
+        const jaSelecionado = prev.talhoes.includes(talhaoNome);
+        return {
+          ...prev,
+          talhoes: jaSelecionado
+            ? prev.talhoes.filter(nome => nome !== talhaoNome)
+            : [...prev.talhoes, talhaoNome]
+        };
+      });
+    };
+
+    const handleVerAnexos = () => {
+      console.info('📎 Abrir modal de anexos do talhão selecionado');
     };
 
     // Filtra talhões exibidos baseado no filtro local
     const talhoesFiltrados = filtroTalhao === 'todos' 
       ? custosTalhoes 
       : custosTalhoes.filter(t => t.talhao === filtroTalhao);
+
+    const handleTalhaoSelect = (talhao: CustoTalhao) => {
+      setTalhaoSelecionado(talhao);
+      setPainelLateralAberto(true);
+    };
 
     const formatCurrency = (value: number) => {
       return new Intl.NumberFormat('pt-BR', {
@@ -149,20 +165,59 @@ import { CustoPorTalhaoService, CustoTalhao, FiltrosCustoPorTalhao } from '../..
       area: acc.area + t.area
     }), { insumos: 0, operacional: 0, servicosLogistica: 0, administrativos: 0, outros: 0, total: 0, area: 0 });
 
+    const talhoesDisponiveis = Array.from(new Set(custosTalhoes.map(t => t.talhao))).filter(Boolean);
+
     return (
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#004417] flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-[#004417] flex items-center gap-2">
               Custo por Talhão
             </h1>
-            <p className="text-[#1d3a2d] mt-1">Resumo dos custos por área</p>
+            <p className="text-[#1d3a2d] mt-1">Custos agrícolas dividos por área</p>
           </div>
         </div>
 
-        {/* Filtro por Talhões */}
-        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] p-5">
+        {/* Mobile Experience: filtros */}
+        <div className="lg:hidden space-y-6">
+          {/* Filtros superiores */}
+          <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,68,23,0.08)] border border-[rgba(0,68,23,0.08)] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-[#004417]">Filtrar por Talhão</h3>
+              </div>
+              <span className="text-xs text-[rgba(0,68,23,0.65)] font-semibold">{custosTalhoes.length} {custosTalhoes.length === 1 ? 'talhão' : 'talhões'}</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                {talhoesDisponiveis.length === 0 && (
+                  <span className="text-xs text-[rgba(0,68,23,0.65)]">Nenhum talhão disponível</span>
+                )}
+                {talhoesDisponiveis.map((talhaoNome) => {
+                  const selecionado = filtros.talhoes.includes(talhaoNome);
+                  return (
+                    <button
+                      key={talhaoNome}
+                      type="button"
+                      onClick={() => toggleTalhaoFiltroSelecao(talhaoNome)}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${
+                        selecionado
+                          ? 'bg-[rgba(0,166,81,0.15)] border-[#00A651] text-[#004417]'
+                          : 'bg-white border-[rgba(0,68,23,0.15)] text-[#004417]'
+                      }`}
+                    >
+                      {talhaoNome}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filtro por Talhões - Desktop */}
+        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] p-5 hidden lg:block">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-[#004417]">Filtrar por Talhão</h3>
             <div className="text-[13px] text-[rgba(0,68,23,0.75)] font-medium">
@@ -198,7 +253,6 @@ import { CustoPorTalhaoService, CustoTalhao, FiltrosCustoPorTalhao } from '../..
         {/* Tabela Principal - Desktop (≥1024px) */}
         {!loading && (
           <div className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-6 hidden lg:block">
-            <h3 className="text-lg font-bold text-[#004417] mb-4">Custo por Talhão</h3>
         
             <div className="overflow-x-auto bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] overflow-hidden">
               <table className="min-w-full">
@@ -235,7 +289,8 @@ import { CustoPorTalhaoService, CustoTalhao, FiltrosCustoPorTalhao } from '../..
                       {talhoesFiltrados.map((t, index) => (
                         <tr
                           key={t.id || index}
-                          className="bg-white border-b border-[rgba(0,0,0,0.06)] transition-all hover:bg-[rgba(0,166,81,0.02)]"
+                          onClick={() => handleTalhaoSelect(t)}
+                          className="bg-white border-b border-[rgba(0,0,0,0.06)] transition-all hover:bg-[rgba(0,166,81,0.08)] cursor-pointer"
                         >
                           <td className="px-6 py-5 text-sm text-[#004417] font-medium align-top">{t.talhao}</td>
                           <td className="px-6 py-5 text-sm text-right text-[#1d3a2d] align-top">{t.area.toFixed(2)}</td>
@@ -278,49 +333,80 @@ import { CustoPorTalhaoService, CustoTalhao, FiltrosCustoPorTalhao } from '../..
           </div>
         )}
 
-        {/* Cards Mobile - Vertical (≤1023px) */}
+        {/* Visualização por Macrogrupo - Mobile */}
         {!loading && (
-          <div className="lg:hidden space-y-3">
-            {talhoesFiltrados.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-6 text-center text-[#1d3a2d]">
-                {custosTalhoes.length === 0 
-                  ? 'Nenhum custo encontrado para a safra selecionada.'
-                  : 'Nenhum talhão corresponde ao filtro selecionado.'}
-              </div>
-            ) : (
-              talhoesFiltrados.map((t, index) => (
-                <div key={t.id || index} className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-base font-bold text-[#004417]">{t.talhao}</div>
-                    <div className="text-sm text-[#1d3a2d]">{t.area.toFixed(2)} ha</div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {macrogrupos.map(gr => (
-                      <div key={gr.key} className="flex justify-between">
-                        <span className="text-[#1d3a2d]">{gr.label}:</span>
-                        <span className="font-semibold text-[#004417]">{formatCurrency((t as any)[gr.key] || 0)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)]">
-                    <div>
-                      <span className="text-sm text-[#1d3a2d]">Total: </span>
-                      <span className="text-sm font-bold text-[#004417]">{formatCurrency(t.total)}</span>
-                    </div>
-                    <div className="text-sm font-bold text-[#00A651]">
-                      {formatCurrency(t.custoHa)}/ha
-                    </div>
-                  </div>
+          <div className="lg:hidden">
+            <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,68,23,0.08)] border border-[rgba(0,68,23,0.08)] p-5">
+              {talhoesFiltrados.length === 0 ? (
+                <div className="text-center text-sm text-[#1d3a2d] py-6">
+                  {custosTalhoes.length === 0
+                    ? 'Nenhum custo encontrado para a safra selecionada.'
+                    : 'Nenhum talhão corresponde ao filtro selecionado.'}
                 </div>
-              ))
-            )}
+              ) : (
+                <div className="overflow-x-auto -mx-3 px-3">
+                  <table className="min-w-[720px] text-xs">
+                    <thead>
+                      <tr className="bg-[rgba(0,166,81,0.06)] text-[#004417]">
+                        <th className="text-left font-bold px-3 py-2">Talhão</th>
+                        <th className="text-right font-bold px-3 py-2">Área (ha)</th>
+                        {macrogrupos.map((grupo) => (
+                          <th key={grupo.key} className="text-right font-bold px-3 py-2">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>{grupo.label}</span>
+                              <Info className="w-3 h-3 text-[#004417]" />
+                            </div>
+                          </th>
+                        ))}
+                        <th className="text-right font-bold px-3 py-2">Total</th>
+                        <th className="text-right font-bold px-3 py-2">R$/ha</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {talhoesFiltrados.map((t, index) => (
+                        <tr
+                          key={t.id || index}
+                          onClick={() => handleTalhaoSelect(t)}
+                          className="border-b border-[rgba(0,0,0,0.06)] text-[#1d3a2d] hover:bg-[rgba(0,166,81,0.08)] transition-colors cursor-pointer"
+                        >
+                          <td className="px-3 py-3 font-semibold text-[#004417]">{t.talhao}</td>
+                          <td className="px-3 py-3 text-right">{t.area.toFixed(2)}</td>
+                          {macrogrupos.map((grupo) => (
+                            <td key={grupo.key} className="px-3 py-3 text-right font-semibold">
+                              {formatCurrency((t as any)[grupo.key] || 0)}
+                            </td>
+                          ))}
+                          <td className="px-3 py-3 text-right font-bold text-[#004417]">{formatCurrency(t.total)}</td>
+                          <td className="px-3 py-3 text-right font-bold text-[#00A651]">{formatCurrency(t.custoHa)}/ha</td>
+                        </tr>
+                      ))}
+                      {talhoesFiltrados.length > 1 && (
+                        <tr className="bg-[rgba(0,166,81,0.06)] text-[#004417] font-bold">
+                          <td className="px-3 py-3">TOTAL</td>
+                          <td className="px-3 py-3 text-right">{totaisGerais.area.toFixed(2)}</td>
+                          {macrogrupos.map((grupo) => (
+                            <td key={grupo.key} className="px-3 py-3 text-right">
+                              {formatCurrency((totaisGerais as any)[grupo.key] || 0)}
+                            </td>
+                          ))}
+                          <td className="px-3 py-3 text-right">{formatCurrency(totaisGerais.total)}</td>
+                          <td className="px-3 py-3 text-right text-[#00A651]">
+                            {formatCurrency(totaisGerais.area > 0 ? totaisGerais.total / totaisGerais.area : 0)}/ha
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* Painel Lateral (Drill-down) */}
         {painelLateralAberto && talhaoSelecionado && (
           <div className="fixed inset-0 bg-black/50 z-50 flex justify-end">
-            <div className="bg-white w-full max-w-2xl h-full shadow-2xl flex flex-col">
+            <div className="bg-white w-full max-w-2xl h-full shadow-2xl flex flex-col rounded-none lg:rounded-l-2xl" role="dialog" aria-modal="true">
               {/* Header do Painel */}
               <div className="p-6 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', backgroundColor: 'white' }}>
                 <div>
@@ -352,51 +438,65 @@ import { CustoPorTalhaoService, CustoTalhao, FiltrosCustoPorTalhao } from '../..
                         </tr>
                       </thead>
                       <tbody>
-                        {detalhesCusto.map((detalhe, index) => (
-                          <tr key={index} className="bg-white border-b border-[rgba(0,0,0,0.06)]">
-                            <td className="px-6 py-5 text-sm text-[#1d3a2d]">{detalhe.data}</td>
-                            <td className="px-6 py-5 text-sm text-[#1d3a2d]">{detalhe.categoria}</td>
-                            <td className="px-6 py-5 text-sm text-[#1d3a2d]">{detalhe.descricao}</td>
-                            <td className="px-6 py-5 text-sm">
-                              <span className={`text-sm font-medium ${
-                                detalhe.origem === 'Financeiro' ? 'text-[#004417]' : 'text-[#00A651]'
-                              }`}>
-                                {detalhe.origem}
-                              </span>
+                        {detalhesCusto.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-6 py-5 text-center text-sm text-[#1d3a2d]">
+                              Nenhum detalhamento disponível para este talhão.
                             </td>
-                            <td className="px-6 py-5 text-sm font-semibold text-[#004417] text-right">{formatCurrency(detalhe.valor)}</td>
                           </tr>
-                        ))}
+                        ) : (
+                          detalhesCusto.map((detalhe, index) => (
+                            <tr key={index} className="bg-white border-b border-[rgba(0,0,0,0.06)]">
+                              <td className="px-6 py-5 text-sm text-[#1d3a2d]">{detalhe.data}</td>
+                              <td className="px-6 py-5 text-sm text-[#1d3a2d]">{detalhe.categoria}</td>
+                              <td className="px-6 py-5 text-sm text-[#1d3a2d]">{detalhe.descricao}</td>
+                              <td className="px-6 py-5 text-sm">
+                                <span className={`text-sm font-medium ${
+                                  detalhe.origem === 'Financeiro' ? 'text-[#004417]' : 'text-[#00A651]'
+                                }`}>
+                                  {detalhe.origem}
+                                </span>
+                              </td>
+                              <td className="px-6 py-5 text-sm font-semibold text-[#004417] text-right">{formatCurrency(detalhe.valor)}</td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
 
                   {/* Mobile: cards separados */}
                   <div className="lg:hidden space-y-4">
-                    {detalhesCusto.map((detalhe, index) => (
-                      <div key={index} className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <div className="text-sm text-[#1d3a2d]">{detalhe.data}</div>
-                            <div className="text-base font-bold text-[#004417] truncate">{detalhe.categoria}</div>
-                            <div className="text-sm text-[#1d3a2d] mt-1 truncate">{detalhe.descricao}</div>
-                          </div>
-                          <div className="flex-shrink-0 text-right">
-                            <div className={`text-sm font-medium ${detalhe.origem === 'Financeiro' ? 'text-[#004417]' : 'text-[#00A651]'}`}>
-                              {detalhe.origem}
+                    {detalhesCusto.length === 0 ? (
+                      <div className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-4 text-center text-sm text-[#1d3a2d]">
+                        Nenhum detalhamento disponível para este talhão.
+                      </div>
+                    ) : (
+                      detalhesCusto.map((detalhe, index) => (
+                        <div key={index} className="bg-white rounded-xl shadow-sm border border-[rgba(0,0,0,0.06)] p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="text-sm text-[#1d3a2d]">{detalhe.data}</div>
+                              <div className="text-base font-bold text-[#004417] truncate">{detalhe.categoria}</div>
+                              <div className="text-sm text-[#1d3a2d] mt-1 truncate">{detalhe.descricao}</div>
                             </div>
-                            <div className="text-lg font-bold text-[#004417] mt-2">{formatCurrency(detalhe.valor)}</div>
+                            <div className="flex-shrink-0 text-right">
+                              <div className={`text-sm font-medium ${detalhe.origem === 'Financeiro' ? 'text-[#004417]' : 'text-[#00A651]'}`}>
+                                {detalhe.origem}
+                              </div>
+                              <div className="text-lg font-bold text-[#004417] mt-2">{formatCurrency(detalhe.valor)}</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Rodapé do Painel */}
-                <div className="p-6" style={{ borderTop: '1px solid rgba(0,0,0,0.06)', backgroundColor: 'white' }}>
-                <div className="flex items-center justify-between mb-4">
+              <div className="p-6 space-y-4" style={{ borderTop: '1px solid rgba(0,0,0,0.06)', backgroundColor: 'white' }}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-sm">
                     <span className="text-[#1d3a2d]">💰 Total: </span>
                     <span className="font-bold text-[#004417]">{formatCurrency(talhaoSelecionado.total)}</span>
@@ -405,6 +505,15 @@ import { CustoPorTalhaoService, CustoTalhao, FiltrosCustoPorTalhao } from '../..
                     <span className="text-[#1d3a2d]">📐 Custo/ha: </span>
                     <span className="font-bold text-[#00A651]">{formatCurrency(talhaoSelecionado.custoHa)}/ha</span>
                   </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleVerAnexos}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#00A651] text-sm font-semibold text-[#004417] hover:bg-[rgba(0,166,81,0.08)] transition-colors"
+                  >
+                    📎 Ver anexos
+                  </button>
                 </div>
               </div>
             </div>

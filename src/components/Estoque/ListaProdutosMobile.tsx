@@ -17,7 +17,6 @@ interface Props {
   getCategoryIcon: (categoria: string) => JSX.Element;
   setHistoryModal: (params: ModalParams) => void;
   setRemoveModal: (params: ModalParams) => void;
-  deficits?: Record<string, { deficit_quantidade: number; unidade_base: string }>;
   onRegisterEntry?: (product: ProdutoAgrupado) => void;
   unreadCount?: number;
   toggleNotifications?: () => Promise<void>;
@@ -29,7 +28,6 @@ export default function ListaProdutosMobile({
   getCategoryIcon,
   setHistoryModal,
   setRemoveModal,
-  deficits,
   onRegisterEntry,
   unreadCount,
   toggleNotifications,
@@ -114,21 +112,7 @@ export default function ListaProdutosMobile({
 
             {/* Botões */}
             <div className="flex justify-end gap-2 pt-2">
-              {(() => {
-                const key = normalizeName(item.nome);
-                const deficit = deficits?.[key];
-                if (deficit && Number(deficit.deficit_quantidade) > 0) {
-                  return (
-                    <button
-                      onClick={() => onRegisterEntry && onRegisterEntry(item)}
-                      className="bg-[rgba(0,166,81,0.1)] text-[#00A651] px-3 py-1.5 rounded-lg hover:bg-[rgba(0,166,81,0.15)] transition-all font-medium text-[13px]"
-                    >
-                      Registrar entrada
-                    </button>
-                  );
-                }
-
-                return (
+              {(
                   <>
                     <button
                       onClick={() => setHistoryModal({ isOpen: true, product: item })}
@@ -149,8 +133,7 @@ export default function ListaProdutosMobile({
                       Remover
                     </button>
                   </>
-                );
-              })()}
+                )}
             </div>
           </div>
         ))}

@@ -69,6 +69,10 @@ export interface LancamentoProdutoEntry {
 }
 
 export class EstoqueService {
+  // Cache de lançamentos para melhorar performance
+  private static lancamentosCache: { data: LancamentoProdutoEntry[], timestamp: number } | null = null;
+  private static readonly CACHE_TTL = 30000; // 30 segundos
+
   private static async getCurrentUserId(): Promise<string> {
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -197,30 +201,6 @@ export class EstoqueService {
     }));
 
     return produtosMapeados;
-  }
-
-  /**
-   * Busca déficits do usuário em `estoque_deficit_produto`
-   */
-  static async getDeficits(): Promise<{ nome_do_produto: string; unidade_base: string; deficit_quantidade: number; updated_at?: string }[]> {
-    const userId = await this.getCurrentUserId();
-
-    const { data, error } = await supabase
-      .from('estoque_deficit_produto')
-      .select('nome_do_produto, unidade_base, deficit_quantidade, updated_at')
-      .eq('user_id', userId);
-
-    if (error) {
-      console.error('❌ Erro ao buscar déficits:', error);
-      throw error;
-    }
-
-    return (data || []).map((r: any) => ({
-      nome_do_produto: r.nome_do_produto,
-      unidade_base: r.unidade_base,
-      deficit_quantidade: Number(r.deficit_quantidade) || 0,
-      updated_at: r.updated_at
-    }));
   }
 
   static async calcularValorTotalEstoque(): Promise<number> {
@@ -763,6 +743,24 @@ export class EstoqueService {
       // Criar registro de SAÍDA referenciando esta entrada
       const valorUnitario = mediaPrecoGrupo ?? entrada.valor_medio ?? entrada.valor_unitario ?? null;
       
+      // ✅ Calcular valor_total corretamente: converter quantidade de mg/mL para unidade_valor_original
+      let valorTotal = null;
+      if (valorUnitario) {
+        const unidadeDoValor = unidadeValorGrupo || entrada.unidade_valor_original || entrada.unidade_de_medida;
+        const unidadePadrao = entrada.unidade_de_medida; // mg ou mL
+        
+        // Converter quantidadeARemover (em mg/mL) para unidade_valor_original
+        const quantidadeNaUnidadeDoValor = convertFromStandardUnit(
+          quantidadeARemover,
+          unidadePadrao,
+          unidadeDoValor
+        );
+        
+        valorTotal = valorUnitario * quantidadeNaUnidadeDoValor;
+        
+        console.log(`  💰 Cálculo valor: ${valorUnitario} × ${quantidadeNaUnidadeDoValor} ${unidadeDoValor} = R$ ${valorTotal.toFixed(2)}`);
+      }
+      
       const { error: insertError } = await supabase
         .from('estoque_de_produtos')
         .insert({
@@ -775,7 +773,7 @@ export class EstoqueService {
           quantidade_em_estoque: quantidadeARemover,    // Quantidade removida
           quantidade_inicial: quantidadeARemover,
           valor_unitario: valorUnitario,
-          valor_total: valorUnitario ? valorUnitario * quantidadeARemover : null,
+          valor_total: valorTotal,
           unidade_valor_original: unidadeValorGrupo || entrada.unidade_valor_original,
           lote: entrada.lote,
           validade: entrada.validade,
@@ -922,72 +920,71 @@ export class EstoqueService {
   static async getLancamentosPorProdutos(produtoIds: (number | string)[]): Promise<LancamentoProdutoEntry[]> {
     if (!produtoIds || produtoIds.length === 0) return [];
 
-    // Busca registros em lancamento_produtos primeiro
+    // Normalizar IDs para números
+    const idsNumericos = produtoIds.map(id => Number(id)).filter(id => !isNaN(id));
+    if (idsNumericos.length === 0) return [];
+
+    // ⚡ Verificar cache primeiro (30s TTL)
+    const now = Date.now();
+    if (this.lancamentosCache && (now - this.lancamentosCache.timestamp) < this.CACHE_TTL) {
+      // Filtrar apenas os produtos solicitados (comparando como números)
+      return this.lancamentosCache.data.filter(l => idsNumericos.includes(Number(l.produto_id)));
+    }
+
+    // ⚡ OTIMIZAÇÃO: Buscar com JOIN em uma única query
     const { data: rows, error } = await supabase
       .from('lancamento_produtos')
-      .select('id, atividade_id, produto_id, quantidade_val, quantidade_un, observacao, created_at')
-      .in('produto_id', produtoIds)
-      .order('created_at', { ascending: false });
+      .select(`
+        id,
+        atividade_id,
+        produto_id,
+        quantidade_val,
+        quantidade_un,
+        lancamentos_agricolas (
+          atividade_id,
+          nome_atividade,
+          created_at,
+          data_atividade
+        )
+      `)
+      .in('produto_id', idsNumericos);
 
     if (error) {
-      console.error('❌ Erro ao buscar registros de lancamento_produtos (query direta):', error);
-      // fallback: buscar lançamentos via ActivityService.getLancamentos e filtrar produtos
-      try {
-        const userId = await this.getCurrentUserId();
-        // traz lançamentos do usuário (limit razoável)
-        const activities = await ActivityService.getLancamentos(userId, 500);
-        const resultsFallback: LancamentoProdutoEntry[] = [];
-        for (const act of activities) {
-          const produtos = (act as any).produtos || [];
-          for (const p of produtos) {
-            if (produtoIds.includes(p.produto_id)) {
-              resultsFallback.push({
-                id: p.id,
-                atividade_id: act.atividade_id,
-                produto_id: p.produto_id,
-                quantidade_val: p.quantidade_val,
-                quantidade_un: p.quantidade_un,
-                observacao: p.observacao,
-                created_at: p.created_at || act.created_at || act.data_atividade,
-                atividade: { atividade_id: act.atividade_id, nome_atividade: act.nome_atividade, created_at: act.created_at || act.data_atividade }
-              });
-            }
-          }
-        }
-
-        return resultsFallback;
-      } catch (fbErr) {
-        console.error('❌ Fallback falhou ao buscar lançamentos via ActivityService:', fbErr);
-        throw error; // rethrow original
-      }
+      console.error('❌ Erro ao buscar lancamento_produtos com JOIN:', error);
+      return [];
     }
 
-    const results: LancamentoProdutoEntry[] = [];
-
-    // Para cada registro, busca a atividade completa para obter nome_atividade e created_at
-    for (const row of (rows || []) as any[]) {
-      const atividade_id = row.atividade_id as string | undefined;
-      let atividade: any = null;
-      if (atividade_id) {
-        try {
-          atividade = await ActivityService.getLancamentoById(atividade_id);
-        } catch (err) {
-          console.error(`Erro ao buscar atividade ${atividade_id}:`, err);
-        }
-      }
-
-      results.push({
+    // Mapear resultados com atividade já incluída
+    const results: LancamentoProdutoEntry[] = (rows || []).map((row: any) => {
+      const atividadeData = row.lancamentos_agricolas;
+      
+      return {
         id: row.id,
         atividade_id: row.atividade_id,
-        produto_id: row.produto_id,
+        produto_id: Number(row.produto_id),
         quantidade_val: row.quantidade_val,
         quantidade_un: row.quantidade_un,
-        observacao: row.observacao,
-        created_at: row.created_at,
-        atividade: atividade ? { atividade_id: atividade.atividade_id, nome_atividade: atividade.nome_atividade, created_at: atividade.created_at || atividade.data_atividade } : null,
-      });
-    }
+        observacao: null,
+        created_at: atividadeData?.created_at || atividadeData?.data_atividade || null,
+        atividade: atividadeData ? {
+          atividade_id: atividadeData.atividade_id,
+          nome_atividade: atividadeData.nome_atividade,
+          created_at: atividadeData.created_at || atividadeData.data_atividade
+        } : null
+      };
+    });
+
+    // Salvar no cache
+    this.lancamentosCache = { data: results, timestamp: now };
 
     return results;
+  }
+
+  /**
+   * Limpa o cache de lançamentos
+   * Útil após adicionar/editar/remover lançamentos
+   */
+  static clearLancamentosCache(): void {
+    this.lancamentosCache = null;
   }
 }
