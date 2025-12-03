@@ -7,7 +7,7 @@ import ActivityAttachmentModal from '../ManejoAgricola/ActivityAttachmentModal';
 import ActivityDetailModal from '../ManejoAgricola/ActivityDetailModal';
 import Pagination from './Pagination';
 import { formatUnitAbbreviated } from '../../lib/formatUnit';
-import { autoScaleQuantity, convertFromStandardUnit, convertToStandardUnit, isMassUnit, isVolumeUnit } from '../../lib/unitConverter';
+import { autoScaleQuantity, convertFromStandardUnit, convertToStandardUnit, isMassUnit, isVolumeUnit, convertBetweenUnits } from '../../lib/unitConverter';
 import { formatSmartCurrency } from '../../lib/currencyFormatter';
 
 // ============================================================================
@@ -520,11 +520,24 @@ function MovementCard({ movement: m, onOpenAttachment, onOpenActivityAttachment,
   // Validar unidade - se vazia ou inválida, usar 'un'
   const unitSegura = (unit && typeof unit === 'string' && unit.trim() !== '') ? unit : 'un';
 
+  // Para entradas, converter para unidade_valor_original se disponível
+  let quantidadeParaExibir = qtySegura;
+  let unidadeParaExibir = unitSegura;
+
+  if (isEntrada && m.unidade_valor_original && m.unidade_valor_original !== unitSegura) {
+    try {
+      quantidadeParaExibir = convertBetweenUnits(qtySegura, unitSegura, m.unidade_valor_original);
+      unidadeParaExibir = m.unidade_valor_original;
+    } catch (error) {
+      console.error('Erro ao converter para unidade_valor_original:', error);
+    }
+  }
+
   // Escalar com try-catch e validação completa
-  let resultadoFinal = { quantidade: qtySegura, unidade: unitSegura };
+  let resultadoFinal = { quantidade: quantidadeParaExibir, unidade: unidadeParaExibir };
 
   try {
-    const scaled = autoScaleQuantity(qtySegura, unitSegura);
+    const scaled = autoScaleQuantity(quantidadeParaExibir, unidadeParaExibir);
 
     // Validar resultado do autoScaleQuantity
     if (scaled &&
