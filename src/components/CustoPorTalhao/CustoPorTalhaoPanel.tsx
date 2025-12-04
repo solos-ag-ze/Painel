@@ -29,6 +29,7 @@ const calcularSafraAtual = (): string => {
 
 export default function CustoPorTalhaoPanel() {
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [filtros, setFiltros] = useState<Filtros>({
     safra: calcularSafraAtual(),
     fazenda: '',
@@ -62,6 +63,7 @@ export default function CustoPorTalhaoPanel() {
   // Função para carregar custos por talhão
   const carregarCustos = useCallback(async (currentUserId: string, filtrosAtuais: Filtros) => {
     setLoading(true);
+    setErrorMessage(null);
     try {
       console.log('📊 Carregando custos por talhão...', { userId: currentUserId, filtros: filtrosAtuais });
 
@@ -93,6 +95,7 @@ export default function CustoPorTalhaoPanel() {
     } catch (err) {
       console.error('❌ Erro ao carregar custos por talhão:', err);
       // Exibir fallback informativo e evitar loading infinito
+      setErrorMessage('Não foi possível carregar os custos em produção. Verifique a conexão e credenciais do Supabase.');
       setCustosTalhoes([]);
     } finally {
       setLoading(false);
@@ -218,6 +221,24 @@ export default function CustoPorTalhaoPanel() {
 
   return (
     <div className="space-y-6">
+      {errorMessage && !loading && (
+        <div className="bg-[#fff7f7] border border-[#f3b7b7] text-[#7a1d1d] rounded-xl p-4">
+          <div className="text-sm font-semibold">Problema ao carregar dados</div>
+          <div className="text-sm mt-1">{errorMessage}</div>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (userId) carregarCustos(userId, filtros);
+              }}
+              className="px-3 py-2 rounded-lg text-sm font-semibold border border-[rgba(0,68,23,0.15)] text-[#004417] bg-white hover:bg-[rgba(0,68,23,0.05)]"
+            >
+              Tentar novamente
+            </button>
+            <span className="text-xs text-[rgba(0,68,23,0.65)] self-center">Usuário: {userId || '—'} • Talhões retornados: {custosTalhoes.length}</span>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
