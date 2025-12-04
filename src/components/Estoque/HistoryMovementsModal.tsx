@@ -699,7 +699,7 @@ function SaidaDetails({ movement: m }: { movement: MovementItem }) {
     <div className="bg-white rounded-lg p-4 mt-3 border border-[rgba(0,68,23,0.08)]">
       {m._agrupado && m._entradas_referencia && m._entradas_referencia.length > 0 && (
         <div className="mb-3 pb-3 border-b border-[rgba(0,68,23,0.08)]">
-          <strong className="font-semibold text-[#004417] text-[13px]">Lotes removidos (FIFO):</strong>
+          <strong className="font-semibold text-[#004417] text-[13px]">Lotes removidos:</strong>
           <div className="mt-2 space-y-1">
             {m._entradas_referencia.map((entrada, idx) => (
               <div key={idx} className="text-[12px] text-[rgba(0,68,23,0.7)] flex items-center gap-2">

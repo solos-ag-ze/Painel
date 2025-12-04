@@ -2,7 +2,7 @@
 import { supabase } from '../lib/supabase';
 import { AuthService } from './authService';
 import { ActivityService } from './activityService';
-import { convertToStandardUnit, convertFromStandardUnit, isMassUnit, isVolumeUnit } from '../lib/unitConverter';
+import { convertToStandardUnit, convertFromStandardUnit, isMassUnit, isVolumeUnit, convertBetweenUnits } from '../lib/unitConverter';
 
 export interface ProdutoEstoque {
   id: number;
@@ -647,13 +647,15 @@ export class EstoqueService {
    * @param observacao Observação/motivo da saída
    * @param mediaPrecoGrupo Preço médio do grupo (para registrar no histórico)
    * @param unidadeValorGrupo Unidade de valor do grupo
+   * @param entradaIds Lista opcional de IDs das entradas que compõem este grupo (para garantir que removemos das entradas corretas)
    */
   static async removerQuantidadeFIFO(
     nomeProduto: string,
     quantidadeRemover: number,
     observacao?: string,
     mediaPrecoGrupo?: number | null,
-    unidadeValorGrupo?: string | null
+    unidadeValorGrupo?: string | null,
+    entradaIds?: number[]
   ): Promise<void> {
     const userId = await this.getCurrentUserId();
     const propriedadeId = await this.getPropriedadeIdDoUsuario(userId);
@@ -662,16 +664,27 @@ export class EstoqueService {
       produto: nomeProduto,
       quantidadeRemover,
       observacao,
+      entradaIds: entradaIds,
+      entradaIdsCount: entradaIds?.length
     });
 
     // Buscar todas as ENTRADAS deste produto, ordenadas por created_at (FIFO)
-    const { data: entradas, error: fetchError } = await supabase
+    let query = supabase
       .from('estoque_de_produtos')
       .select('*')
       .eq('user_id', userId)
-      .ilike('nome_do_produto', nomeProduto)
       .or('tipo_de_movimentacao.eq.entrada,tipo_de_movimentacao.is.null') // Entradas ou legado (null = entrada)
       .order('created_at', { ascending: true }); // Mais antigos primeiro (FIFO)
+
+    // Se tivermos IDs específicos, usamos eles (mais seguro)
+    if (entradaIds && entradaIds.length > 0) {
+      query = query.in('id', entradaIds);
+    } else {
+      // Fallback para busca por nome se não tiver IDs
+      query = query.ilike('nome_do_produto', nomeProduto);
+    }
+
+    const { data: entradas, error: fetchError } = await query;
 
     if (fetchError) {
       console.error('❌ Erro ao buscar entradas para remoção FIFO:', fetchError);
@@ -679,27 +692,50 @@ export class EstoqueService {
     }
 
     if (!entradas || entradas.length === 0) {
+      console.warn('⚠️ Nenhuma entrada encontrada. IDs procurados:', entradaIds);
       throw new Error('Nenhuma entrada encontrada para este produto.');
     }
+    
+    console.log(`✅ Encontradas ${entradas.length} entradas para processar.`);
 
-    // Buscar todas as SAÍDAS já existentes para calcular saldo de cada entrada
-    const { data: saidasExistentes, error: saidasError } = await supabase
+    // Buscar todas as SAÍDAS e APLICAÇÕES já existentes para calcular saldo de cada entrada
+    let querySaidas = supabase
       .from('estoque_de_produtos')
       .select('*')
       .eq('user_id', userId)
-      .ilike('nome_do_produto', nomeProduto)
+      // ⚠️ IMPORTANTE: Ignorar 'aplicacao' aqui para alinhar com o frontend (agruparProdutosService)
+      // O frontend ignora 'aplicacao' da tabela estoque_de_produtos e usa apenas lancamento_produtos
+      // Se incluirmos 'aplicacao' aqui, podemos contar duas vezes ou divergir do saldo exibido
       .eq('tipo_de_movimentacao', 'saida');
+
+    if (entradaIds && entradaIds.length > 0) {
+      querySaidas = querySaidas.in('entrada_referencia_id', entradaIds);
+    } else {
+      querySaidas = querySaidas.ilike('nome_do_produto', nomeProduto);
+    }
+
+    const { data: saidasExistentes, error: saidasError } = await querySaidas;
 
     if (saidasError) {
       console.error('❌ Erro ao buscar saídas existentes:', saidasError);
       throw saidasError;
     }
+    
+    // Buscar lançamentos (tabela antiga) para abater do saldo
+    // Isso garante consistência com o painel que subtrai lançamentos
+    let lancamentos: LancamentoProdutoEntry[] = [];
+    try {
+      lancamentos = await EstoqueService.getLancamentosPorProdutos(entradas.map(e => e.id));
+    } catch (err) {
+      console.warn('⚠️ Erro ao buscar lançamentos (ignorando):', err);
+    }
 
     // Calcular saldo disponível por entrada
-    // Saldo = quantidade_em_estoque da entrada - soma das saídas referenciando essa entrada
+    // Saldo = quantidade_em_estoque da entrada - soma das saídas referenciando essa entrada - lançamentos
     const saldoPorEntrada: Map<number, number> = new Map();
     
     for (const entrada of entradas) {
+      // 1. Subtrair saídas/aplicações da tabela estoque_de_produtos
       const saidasDestaEntrada = (saidasExistentes || []).filter(
         (s: any) => s.entrada_referencia_id === entrada.id
       );
@@ -707,10 +743,31 @@ export class EstoqueService {
         (sum: number, s: any) => sum + (s.quantidade_em_estoque || 0), 
         0
       );
-      const saldo = (entrada.quantidade_em_estoque || 0) - totalSaido;
+      
+      // 2. Subtrair lançamentos da tabela lancamento_produtos
+      const lancamentosDestaEntrada = lancamentos.filter(l => Number(l.produto_id) === entrada.id);
+      let totalLancado = 0;
+      lancamentosDestaEntrada.forEach(l => {
+         const qtd = l.quantidade_val || 0;
+         const und = l.quantidade_un || 'un';
+         // Converter para a unidade da entrada (que deve ser a padrão mg/mL)
+         if (entrada.unidade_de_medida) {
+            totalLancado += convertBetweenUnits(qtd, und, entrada.unidade_de_medida);
+         }
+      });
+
+      const saldo = (entrada.quantidade_em_estoque || 0) - totalSaido - totalLancado;
       saldoPorEntrada.set(entrada.id, Math.max(0, saldo));
       
-      console.log(`   📦 Entrada ID ${entrada.id}: ${entrada.quantidade_em_estoque} - ${totalSaido} = ${saldo}`);
+      console.log(`   📦 Entrada ID ${entrada.id} (${entrada.nome_do_produto}):`);
+      console.log(`      Inicial: ${entrada.quantidade_em_estoque}`);
+      console.log(`      - Saídas: ${totalSaido}`);
+      console.log(`      - Lançamentos: ${totalLancado}`);
+      console.log(`      = Saldo: ${saldo}`);
+      
+      if (saidasDestaEntrada.length > 0) {
+        console.log(`      🔻 Saídas detalhadas:`, saidasDestaEntrada.map((s: any) => `${s.id} (${s.tipo_de_movimentacao}): ${s.quantidade_em_estoque}`));
+      }
     }
 
     // Determinar unidade de referência

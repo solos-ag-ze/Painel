@@ -234,11 +234,14 @@ export async function agruparProdutos(produtos: ProdutoEstoque[]): Promise<Produ
     ).pop() || grupo[0].nome_produto;
 
     // 2️⃣ SEPARAR ENTRADAS E SAÍDAS
-    // tipo_de_movimentacao pode ser 'entrada', 'saida', ou undefined (legado = entrada)
+    // tipo_de_movimentacao pode ser 'entrada', 'saida', 'aplicacao' ou undefined (legado = entrada)
     const entradas = grupo.filter(p => 
       !p.tipo_de_movimentacao || p.tipo_de_movimentacao === 'entrada'
     );
-    const saidas = grupo.filter(p => p.tipo_de_movimentacao === 'saida');
+    // Considerar tanto 'saida' quanto 'aplicacao' como saídas de estoque
+    const saidas = grupo.filter(p => 
+      p.tipo_de_movimentacao === 'saida' || p.tipo_de_movimentacao === 'aplicacao'
+    );
 
     // 3️⃣ DETERMINAR UNIDADE DE REFERÊNCIA (do produto mais antigo)
     const produtoMaisAntigo = entradas[0] || grupo[0];
@@ -279,22 +282,8 @@ export async function agruparProdutos(produtos: ProdutoEstoque[]): Promise<Produ
       totalSaidas += quantidadeNaUnidadeRef;
     });
     
-    // ✅ Subtrair lançamentos (produtos usados em atividades)
-    let totalLancamentos = 0;
-    entradas.forEach(p => {
-      const quantidadeLancada = lancamentosPorProduto.get(p.id) || 0;
-      if (quantidadeLancada > 0) {
-        const quantidadeNaUnidadeRef = convertBetweenUnits(
-          quantidadeLancada,
-          p.unidade,
-          unidadeReferencia
-        );
-        totalLancamentos += quantidadeNaUnidadeRef;
-      }
-    });
-    
-    // Estoque real = entradas - saídas - lançamentos
-    const totalEstoqueDisplay = totalEntradas - totalSaidas - totalLancamentos;
+    // Estoque real = entradas - saídas (lançamentos antigos ignorados em favor da tabela unificada)
+    const totalEstoqueDisplay = totalEntradas - totalSaidas;
     
     // Média ponderada (baseada apenas nas entradas)
     const mediaPrecoFinal = totalEntradas > 0 

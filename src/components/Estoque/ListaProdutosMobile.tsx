@@ -18,6 +18,7 @@ interface Props {
   setHistoryModal: (params: ModalParams) => void;
   setRemoveModal: (params: ModalParams) => void;
   onRegisterEntry?: (product: ProdutoAgrupado) => void;
+  onAjustarEstoque?: (product: ProdutoAgrupado) => void;
   unreadCount?: number;
   toggleNotifications?: () => Promise<void>;
   notifButtonRef?: React.RefObject<HTMLButtonElement>;
@@ -28,22 +29,12 @@ export default function ListaProdutosMobile({
   getCategoryIcon,
   setHistoryModal,
   setRemoveModal,
-  onRegisterEntry,
+  onRegisterEntry, // eslint-disable-line @typescript-eslint/no-unused-vars
+  onAjustarEstoque,
   unreadCount,
   toggleNotifications,
   notifButtonRef,
 }: Props) {
-  
-  function normalizeName(name: string | null | undefined) {
-    if (!name || typeof name !== 'string') return '';
-    return name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]/g, ' ')
-      .trim()
-      .replace(/\s+/g, ' ');
-  }
   return (
     <div className="block md:hidden bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] overflow-hidden relative">
       {/* Cabeçalho */}
@@ -109,6 +100,27 @@ export default function ListaProdutosMobile({
                 </p>
               </div>
             </div>
+
+            {/* Badge Estoque Negativo */}
+            {item.totalEstoqueDisplay < 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-red-700">Estoque Negativo</p>
+                    <p className="text-xs text-red-600">{Math.abs(item.totalEstoqueDisplay).toFixed(2)} {formatUnitFull(item.unidadeDisplay)}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onAjustarEstoque?.(item)}
+                  className="w-full px-3 py-1.5 bg-red-600 text-white rounded-md active:bg-red-700 text-xs font-medium transition-colors"
+                >
+                  Ajustar Estoque
+                </button>
+              </div>
+            )}
 
             {/* Botões */}
             <div className="flex justify-end gap-2 pt-2">
