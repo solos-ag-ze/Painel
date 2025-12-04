@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { X, Paperclip, Plus } from 'lucide-react';
-import { EstoqueService, LancamentoProdutoEntry } from '../../services/estoqueService';
 import { ProdutoAgrupado } from '../../services/agruparProdutosService';
 import AttachmentProductModal from './AttachmentProductModal';
 import ActivityAttachmentModal from '../ManejoAgricola/ActivityAttachmentModal';
@@ -113,20 +112,39 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
     if (!product) return;
 
     try {
-      const entradas = product.entradas.reduce((sum, e) => sum + (e.quantidade_inicial || 0), 0);
-      let saidas = product.saidas.reduce((sum, s) => sum + (s.quantidade || 0), 0);
+      let entradas = 0;
+      let saidas = 0;
 
-      const produtoIds = product.produtos.map(p => p.id);
-      const lancamentos = await EstoqueService.getLancamentosPorProdutos(produtoIds);
-
-      for (const l of lancamentos) {
-        const quantidade = l.quantidade_val ?? 0;
-        const unidade = l.quantidade_un || 'un';
+      for (const p of product.produtos) {
+        const tipo = p.tipo_de_movimentacao || 'entrada';
         
-        if (unidadePadrao !== 'un' && unidade !== unidadePadrao) {
-          saidas += convertToStandardUnit(quantidade, unidade).quantidade;
+        // Quantidade base
+        // Entrada: quantidade_inicial (quanto entrou)
+        // Saída/Aplicação: quantidade_em_estoque (quanto saiu)
+        const quantidade = tipo === 'entrada' 
+          ? (p.quantidade_inicial ?? p.quantidade ?? 0) 
+          : (p.quantidade ?? 0);
+
+        // Converter para unidade padrão do grupo
+        let quantidadePadraoItem = quantidade;
+        const unidadeItem = p.unidade || 'un';
+
+        if (unidadePadrao !== 'un' && unidadeItem !== unidadePadrao) {
+          try {
+            if ((isMassUnit(unidadeItem) && isMassUnit(unidadePadrao)) || 
+                (isVolumeUnit(unidadeItem) && isVolumeUnit(unidadePadrao))) {
+              const converted = convertToStandardUnit(quantidade, unidadeItem);
+              quantidadePadraoItem = convertFromStandardUnit(converted.quantidade, converted.unidade, unidadePadrao);
+            }
+          } catch (e) {
+            console.warn('Erro conversão totais:', e);
+          }
+        }
+
+        if (tipo === 'entrada') {
+          entradas += quantidadePadraoItem;
         } else {
-          saidas += quantidade;
+          saidas += quantidadePadraoItem;
         }
       }
 
@@ -137,72 +155,6 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
     }
   }, [product, unidadePadrao]);
 
-  const calcularCustoLancamento = useCallback((lancamento: LancamentoProdutoEntry, produtoInfo: any): number | null => {
-    const quantidadeVal = lancamento.quantidade_val ?? 0;
-    const unidadeQuant = lancamento.quantidade_un || produtoInfo?.unidade || 'un';
-
-    // Validar valores de entrada
-    if (quantidadeVal <= 0 || !produtoInfo || isNaN(quantidadeVal)) return null;
-
-    const unidadeValorOriginal = produtoInfo.unidade_valor_original || produtoInfo.unidade || 'un';
-    let valorUnitarioNaUnidadeOriginal = 0;
-
-    if (produtoInfo.valor_total != null && !isNaN(produtoInfo.valor_total) && produtoInfo.quantidade_inicial > 0) {
-      const unidadeProd = produtoInfo.unidade;
-      let quantidadeInicialConvertida = produtoInfo.quantidade_inicial;
-
-      if (unidadeProd !== unidadeValorOriginal) {
-        if (isMassUnit(unidadeProd) && isMassUnit(unidadeValorOriginal)) {
-          quantidadeInicialConvertida = convertFromStandardUnit(produtoInfo.quantidade_inicial, 'mg', unidadeValorOriginal);
-        } else if (isVolumeUnit(unidadeProd) && isVolumeUnit(unidadeValorOriginal)) {
-          quantidadeInicialConvertida = convertFromStandardUnit(produtoInfo.quantidade_inicial, 'mL', unidadeValorOriginal);
-        }
-      }
-
-      // Validar divisão por zero e NaN
-      if (quantidadeInicialConvertida <= 0 || isNaN(quantidadeInicialConvertida)) return null;
-      valorUnitarioNaUnidadeOriginal = produtoInfo.valor_total / quantidadeInicialConvertida;
-
-      // Validar resultado da divisão
-      if (isNaN(valorUnitarioNaUnidadeOriginal) || !isFinite(valorUnitarioNaUnidadeOriginal)) return null;
-    } else if (produtoInfo.valor != null && !isNaN(produtoInfo.valor)) {
-      const unidadeProd = produtoInfo.unidade;
-      if (unidadeProd !== unidadeValorOriginal) {
-        const fatorConversao = convertToStandardUnit(1, unidadeValorOriginal).quantidade;
-        if (isNaN(fatorConversao) || !isFinite(fatorConversao)) return null;
-        valorUnitarioNaUnidadeOriginal = produtoInfo.valor * fatorConversao;
-      } else {
-        valorUnitarioNaUnidadeOriginal = produtoInfo.valor;
-      }
-    }
-
-    // Se não conseguiu calcular o valor unitário, retornar null
-    if (!valorUnitarioNaUnidadeOriginal || !isFinite(valorUnitarioNaUnidadeOriginal) || isNaN(valorUnitarioNaUnidadeOriginal)) return null;
-
-    let quantidadeNaUnidadeDoValor = quantidadeVal;
-    if (unidadeQuant !== unidadeValorOriginal) {
-      if (isMassUnit(unidadeQuant) && isMassUnit(unidadeValorOriginal)) {
-        const quantidadeEmMg = convertToStandardUnit(quantidadeVal, unidadeQuant).quantidade;
-        if (isNaN(quantidadeEmMg) || !isFinite(quantidadeEmMg)) return null;
-        quantidadeNaUnidadeDoValor = convertFromStandardUnit(quantidadeEmMg, 'mg', unidadeValorOriginal);
-      } else if (isVolumeUnit(unidadeQuant) && isVolumeUnit(unidadeValorOriginal)) {
-        const quantidadeEmMl = convertToStandardUnit(quantidadeVal, unidadeQuant).quantidade;
-        if (isNaN(quantidadeEmMl) || !isFinite(quantidadeEmMl)) return null;
-        quantidadeNaUnidadeDoValor = convertFromStandardUnit(quantidadeEmMl, 'mL', unidadeValorOriginal);
-      }
-    }
-
-    // Validar quantidadeNaUnidadeDoValor
-    if (isNaN(quantidadeNaUnidadeDoValor) || !isFinite(quantidadeNaUnidadeDoValor)) return null;
-
-    const custoFinal = valorUnitarioNaUnidadeOriginal * quantidadeNaUnidadeDoValor;
-
-    // Validar resultado final
-    if (!isFinite(custoFinal) || isNaN(custoFinal)) return null;
-
-    return custoFinal;
-  }, []);
-
   const loadData = useCallback(async (page: number) => {
     if (!product) return;
     setLoading(true);
@@ -210,108 +162,81 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
     try {
       const allMovements: MovementItem[] = [];
 
-      // Mapear entradas
-      for (const entrada of product.entradas) {
-        // Calcular quantidade inicial na unidade original
-        let quantidadeExibicao = entrada.quantidade_inicial ?? entrada.quantidade;
-        let unidadeExibicao = entrada.unidade;
+      for (const p of product.produtos) {
+        const tipo = p.tipo_de_movimentacao || 'entrada';
+        
+        // Definir tipo e source
+        let source: 'entrada' | 'saida' | 'lancamento' = 'entrada';
+        let tipoMov: 'entrada' | 'saida' = 'entrada';
 
-        if (entrada.unidade_valor_original && entrada.quantidade_inicial) {
-          if (isMassUnit(entrada.unidade_valor_original)) {
-            quantidadeExibicao = convertFromStandardUnit(entrada.quantidade_inicial, 'mg', entrada.unidade_valor_original);
-            unidadeExibicao = entrada.unidade_valor_original;
-          } else if (isVolumeUnit(entrada.unidade_valor_original)) {
-            quantidadeExibicao = convertFromStandardUnit(entrada.quantidade_inicial, 'mL', entrada.unidade_valor_original);
-            unidadeExibicao = entrada.unidade_valor_original;
-          } else {
-            // Caso seja 'un' ou outra unidade não conversível, mas que é a original
-            unidadeExibicao = entrada.unidade_valor_original;
+        if (tipo === 'entrada') {
+          source = 'entrada';
+          tipoMov = 'entrada';
+        } else if (tipo === 'saida') {
+          source = 'saida';
+          tipoMov = 'saida';
+        } else if (tipo === 'aplicacao') {
+          source = 'lancamento';
+          tipoMov = 'saida';
+        }
+
+        // Quantidade para exibição
+        let quantidadeExibicao = tipo === 'entrada' ? (p.quantidade_inicial ?? p.quantidade) : p.quantidade;
+        let unidadeExibicao = p.unidade;
+
+        // Tentar converter para unidade original do valor se for entrada (para manter consistência visual)
+        if (tipo === 'entrada' && p.unidade_valor_original && p.quantidade_inicial) {
+           if (isMassUnit(p.unidade_valor_original)) {
+             quantidadeExibicao = convertFromStandardUnit(p.quantidade_inicial, 'mg', p.unidade_valor_original);
+             unidadeExibicao = p.unidade_valor_original;
+           } else if (isVolumeUnit(p.unidade_valor_original)) {
+             quantidadeExibicao = convertFromStandardUnit(p.quantidade_inicial, 'mL', p.unidade_valor_original);
+             unidadeExibicao = p.unidade_valor_original;
+           } else {
+             unidadeExibicao = p.unidade_valor_original;
+           }
+        }
+
+        // Buscar entrada de referência se houver
+        let entradaRef = null;
+        if (p.entrada_referencia_id) {
+          const ref = product.produtos.find(prod => prod.id === p.entrada_referencia_id);
+          if (ref) {
+            entradaRef = { 
+              id: ref.id, 
+              lote: ref.lote, 
+              created_at: ref.created_at || new Date().toISOString() 
+            };
           }
         }
 
         allMovements.push({
-          id: entrada.id,
-          produto_id: entrada.id,
-          tipo: 'entrada',
+          id: p.id,
+          produto_id: p.id,
+          tipo: tipoMov,
           quantidade: quantidadeExibicao,
-          created_at: entrada.created_at || new Date().toISOString(),
-          nome_produto: entrada.nome_produto,
-          marca: entrada.marca,
-          categoria: entrada.categoria,
           unidade: unidadeExibicao,
-          valor: entrada.valor,
-          unidade_valor_original: entrada.unidade_valor_original,
-          valor_total: entrada.valor_total,
-          valor_medio: entrada.valor_medio,
-          lote: entrada.lote,
-          validade: entrada.validade,
-          fornecedor: entrada.fornecedor,
-          registro_mapa: entrada.registro_mapa,
-          _source: 'entrada'
+          observacao: p.observacoes_das_movimentacoes || null,
+          created_at: p.created_at || new Date().toISOString(),
+          nome_produto: p.nome_produto,
+          marca: p.marca,
+          categoria: p.categoria,
+          valor: p.valor,
+          unidade_valor_original: p.unidade_valor_original,
+          valor_total: p.valor_total,
+          valor_medio: p.valor_medio,
+          lote: p.lote,
+          validade: p.validade,
+          fornecedor: p.fornecedor,
+          registro_mapa: p.registro_mapa,
+          entrada_referencia: entradaRef,
+          _source: source,
+          // Campos específicos para lançamentos/aplicações
+          nome_atividade: source === 'lancamento' ? 'Aplicação' : undefined,
+          quantidade_val: source === 'lancamento' ? quantidadeExibicao : undefined,
+          quantidade_un: source === 'lancamento' ? unidadeExibicao : undefined,
+          custo_calculado: source === 'lancamento' ? (p.valor_total ?? null) : null
         });
-      }
-
-      // Mapear saídas
-      for (const saida of product.saidas) {
-        const entradaRef = product.entradas.find(e => e.id === saida.entrada_referencia_id);
-        allMovements.push({
-          id: saida.id,
-          produto_id: saida.id,
-          tipo: 'saida',
-          quantidade: saida.quantidade,
-          created_at: saida.created_at || new Date().toISOString(),
-          nome_produto: saida.nome_produto,
-          marca: saida.marca,
-          categoria: saida.categoria,
-          unidade: saida.unidade,
-          valor: saida.valor,
-          unidade_valor_original: saida.unidade_valor_original,
-          valor_total: saida.valor_total,
-          valor_medio: saida.valor_medio,
-          lote: saida.lote,
-          validade: saida.validade,
-          fornecedor: saida.fornecedor,
-          registro_mapa: saida.registro_mapa,
-          entrada_referencia: entradaRef ? { id: entradaRef.id, lote: entradaRef.lote, created_at: entradaRef.created_at || new Date().toISOString() } : null,
-          _source: 'saida'
-        });
-      }
-
-      // Buscar lançamentos (aplicações)
-      const produtoIds = product.produtos.map(p => p.id);
-      try {
-        const lancamentos = await EstoqueService.getLancamentosPorProdutos(produtoIds);
-        for (const l of lancamentos) {
-          const produtoInfo = product.produtos.find(p => Number(p.id) === Number(l.produto_id));
-          const quantidadeVal = l.quantidade_val ?? 0;
-          const unidadeQuant = l.quantidade_un || produtoInfo?.unidade || 'un';
-
-          allMovements.push({
-            id: l.id,
-            produto_id: l.produto_id as number,
-            tipo: 'saida',
-            quantidade: quantidadeVal,
-            observacao: l.observacao,
-            created_at: l.atividade?.created_at || l.created_at || new Date().toISOString(),
-            nome_produto: produtoInfo?.nome_produto || product.nome,
-            marca: produtoInfo?.marca,
-            categoria: produtoInfo?.categoria,
-            unidade: unidadeQuant,
-            valor: produtoInfo?.valor,
-            lote: produtoInfo?.lote,
-            validade: produtoInfo?.validade,
-            fornecedor: produtoInfo?.fornecedor,
-            registro_mapa: produtoInfo?.registro_mapa,
-            nome_atividade: l.atividade?.nome_atividade || 'Atividade',
-            atividade_id: l.atividade_id ? Number(l.atividade_id) : undefined,
-            quantidade_val: quantidadeVal,
-            quantidade_un: unidadeQuant,
-            custo_calculado: calcularCustoLancamento(l, produtoInfo),
-            _source: 'lancamento'
-          });
-        }
-      } catch (err) {
-        console.error('Erro ao buscar lançamentos:', err);
       }
 
       // Ordenar por data (mais recente primeiro)
@@ -368,7 +293,7 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
     } finally {
       setLoading(false);
     }
-  }, [product, calcularCustoLancamento]);
+  }, [product]);
 
   // --------------------------------------------------------------------------
   // Effects
@@ -464,8 +389,6 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
                     key={`${m.produto_id}-${m.id}`}
                     movement={m}
                     onOpenAttachment={(id, name) => setAttachmentModal({ isOpen: true, productId: id, productName: name })}
-                    onOpenActivityAttachment={(id, desc) => setActivityAttachmentModal({ isOpen: true, activityId: id, activityDescription: desc })}
-                    onOpenActivityDetail={(id) => setActivityDetailModal({ isOpen: true, activityId: id })}
                   />
                 ))}
               </div>
@@ -518,11 +441,9 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
 interface MovementCardProps {
   movement: MovementItem;
   onOpenAttachment: (productId: string, productName: string) => void;
-  onOpenActivityAttachment: (activityId: string, description: string) => void;
-  onOpenActivityDetail: (activityId: string) => void;
 }
 
-function MovementCard({ movement: m, onOpenAttachment, onOpenActivityAttachment, onOpenActivityDetail }: MovementCardProps) {
+function MovementCard({ movement: m, onOpenAttachment }: MovementCardProps) {
   const isLancamento = m._source === 'lancamento';
   const isEntrada = m.tipo === 'entrada';
   const badgeClass = isLancamento

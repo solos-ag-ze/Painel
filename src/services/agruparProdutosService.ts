@@ -252,7 +252,7 @@ export async function agruparProdutos(produtos: ProdutoEstoque[]): Promise<Produ
     
     // Somar entradas (quantidade positiva)
     entradas.forEach(p => {
-      const quantidadeAtual = p.quantidade ?? 0;
+      const quantidadeAtual = p.quantidade_inicial ?? p.quantidade ?? 0;
       const quantidadeNaUnidadeRef = convertBetweenUnits(
         quantidadeAtual,
         p.unidade,
@@ -294,7 +294,7 @@ export async function agruparProdutos(produtos: ProdutoEstoque[]): Promise<Produ
     });
     
     // Estoque real = entradas - saídas - lançamentos
-    const totalEstoqueDisplay = Math.max(0, totalEntradas - totalSaidas - totalLancamentos);
+    const totalEstoqueDisplay = totalEntradas - totalSaidas - totalLancamentos;
     
     // Média ponderada (baseada apenas nas entradas)
     const mediaPrecoFinal = totalEntradas > 0 

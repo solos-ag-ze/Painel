@@ -22,16 +22,17 @@ export interface ProdutoEstoque {
   quantidade_inicial: number; // quantidade original informada no cadastro
   valor_total?: number | null; // valor total do produto (valor_unitario × quantidade_inicial)
   valor_medio?: number | null; // valor médio calculado pela function do banco
-  tipo_de_movimentacao?: 'entrada' | 'saida' | null; // tipo da movimentação
+  tipo_de_movimentacao?: 'entrada' | 'saida' | 'aplicacao' | null; // tipo da movimentação
   entrada_referencia_id?: number | null; // ID da entrada de referência (para saídas FIFO)
   produto_id?: string | null; // UUID do produto (para agrupar entradas/saídas)
+  observacoes_das_movimentacoes?: string | null;
 }
 
 export interface MovimentacaoEstoque {
   id: number;
   produto_id: number;
   user_id: string;
-  tipo: 'entrada' | 'saida';
+  tipo: 'entrada' | 'saida' | 'aplicacao';
   quantidade: number;
   observacao?: string | null;
   created_at: string;
@@ -167,7 +168,9 @@ export class EstoqueService {
         valor_total,
         valor_medio,
         tipo_de_movimentacao,
-        produto_id
+        produto_id,
+        observacoes_das_movimentacoes,
+        entrada_referencia_id
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -198,6 +201,8 @@ export class EstoqueService {
       valor_medio: produto.valor_medio,
       tipo_de_movimentacao: produto.tipo_de_movimentacao,
       produto_id: produto.produto_id,
+      observacoes_das_movimentacoes: produto.observacoes_das_movimentacoes,
+      entrada_referencia_id: produto.entrada_referencia_id,
     }));
 
     return produtosMapeados;

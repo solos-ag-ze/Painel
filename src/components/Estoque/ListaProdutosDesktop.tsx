@@ -1,6 +1,7 @@
 // src/components/Estoque/ListaProdutosDesktop.tsx
 import { ProdutoAgrupado } from '../../services/agruparProdutosService';
-import { formatUnitFull } from '../../lib/formatUnit';
+import { formatUnitFull, formatUnitAbbreviated } from '../../lib/formatUnit';
+import { autoScaleQuantity } from '../../lib/unitConverter';
 import { formatSmartCurrency } from '../../lib/currencyFormatter';
 import { Bell } from 'lucide-react';
 import React from 'react';
@@ -105,7 +106,17 @@ export default function ListaProdutosDesktop({
               <div>
                 <p className="text-[13px] text-[rgba(0,68,23,0.6)] mb-0.5">Quantidade</p>
                 <p className="text-[15px] font-semibold text-[#004417]">
-                  {item.totalEstoqueDisplay.toFixed(2)} <span className="text-[13px] text-[rgba(0,68,23,0.7)]">{formatUnitFull(item.unidadeDisplay)}</span>
+                  {(() => {
+                    const { quantidade, unidade } = autoScaleQuantity(item.totalEstoqueDisplay, item.unidadeDisplay);
+                    return (
+                      <>
+                        {quantidade}{' '}
+                        <span className="text-[13px] text-[rgba(0,68,23,0.7)]">
+                          {formatUnitAbbreviated(unidade)}
+                        </span>
+                      </>
+                    );
+                  })()}
                 </p>
               </div>
               <div>
