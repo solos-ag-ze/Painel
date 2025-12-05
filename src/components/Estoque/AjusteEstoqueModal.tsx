@@ -202,7 +202,7 @@ export default function AjusteEstoqueModal({ isOpen, onClose, productGroup, onSa
                 min={0}
                 value={quantidade}
                 onChange={(e) => setQuantidade(e.target.value)}
-                className="w-full px-4 py-3 pr-16 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] border border-[rgba(0,68,23,0.12)] text-[#004417] placeholder:text-[rgba(0,166,81,0.45)] focus:ring-2 focus:ring-[#00A651] focus:border-transparent"
+                className="w-full px-4 py-3 pr-16 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] border border-[rgba(0,68,23,0.12)] text-[#004417] placeholder:text-gray-400 focus:ring-2 focus:ring-[#00A651] focus:border-transparent"
                 placeholder="0.00"
                 required
               />
@@ -239,7 +239,7 @@ export default function AjusteEstoqueModal({ isOpen, onClose, productGroup, onSa
                     setValorDisplay(result.formatted);
                   }
                 }}
-                className="w-full px-4 py-3 pr-20 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] border border-[rgba(0,68,23,0.12)] text-[#004417] font-medium text-lg placeholder:text-[rgba(0,166,81,0.45)] focus:ring-2 focus:ring-[#00A651] focus:border-transparent"
+                className="w-full px-4 py-3 pr-20 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] border border-[rgba(0,68,23,0.12)] text-[#004417] font-medium text-lg placeholder:text-gray-400 focus:ring-2 focus:ring-[#00A651] focus:border-transparent"
                 placeholder="R$ 0,00"
                 required
               />
@@ -261,7 +261,7 @@ export default function AjusteEstoqueModal({ isOpen, onClose, productGroup, onSa
               type="text"
               value={fornecedor}
               onChange={(e) => setFornecedor(e.target.value)}
-              className="w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] border border-[rgba(0,68,23,0.12)] text-[#004417] placeholder:text-[rgba(0,166,81,0.45)] focus:ring-2 focus:ring-[#00A651] focus:border-transparent"
+              className="w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] border border-[rgba(0,68,23,0.12)] text-[#004417] placeholder:text-gray-400 focus:ring-2 focus:ring-[#00A651] focus:border-transparent"
               placeholder="Ex.: Cooxupé, Agro Silva"
               required
             />
@@ -278,7 +278,7 @@ export default function AjusteEstoqueModal({ isOpen, onClose, productGroup, onSa
                   type="text"
                   value={lote}
                   onChange={(e) => setLote(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] border border-[rgba(0,68,23,0.08)] text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]"
+                  className="w-full px-3 py-2 text-sm rounded-lg bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] border border-[rgba(0,68,23,0.08)] text-[#004417] placeholder:text-gray-400"
                   placeholder="Ex.: L001-2025"
                 />
               </div>
