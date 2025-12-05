@@ -122,7 +122,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
         isVisible={showToast}
         onClose={() => setShowToast(false)}
       />
-      <div className="fixed inset-0 bg-[rgba(0,68,23,0.45)] flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-[18px] shadow-[0_1px_6px_rgba(0,68,23,0.12)] w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6">
           <h2 className="text-xl font-bold text-[#004417]">Cadastrar Novo Produto</h2>
@@ -137,7 +137,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
               type="text"
               value={formData.nome}
               onChange={(e) => handleInputChange('nome', e.target.value)}
-              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.nome ? 'ring-2 ring-orange-500' : ''} text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
+              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.nome ? 'ring-2 ring-orange-500' : ''} text-[#004417] placeholder:text-gray-400`}
               placeholder="Ex.: Opera Ultra, Roundup Original, YaraBela Nitromag"
               required
             />
@@ -151,7 +151,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
               type="text"
               value={formData.marca}
               onChange={(e) => handleInputChange('marca', e.target.value)}
-              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.marca ? 'ring-2 ring-orange-500' : ''} text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
+              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.marca ? 'ring-2 ring-orange-500' : ''} text-[#004417] placeholder:text-gray-400`}
               placeholder="Ex.: Bayer, BASF, Syngenta, Yara"
               required
             />
@@ -207,7 +207,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
               step="0.01"
               value={formData.quantidade}
               onChange={(e) => handleInputChange('quantidade', e.target.value)}
-              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.quantidade ? 'ring-2 ring-orange-500' : ''} text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
+              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.quantidade ? 'ring-2 ring-orange-500' : ''} text-[#004417] placeholder:text-gray-400`}
               placeholder="Ex.: 12,5 L ou 300 kg"
               required
             />
@@ -239,7 +239,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
                   }));
                 }
               }}
-              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.valor ? 'ring-2 ring-orange-500' : ''} font-medium text-lg text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]`}
+              className={`w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] ${errors.valor ? 'ring-2 ring-orange-500' : ''} font-medium text-lg text-[#004417] placeholder:text-gray-400`}
               placeholder="R$ 0,00"
               required
             />
@@ -257,7 +257,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
                 type="text"
                 value={formData.lote}
                 onChange={(e) => handleInputChange('lote', e.target.value)}
-                className="w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]"
+                className="w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] text-[#004417] placeholder:text-gray-400"
                 placeholder="Ex.: L001-2024"
               />
             </div>
@@ -279,7 +279,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
               type="text"
               value={formData.fornecedor}
               onChange={(e) => handleInputChange('fornecedor', e.target.value)}
-              className="w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]"
+              className="w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] text-[#004417] placeholder:text-gray-400"
               placeholder="Ex.: Cooxupé, Agropecuária Silva"
             />
           </div>
@@ -291,7 +291,7 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
               type="text"
               value={formData.registro_mapa}
               onChange={(e) => handleInputChange('registro_mapa', e.target.value)}
-              className="w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] text-[#004417] placeholder:text-[rgba(0,166,81,0.45)]"
+              className="w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] text-[#004417] placeholder:text-gray-400"
               placeholder="Ex.: 12345/2025"
             />
           </div>
