@@ -170,18 +170,18 @@ export default function AjusteEstoqueModal({ isOpen, onClose, productGroup, onSa
 
         {/* Alerta de Estoque Negativo */}
         <div className="p-6 pb-0">
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+          <div className="bg-[#FFF6EB] border-l-4 border-[#F7941F] p-4 rounded-lg">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="w-5 h-5 text-[#F7941F] flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-semibold text-red-800 mb-1">
+                <p className="text-sm font-semibold text-[#B85800] mb-1">
                   Estoque Negativo Detectado
                 </p>
-                <p className="text-sm text-red-700">
+                <p className="text-sm text-[#7A4A0E]">
                   <strong>{productGroup.nome}</strong> está com déficit de{' '}
                   <strong className="font-bold">{quantidadeFaltante.toFixed(2)} {formatUnitFull(unidade)}</strong>
                 </p>
-                <p className="text-xs text-red-600 mt-2">
+                <p className="text-xs text-[#7A4A0E] mt-2">
                   Registre uma entrada para corrigir o saldo do estoque.
                 </p>
               </div>
