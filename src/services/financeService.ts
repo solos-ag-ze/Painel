@@ -153,7 +153,15 @@ export class FinanceService {
     try {
       const { data, error } = await supabase
         .from('transacoes_financeiras')
-        .select('*')
+        .select(`
+          *,
+          transacoes_talhoes!left(
+            id_talhao,
+            talhoes!inner(
+              nome
+            )
+          )
+        `)
         .eq('user_id', userId)
         .order('data_agendamento_pagamento', { ascending: false })
         .limit(limit);
@@ -163,7 +171,20 @@ export class FinanceService {
         return [];
       }
 
-      return data || [];
+      // Processa dados para adicionar nome do talhão
+      const transacoesComTalhoes = (data || []).map(transacao => {
+        const talhoes = (transacao as any).transacoes_talhoes || [];
+        const nomeTalhao = talhoes.length > 0 && talhoes[0].talhoes?.nome
+          ? talhoes[0].talhoes.nome
+          : 'Sem talhão específico';
+
+        return {
+          ...transacao,
+          nome_talhao: nomeTalhao
+        } as TransacaoFinanceira;
+      });
+
+      return transacoesComTalhoes;
     } catch (error) {
       console.error('Erro no serviço financeiro:', error);
       return [];
@@ -408,7 +429,15 @@ export class FinanceService {
 
       const { data, error } = await supabase
         .from('transacoes_financeiras')
-        .select('*')
+        .select(`
+          *,
+          transacoes_talhoes!left(
+            id_talhao,
+            talhoes!inner(
+              nome
+            )
+          )
+        `)
         .eq('user_id', userId)
         .in('status', ['Agendado', 'Pago'])
         .gt('data_agendamento_pagamento', hoje)
@@ -422,14 +451,24 @@ export class FinanceService {
 
       console.log('✅ Próximas 5 transações futuras encontradas:', data?.length || 0);
 
-      if (data && data.length > 0) {
-        console.log('📊 Detalhes das transações:');
-        data.forEach((t, index) => {
-          console.log(`  ${index + 1}. ${t.descricao} - ${t.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(t.valor))}`);
-        });
-      }
+      // Processa dados para adicionar nome do talhão
+      const transacoesComTalhoes = (data || []).map(transacao => {
+        const talhoes = (transacao as any).transacoes_talhoes || [];
+        const nomeTalhao = talhoes.length > 0 && talhoes[0].talhoes?.nome
+          ? talhoes[0].talhoes.nome
+          : 'Sem talhão específico';
 
-      return data || [];
+        if (data && data.length > 0) {
+          console.log(`  ${transacao.descricao} - ${transacao.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(transacao.valor))} - ${nomeTalhao}`);
+        }
+
+        return {
+          ...transacao,
+          nome_talhao: nomeTalhao
+        } as TransacaoFinanceira;
+      });
+
+      return transacoesComTalhoes;
 
     } catch (error) {
       console.error('❌ Erro crítico ao buscar próximas 5 transações futuras:', error);
@@ -451,7 +490,15 @@ export class FinanceService {
 
       const { data, error } = await supabase
         .from('transacoes_financeiras')
-        .select('*')
+        .select(`
+          *,
+          transacoes_talhoes!left(
+            id_talhao,
+            talhoes!inner(
+              nome
+            )
+          )
+        `)
         .eq('user_id', userId)
         .or(`status.neq.Agendado,and(status.eq.Agendado,data_agendamento_pagamento.lte.${hoje})`)
         .order('data_registro', { ascending: false })
@@ -465,14 +512,24 @@ export class FinanceService {
 
       console.log('✅ Últimas 5 transações executadas encontradas:', data?.length || 0);
 
-      if (data && data.length > 0) {
-        console.log('📊 Detalhes das transações (ordenadas por data_registro):');
-        data.forEach((t, index) => {
-          console.log(`  ${index + 1}. ${t.descricao} - Lançado: ${t.data_registro} - Pagamento: ${t.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(t.valor))}`);
-        });
-      }
+      // Processa dados para adicionar nome do talhão
+      const transacoesComTalhoes = (data || []).map(transacao => {
+        const talhoes = (transacao as any).transacoes_talhoes || [];
+        const nomeTalhao = talhoes.length > 0 && talhoes[0].talhoes?.nome
+          ? talhoes[0].talhoes.nome
+          : 'Sem talhão específico';
 
-      return data || [];
+        if (data && data.length > 0) {
+          console.log(`  ${transacao.descricao} - Lançado: ${transacao.data_registro} - Pagamento: ${transacao.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(transacao.valor))} - ${nomeTalhao}`);
+        }
+
+        return {
+          ...transacao,
+          nome_talhao: nomeTalhao
+        } as TransacaoFinanceira;
+      });
+
+      return transacoesComTalhoes;
 
     } catch (error) {
       console.error('❌ Erro crítico ao buscar últimas 5 transações executadas:', error);
@@ -509,38 +566,138 @@ export class FinanceService {
   }
 
   static async getSomaTransacoesAteHoje(userId: string): Promise<number> {
-  try {
-    const { data, error } = await supabase
-      .from('transacoes_financeiras')
-      .select('valor')
-      .eq('user_id', userId);
+    try {
+      // Busca apenas os campos necessários para validar se a transação
+      // já foi processada (status e data) e para somar o valor.
+      const { data, error } = await supabase
+        .from('transacoes_financeiras')
+        .select('valor, status, data_agendamento_pagamento')
+        .eq('user_id', userId);
 
-    if (error) {
-      console.error('Erro ao buscar transações:', error);
+      if (error) {
+        console.error('Erro ao buscar transações:', error);
+        return 0;
+      }
+
+      if (!data || data.length === 0) {
+        return 0;
+      }
+
+      // Implementação atualizada para seguir exatamente a lógica SQL fornecida:
+      // saldo_atual: SUM(valor) quando (
+      //   (data_agendamento_pagamento IS NOT NULL AND date <= CURRENT_DATE)
+      //   OR (data_agendamento_pagamento IS NULL AND status IS DISTINCT FROM 'Agendado')
+      // )
+      // saldo_futuro: SUM(valor) quando (
+      //   (data_agendamento_pagamento IS NOT NULL AND date > CURRENT_DATE)
+      //   OR (data_agendamento_pagamento IS NULL AND status = 'Agendado')
+      // )
+
+      const hoje = startOfDay(new Date());
+
+      let saldoAtual = 0;
+      let saldoFuturo = 0;
+
+      (data || []).forEach((transacao: any) => {
+        const valor = Number(transacao.valor) || 0;
+        const dp = transacao.data_agendamento_pagamento;
+
+        if (dp) {
+          try {
+            const dataAg = typeof dp === 'string' ? parseISO(dp) : new Date(dp as Date);
+            const dataAgSemHora = startOfDay(dataAg);
+
+            if (dataAgSemHora <= hoje) {
+              // conta como atual
+              saldoAtual += valor;
+            } else {
+              // data > hoje => futuro
+              saldoFuturo += valor;
+            }
+          } catch {
+            // se falhar no parse, ignora (não conta)
+          }
+        } else {
+          // data_agendamento_pagamento IS NULL -> usa status
+          const status = transacao.status;
+          if (status === 'Agendado') {
+            saldoFuturo += valor;
+          } else {
+            // status IS DISTINCT FROM 'Agendado'
+            saldoAtual += valor;
+          }
+        }
+      });
+
+      const somaTotal = saldoAtual; // conforme contrato da função: retorna saldo_atual
+
+      console.log(`Soma de transações (saldo_atual) para usuário ${userId}:`, {
+        saldoAtual: this.formatCurrency(saldoAtual),
+        saldoFuturo: this.formatCurrency(saldoFuturo)
+      });
+
+      return somaTotal;
+
+    } catch (error) {
+      console.error('Erro ao calcular soma total de transações até hoje:', error);
       return 0;
     }
-
-    if (!data || data.length === 0) {
-      return 0;
-    }
-
-    const somaTotal = data.reduce((acc, transacao) => {
-      const valor = Number(transacao.valor) || 0;
-      return acc + valor;
-    }, 0);
-
-    console.log(`Soma total de transações para usuário ${userId}:`, {
-      totalTransacoes: data.length,
-      somaTotal: this.formatCurrency(somaTotal)
-    });
-
-    return somaTotal;
-
-  } catch (error) {
-    console.error('Erro ao calcular soma total de transações:', error);
-    return 0;
   }
-}
+
+  /**
+   * Calcula e retorna os saldos atual, futuro e projetado seguindo exatamente
+   * a lógica da query SQL fornecida pelo produto.
+   */
+  static async getSaldosAtualEFuturo(userId: string): Promise<{ saldoAtual: number; saldoFuturo: number; saldoProjetado: number }> {
+    try {
+      const { data, error } = await supabase
+        .from('transacoes_financeiras')
+        .select('valor, status, data_agendamento_pagamento')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Erro ao buscar transações para saldos:', error);
+        return { saldoAtual: 0, saldoFuturo: 0, saldoProjetado: 0 };
+      }
+
+      const hoje = startOfDay(new Date());
+      let saldoAtual = 0;
+      let saldoFuturo = 0;
+
+      (data || []).forEach((transacao: any) => {
+        const valor = Number(transacao.valor) || 0;
+        const dp = transacao.data_agendamento_pagamento;
+
+        if (dp) {
+          try {
+            const dataAg = typeof dp === 'string' ? parseISO(dp) : new Date(dp as Date);
+            const dataAgSemHora = startOfDay(dataAg);
+
+            if (dataAgSemHora <= hoje) {
+              saldoAtual += valor;
+            } else {
+              saldoFuturo += valor;
+            }
+          } catch {
+            // ignore malformed dates
+          }
+        } else {
+          const status = transacao.status;
+          if (status === 'Agendado') {
+            saldoFuturo += valor;
+          } else {
+            saldoAtual += valor;
+          }
+        }
+      });
+
+      const saldoProjetado = saldoAtual + saldoFuturo;
+      return { saldoAtual, saldoFuturo, saldoProjetado };
+    } catch (error) {
+      console.error('Erro ao calcular saldos atual/futuro:', error);
+      return { saldoAtual: 0, saldoFuturo: 0, saldoProjetado: 0 };
+    }
+  }
 
   /**
    * Calcula o saldo real considerando APENAS transações com status 'Pago' até hoje
@@ -678,19 +835,18 @@ static async getResumoMensalFinanceiro(userId: string): Promise<{ totalReceitas:
       }
 
       const hoje = new Date();
-      const em7Dias = new Date();
-      em7Dias.setDate(hoje.getDate() + 7);
-      const em30Dias = new Date();
-      em30Dias.setDate(hoje.getDate() + 30);
+      const inicioAmanha = startOfDay(addDays(hoje, 1));
+      const em7Dias = startOfDay(addDays(hoje, 7));
+      const em30Dias = startOfDay(addDays(hoje, 30));
 
       // Separa transações em categorias baseadas no status e data
       const transacoesReais = data.filter(t => this.isTransacaoProcessada(t));
       const transacoesFuturas = data.filter(t => this.isTransacaoFutura(t));
       const transacoesFuturas7Dias = transacoesFuturas.filter(t => 
-        this.isTransacaoNoPeriodo(t, hoje, em7Dias)
+        this.isTransacaoNoPeriodo(t, inicioAmanha, em7Dias)
       );
       const transacoesFuturas30Dias = transacoesFuturas.filter(t => 
-        this.isTransacaoNoPeriodo(t, hoje, em30Dias)
+        this.isTransacaoNoPeriodo(t, inicioAmanha, em30Dias)
       );
 
       // Calcula saldos
@@ -728,28 +884,29 @@ static async getResumoMensalFinanceiro(userId: string): Promise<{ totalReceitas:
   private static isTransacaoProcessada(transacao: MaybeTransacao): boolean {
     if (!transacao) return true;
 
-    // Se não tem status de agendado, considera como processada
-    if (transacao.status !== 'Agendado') {
-      return true;
+    // Se houver uma data de agendamento, respeitar a data explicitamente:
+    // - se a data for futura (> hoje) => NÃO processada (futura)
+    // - se a data for hoje ou passada => processada
+    if (transacao.data_agendamento_pagamento) {
+      try {
+        const dp = transacao.data_agendamento_pagamento;
+        const dataAgendamento = typeof dp === 'string' ? parseISO(dp) : new Date(dp as Date);
+        const hoje = startOfDay(new Date());
+        const dataAgendamentoSemHora = startOfDay(dataAgendamento);
+
+        if (dataAgendamentoSemHora > hoje) {
+          return false; // transação agendada para o futuro
+        }
+
+        return true; // data é hoje ou passada => considera processada
+      } catch {
+        // Se não conseguir parsear a data, cairá para a verificação por status abaixo
+      }
     }
 
-    // Se tem status agendado mas não tem data de agendamento, considera processada
-    if (!transacao.data_agendamento_pagamento) {
-      return true;
-    }
-
-    // Se tem data de agendamento no passado ou hoje, considera processada
-    try {
-      const dp = transacao.data_agendamento_pagamento;
-      const dataAgendamento = typeof dp === 'string' ? parseISO(dp) : new Date(dp as Date);
-      const hoje = startOfDay(new Date());
-      const dataAgendamentoSemHora = startOfDay(dataAgendamento);
-
-      return dataAgendamentoSemHora <= hoje;
-    } catch {
-      // Se não conseguir parsear a data, considera processada por segurança
-      return true;
-    }
+    // Se não houver data, ou houve erro no parse, usar o status como fallback:
+    // Considera processada quando status != 'Agendado'
+    return transacao.status !== 'Agendado';
   }
 
   /**
@@ -858,9 +1015,10 @@ static async getResumoMensalFinanceiro(userId: string): Promise<{ totalReceitas:
       const totalEntradas = this.calcularEntradas(transacoesParaCards);
       const totalSaidas = this.calcularSaidas(transacoesParaCards);
 
-      // 6. 🔄 NOVA LÓGICA: Calcula o saldo real APENAS com transações status 'Pago' até hoje
-      //    Replica a query: SELECT SUM(valor) WHERE status = 'Pago' AND data <= hoje
-      const saldoRealGlobal = await this.getSaldoRealApenasPago(userId);
+      // 6. 🔄 Ajuste: usar o mesmo critério SQL para 'saldo_atual' (inclui transações sem data quando status != 'Agendado')
+      //    Assim o saldo usado para projeção fica consistente com a query fornecida pelo produto.
+      const saldosSql = await this.getSaldosAtualEFuturo(userId);
+      const saldoRealGlobal = saldosSql.saldoAtual;
 
       const result: PeriodBalance = {
         totalEntradas,
@@ -874,32 +1032,56 @@ static async getResumoMensalFinanceiro(userId: string): Promise<{ totalReceitas:
       if (includeFuture) {
         // Para o filtro "todos", usa TODAS as transações futuras do usuário
         // Para outros filtros, usa apenas as transações futuras do período
-        const transacoesFuturasParaProjecao = filterPeriod === 'todos'
-          ? data.filter(t => this.isTransacaoFutura(t))
-          : transacoesFuturasPeriodo;
+        // Para projeção, considerar apenas transações futuras agendadas a partir de amanhã (exclui hoje)
+        const inicioAmanha = startOfDay(addDays(new Date(), 1));
 
-        const saldoFuturoPeriodo = this.calcularSaldoTransacoes(transacoesFuturasParaProjecao);
+        // Quando o filtro é 'todos', podemos usar diretamente o saldo_futuro calculado pela query SQL
+        let saldoFuturoPeriodo = 0;
+        if (filterPeriod === 'todos') {
+          saldoFuturoPeriodo = saldosSql.saldoFuturo;
+        } else {
+          // Para outros filtros, calculamos apenas as transações futuras do período.
+          // Inclui transações com data >= amanhã, e também transações SEM data quando status = 'Agendado'
+          const todasFuturas = transacoesFuturasPeriodo || [];
+
+          const transacoesFuturasParaProjecao = todasFuturas.filter(t => {
+            const dt = this.getTransactionDate(t);
+            if (dt) {
+              const dtSemHora = startOfDay(dt);
+              return dtSemHora >= inicioAmanha;
+            }
+            // sem data: incluir se status = 'Agendado'
+            return (t.status || '').toString() === 'Agendado';
+          });
+
+          saldoFuturoPeriodo = this.calcularSaldoTransacoes(transacoesFuturasParaProjecao as TransacaoFinanceira[]);
+        }
         // O saldo projetado agora é o saldo real (apenas Pago) + o impacto futuro do período selecionado.
         result.saldoProjetado = saldoRealGlobal + saldoFuturoPeriodo;
 
         // A lógica de impacto futuro para 7/30 dias permanece a mesma e funcional.
         if (filterPeriod === 'todos' || filterPeriod === 'safra-atual' || filterPeriod === 'mes-atual') {
           const hoje = new Date();
-          const em7Dias = new Date();
-          em7Dias.setDate(hoje.getDate() + 7);
-          const em30Dias = new Date();
-          em30Dias.setDate(hoje.getDate() + 30);
+          const inicioAmanha = startOfDay(addDays(hoje, 1));
+          const em7Dias = startOfDay(addDays(hoje, 7));
+          const em30Dias = startOfDay(addDays(hoje, 30));
 
-          const todasTransacoesFuturas = data.filter(t => this.isTransacaoFutura(t));
+          const todasTransacoesFuturas = (data.filter(t => this.isTransacaoFutura(t))) || [];
 
-          const transacoesFuturas7Dias = todasTransacoesFuturas.filter(t =>
-            this.isTransacaoNoPeriodo(t, hoje, em7Dias)
-          );
-          const transacoesFuturas30Dias = todasTransacoesFuturas.filter(t =>
-            this.isTransacaoNoPeriodo(t, hoje, em30Dias)
-          );
+          // Para janelas 7/30 dias, só consideramos transações com data (compare com início de amanhã)
+          const transacoesFuturas7Dias = todasTransacoesFuturas.filter(t => {
+            const dt = this.getTransactionDate(t);
+            if (!dt) return false;
+            return this.isTransacaoNoPeriodo(t, inicioAmanha, em7Dias);
+          });
 
-          // ✅ NOVA LÓGICA: Calcula entradas e saídas separadamente usando saldo real (apenas Pago)
+          const transacoesFuturas30Dias = todasTransacoesFuturas.filter(t => {
+            const dt = this.getTransactionDate(t);
+            if (!dt) return false;
+            return this.isTransacaoNoPeriodo(t, inicioAmanha, em30Dias);
+          });
+
+          // ✅ NOVA LÓGICA: Calcula entradas e saídas separadamente usando saldo real (baseado em SQL)
           const entradas7Dias = this.calcularEntradas(transacoesFuturas7Dias);
           const saidas7Dias = this.calcularSaidas(transacoesFuturas7Dias);
           result.impactoFuturo7Dias = saldoRealGlobal + entradas7Dias - saidas7Dias;
@@ -1111,48 +1293,69 @@ static async getTotalNegativeTransactions(userId: string): Promise<number> {
       // Ordenação composta: primeiro por data_registro (mais recente primeiro), depois por data_agendamento_pagamento
       const { data: todasTransacoes, error } = await supabase
         .from('transacoes_financeiras')
-        .select('*')
+        .select(`
+          *,
+          transacoes_talhoes!left(
+            id_talhao,
+            talhoes!inner(
+              nome
+            )
+          )
+        `)
         .eq('user_id', userId)
         .order('data_registro', { ascending: false })
         .order('data_agendamento_pagamento', { ascending: false });
-  
+
       if (error) {
         console.error('Erro ao buscar transações:', error);
         return { realizadas: [], futuras: [] };
       }
-      
+
       console.log('📊 Total de transações encontradas:', todasTransacoes?.length || 0);
-  
+
       const realizadas: TransacaoFinanceira[] = [];
       const futuras: TransacaoFinanceira[] = [];
-  
+
       // 3. FILTRA E CLASSIFICA CADA TRANSAÇÃO
-      (todasTransacoes || []).forEach(transacao => {
+      (todasTransacoes || []).forEach(transacaoRaw => {
+        // Processa talhão
+        const talhoes = (transacaoRaw as any).transacoes_talhoes || [];
+        const nomeTalhao = talhoes.length > 0 && talhoes[0].talhoes?.nome
+          ? talhoes[0].talhoes.nome
+          : 'Sem talhão específico';
+
+        const transacao = {
+          ...transacaoRaw,
+          nome_talhao: nomeTalhao
+        } as TransacaoFinanceira;
+
         const dataTransacao = this.getTransactionDate(transacao);
         if (!dataTransacao) return;
-        
+
         // Normaliza a data da transação para comparação
         const dataTransacaoSemHora = new Date(dataTransacao.getFullYear(), dataTransacao.getMonth(), dataTransacao.getDate());
         const dataInicioSemHora = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
         const dataFimSemHora = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-        
+
         // Verifica se está no período
         const estaNoPeriodo = dataTransacaoSemHora >= dataInicioSemHora && dataTransacaoSemHora <= dataFimSemHora;
-        
+
         if (estaNoPeriodo) {
           if (this.isTransacaoProcessada(transacao)) {
             realizadas.push(transacao);
             console.log('✅ Transação realizada no período:', {
               descricao: transacao.descricao,
               data: format(dataTransacao, 'dd/MM/yyyy'),
-              valor: transacao.valor
+              valor: transacao.valor,
+              talhao: nomeTalhao
             });
           } else {
             futuras.push(transacao);
             console.log('⏰ Transação futura no período:', {
               descricao: transacao.descricao,
               data: format(dataTransacao, 'dd/MM/yyyy'),
-              valor: transacao.valor
+              valor: transacao.valor,
+              talhao: nomeTalhao
             });
           }
         }

@@ -169,11 +169,15 @@ const filterTransactions = (transactionList: TransacaoFinanceira[]) => {
           <div>
             <span className="text-gray-600">Data:</span>
             <p className="font-medium text-gray-900">
-              {isFuture 
+              {isFuture
       ? formatDate(transaction.data_agendamento_pagamento || '')
       : formatDate(transaction.data_transacao || transaction.data_registro || '')
     }
             </p>
+          </div>
+          <div>
+            <span className="text-gray-600">Talhão:</span>
+            <p className="font-medium text-gray-900">{transaction.nome_talhao || 'Sem talhão específico'}</p>
           </div>
           <div className="col-span-2">
             <span className="text-gray-600">Forma de Pagamento:</span>

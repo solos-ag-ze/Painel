@@ -13,7 +13,6 @@ import {
   LandPlot
 } from 'lucide-react';
 import StatsCard from './StatsCard';
-import UserProfile from './UserProfile';
 import FinancialChart from './FinancialChart';
 import TransactionTable from './TransactionTable';
 import RecentTransactions from './RecentTransactions';
@@ -25,7 +24,7 @@ import ErrorMessage from './ErrorMessage';
 import WeatherWidget from './WeatherWidget';
 import { AuthService } from '../../services/authService';
 import { UserService } from '../../services/userService';
-import { FinanceService, ResumoFinanceiro, DadosGrafico, OverallBalance, ResumoMensalFinanceiro } from '../../services/financeService';
+import { FinanceService, ResumoFinanceiro, DadosGrafico, OverallBalance, ResumoMensalFinanceiro, PeriodBalance } from '../../services/financeService';
 import { ActivityService } from '../../services/activityService';
 import { CotacaoService } from '../../services/cotacaoService';
 import { formatSmartCurrency } from '../../lib/currencyFormatter';
@@ -93,7 +92,7 @@ export default function DashboardOverview() {
   const [ultimas5Transacoes, setUltimas5Transacoes] = useState<TransacaoFinanceira[]>([]);
   const [atividades, setAtividades] = useState<any[]>([]);
   const [atividadesGrafico, setAtividadesGrafico] = useState<Array<{ data?: string }>>([]);
-  const [cotacaoAtual, setCotacaoAtual] = useState(1726);
+  const [cotacaoAtual, setCotacaoAtual] = useState<number | null>(null);
   const [variacaoCotacao, setVariacaoCotacao] = useState('+2.5');
   const [areaCultivada, setAreaCultivada] = useState(0);
   const [talhoesCafe, setTalhoesCafe] = useState<Array<{nome: string, area: number}>>([]);
@@ -105,6 +104,14 @@ export default function DashboardOverview() {
     totalDespesas: 0,
   });
   const [somaTransacoesAteHoje, setSomaTransacoesAteHoje] = useState(0);
+    // Period balance used to sync Dashboard StatsCard with FinanceiroPanel
+    const [periodBalanceDashboard, setPeriodBalanceDashboard] = useState<PeriodBalance>({
+      totalEntradas: 0,
+      totalSaidas: 0,
+      saldoReal: 0,
+      transacoesRealizadas: 0,
+      transacoesFuturas: 0
+    });
 
   useEffect(() => {
     loadDashboardData();
@@ -123,17 +130,16 @@ export default function DashboardOverview() {
       }
 
       // Load all data in parallel
-      const [
-        user,
+      const [user,
         resumo,
         grafico,
         lancamentos,
         proximas5,
         ultimas5,
         overall,
+        periodBalance,
         atividadesRecentes,
         atividades30Dias,
-        cotacao,
         cotacaoCompleta,
         areaCafe,
         talhoes,
@@ -149,9 +155,9 @@ export default function DashboardOverview() {
         FinanceService.getProximas5TransacoesFuturas(currentUser.user_id),
         FinanceService.getUltimas5TransacoesExecutadas(currentUser.user_id),
         FinanceService.getOverallBalance(currentUser.user_id),
+        FinanceService.getPeriodBalance(currentUser.user_id, 'todos'),
   ActivityService.getLancamentos(currentUser.user_id, 5),
   ActivityService.getLancamentos(currentUser.user_id, 100),
-        CotacaoService.getCotacaoAtual(),
         CotacaoService.getCotacaoCompleta(),
         TalhaoService.getAreaCultivadaCafe(currentUser.user_id),
         TalhaoService.getTalhoesCafe(currentUser.user_id),
@@ -169,6 +175,8 @@ export default function DashboardOverview() {
       setProximas5Transacoes(proximas5);
       setUltimas5Transacoes(ultimas5);
       setOverallBalance(overall);
+      // Sincroniza o saldo do dashboard com o resultado canônico do serviço
+      setPeriodBalanceDashboard(periodBalance);
       
       // DEBUG: Log dos dados do gráfico para verificação
       console.log('📊 Dados do gráfico carregados:', grafico);
@@ -195,8 +203,15 @@ export default function DashboardOverview() {
 
   setAtividades(mappedAtividades);
 
-  setAtividadesGrafico((atividades30Dias || []).map((l: any) => ({ data: l.data_atividade || l.created_at })));
-      setCotacaoAtual(cotacao);
+      setAtividadesGrafico((atividades30Dias || []).map((l: any) => ({ data: l.data_atividade || l.created_at })));
+      // Buscar cotação atual separadamente e tratar falhas explicitamente
+      try {
+        const cot = await CotacaoService.getCotacaoAtual();
+        setCotacaoAtual(cot);
+      } catch (cotErr) {
+        console.error('Não foi possível obter cotação atual:', cotErr);
+        setCotacaoAtual(null);
+      }
       setAreaCultivada(areaCafe);
       setTalhoesCafe(talhoes);
       setProducaoTotal(producaoTotal);
@@ -235,7 +250,7 @@ export default function DashboardOverview() {
   }
 
   // Calculate estimated revenue and costs
-  const cotacaoDia = cotacaoAtual;
+  const cotacaoDia = cotacaoAtual ?? 0;
   const receitaEstimada = producaoTotal * cotacaoDia;
   const custoMedioHectar = areaCultivada > 0 ? custoTotal / areaCultivada : 0;
   const custoMedioSaca = producaoTotal > 0 ? custoTotal / producaoTotal : 0;
@@ -248,13 +263,12 @@ export default function DashboardOverview() {
   const stats = [
   {
   title: 'Saldo Atual',
-  subtitle: 'Disponível',
+  subtitle: undefined,
   value: FinanceService.formatCurrency(somaTransacoesAteHoje),
   change: (
     <div className="flex flex-col">
-     
       <span className="text-sm text-[#004417]/70">
-        Saldo projetado: {FinanceService.formatCurrency(overallBalance.totalBalance)}
+        Saldo projetado: {FinanceService.formatCurrency(periodBalanceDashboard.saldoProjetado ?? overallBalance.totalBalance)}
       </span>
     </div>
   ),
@@ -269,21 +283,19 @@ export default function DashboardOverview() {
 },
   {
     title: 'Cotação Café (sc 60kg)',
-    subtitle: 'Preço atual (sc/60kg)',
-    value: `R$ ${cotacaoAtual.toLocaleString()}`,
+    value: cotacaoAtual != null ? CotacaoService.formatCurrency(cotacaoAtual) : 'Indisponível',
     change: `${variacaoCotacao} hoje`,
     changeType: 'neutral', // Changed from 'positive' to neutral
     icon: Coffee,
     color: 'orange',
     modalContent: (
       <div className="text-[#004417]/80">
-        <p>Cotação Café (sc/60kg) — Cereja Descascado (referência Cooxupé).</p>
+        <p>Cotação Café (sc/60kg) — Cereja Descascado (referência Cooxupé) - cotação do dia.</p>
       </div>
     )
   },
   {
   title: 'Receita Estimada da Safra',
-  subtitle: 'Estimativa baseada na produção',
   value: (
     <span className="text-sm md:text-base font-medium whitespace-nowrap">
       {areaCultivada > 0 
@@ -314,8 +326,7 @@ export default function DashboardOverview() {
   )
 },
   {
-    title: 'Custo Médio por saca',
-    subtitle: 'Custo por saca estimado',
+    title: 'Custo Médio por Saca',
     value: (
       <span className="text-sm md:text-base font-medium whitespace-nowrap">
         {producaoTotal > 0
@@ -335,8 +346,7 @@ export default function DashboardOverview() {
     )
   },
   {
-    title: 'Custo Médio por Hectare (estimado)',
-    subtitle: 'Custo por hectare estimado',
+    title: 'Custo Médio por Hectare',
     value: (
       <span className="text-sm md:text-base font-medium whitespace-nowrap">
         {areaCultivada > 0
@@ -370,11 +380,21 @@ export default function DashboardOverview() {
         </div>
       )}
 
-      {userData && <UserProfile user={userData} />}
+      {/* User profile moved to header modal; removed card from dashboard */}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {stats.map((stat, index) => (
-          <StatsCard key={index} {...stat} />
+          <StatsCard
+            key={index}
+            title={(stat as any).title}
+            subtitle={(stat as any).subtitle}
+            value={(stat as any).value}
+            change={(stat as any).change}
+            changeType={(stat as any).changeType}
+            icon={(stat as any).icon}
+            color={(stat as any).color}
+            modalContent={(stat as any).modalContent}
+          />
         ))}
       </div>
     

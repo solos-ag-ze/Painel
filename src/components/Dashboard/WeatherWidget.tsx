@@ -70,9 +70,9 @@ const loadWeatherData = async () => {
   const getAlertColor = (severity: string) => {
     switch (severity) {
       case 'high': return 'bg-red-50 border-0 text-red-800';
-      case 'medium': return 'bg-[rgba(0,166,81,0.06)] border-0 text-[#00A651]';
-      case 'low': return 'bg-[rgba(0,166,81,0.04)] border-0 text-[#004417]';
-      default: return 'bg-[rgba(0,166,81,0.06)] border-0 text-[#004417]';
+      case 'medium': return 'border-l-4 border-[#00A651] bg-white text-[#00A651]';
+      case 'low': return 'border-l-4 border-[#004417] bg-white text-[#004417]';
+      default: return 'border-l-4 border-[#00A651] bg-white text-[#004417]';
     }
   };
 
@@ -169,9 +169,10 @@ const loadWeatherData = async () => {
         </button>
       </div>
 
-      {/* Clima Atual (mantido) */}
+      {/* Clima Atual (mantido) - tudo dentro do card verde, com detalhes reorganizados */}
       <div className="bg-[#00A651]/10 p-4 rounded-xl mb-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
+          {/* Coluna 1: ícone + temperatura + descrição */}
           <div className="flex items-center space-x-3">
             {getWeatherIconComponent(weather.icon)}
             <div>
@@ -181,36 +182,38 @@ const loadWeatherData = async () => {
               <p className="text-sm text-[#00A651] font-semibold capitalize">{weather.description}</p>
             </div>
           </div>
-          <div className="text-right text-sm text-[#004417]/65 font-medium">
-            <p>Sensação: {WeatherService.formatTemperature(weather.feelsLike)}</p>
-            <p>Umidade: {weather.humidity}%</p>
-          </div>
-        </div>
 
-        {/* Detalhes do clima */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          <div className="flex items-center space-x-2">
-            <Wind className="w-4 h-4 text-[#397738]" />
-            <span>{weather.windSpeed.toFixed(1)} m/s</span>
+          {/* Coluna 2: detalhes centralizados (vento, pressão, visibilidade, umidade) */}
+          <div className="flex flex-col items-center text-sm space-y-1">
+            <div className="flex items-center space-x-2">
+              <Wind className="w-4 h-4 text-[#397738]" />
+              <span>{weather.windSpeed.toFixed(1)} m/s</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Gauge className="w-4 h-4 text-[#8fa49d]" />
+              <span>{weather.pressure} hPa</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Eye className="w-4 h-4 text-[#004417]/70" />
+              <span>{weather.visibility} km</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Droplets className="w-4 h-4 text-[#86b646]" />
+              <span>{weather.humidity}%</span>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Gauge className="w-4 h-4 text-[#8fa49d]" />
-            <span>{weather.pressure} hPa</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Eye className="w-4 h-4 text-[#004417]/70" />
-            <span>{weather.visibility} km</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Droplets className="w-4 h-4 text-[#86b646]" />
-            <span>{weather.humidity}%</span>
+
+          {/* Coluna 3: sensação térmica e umidade (direita) */}
+          <div className="flex flex-col items-end text-sm">
+            <p className="font-medium">Sensação: <span className="font-semibold text-[#004417]">{WeatherService.formatTemperature(weather.feelsLike)}</span></p>
+            <p className="mt-1 font-medium">Umidade: <span className="font-semibold text-[#004417]">{weather.humidity}%</span></p>
           </div>
         </div>
       </div>
 
       {/* Previsão dos próximos dias */}
       {forecast.length > 0 && (
-        <div className="mb-4">
+        <div className="mb-4 bg-white rounded-xl shadow-card p-6">
           <h4 className="text-sm font-medium text-[#004417] mb-3">Previsão dos Próximos Dias</h4>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {forecast
@@ -234,7 +237,7 @@ const loadWeatherData = async () => {
     const dayName = forecastDate.toLocaleDateString('pt-BR', { weekday: 'short' });
     
       return (
-        <div key={index} className="text-center p-3 rounded-md transition-all bg-[rgba(0,166,81,0.04)] hover:shadow-md">
+        <div key={index} className="text-center p-3 rounded-md transition-all bg-white border border-[rgba(0,68,23,0.04)] hover:shadow-md">
           <p className="text-xs text-[#004417]/70 mb-1">
             {dayName}
           </p>
@@ -275,8 +278,8 @@ const loadWeatherData = async () => {
 
       {/* Alertas */}
       {alerts.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-medium text-[#092f20]">Alertas Técnicos</h4>
+        <div className="space-y-3 bg-white rounded-xl shadow-card p-6">
+          <h4 className="text-sm font-medium text-[#092f20]">Alertas</h4>
           {alerts.map((alert, index) => (
             <div key={index} className={`p-3 rounded-md ${getAlertColor(alert.severity)}`}>
               <div className="flex items-start space-x-3">

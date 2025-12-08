@@ -71,8 +71,7 @@ function App() {
     window.location.href = '/';
   };
 
-  const proTabs = ['custo-safra', 'planejamento', 'estoque', 'estoque-cafe', 'vendas', 'maquinas'];
-  const isProTab = proTabs.includes(activeTab);
+  
 
   if (!authState.isAuthenticated) {
     return (

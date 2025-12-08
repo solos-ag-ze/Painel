@@ -33,6 +33,7 @@ export default function ManejoAgricolaPanel() {
     nome_atividade?: string;
     data?: string;
     dataFormatada?: string;
+    created_at?: string;
     area?: string;
     // produtos, maquinas e responsaveis agora representam os dados reais
     produtos?: Array<{
@@ -133,6 +134,7 @@ export default function ManejoAgricolaPanel() {
         nome_atividade: l.nome_atividade || '',
         data: l.data_atividade || l.created_at || '',
         dataFormatada: l.dataFormatada || '',
+        created_at: l.created_at || '',
         area: l.area_atividade || '',
         observacao: l.observacao || '',
         id_talhoes,
@@ -357,76 +359,28 @@ export default function ManejoAgricolaPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-[#00A651]/10 rounded-full flex items-center justify-center">
-              <Sprout className="w-6 h-6 text-[#00A651]" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-[#004417]">Manejo Agrícola</h2>
-              <p className="text-sm text-[#004417]/75 font-medium">Controle de atividades técnicas da propriedade</p>
-            </div>
-          </div>
-        </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-[#00A651]/8 p-5 rounded-xl transition-transform duration-200 hover:scale-[1.01]">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="w-8 h-8 bg-[#00A651]/20 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-4 h-4 text-[#00A651]" />
-              </div>
-              <span className="text-sm font-semibold text-[#004417]">Concluídas</span>
-            </div>
-            <p className="text-[22px] font-bold text-[#004417]">{atividadesPassadas.length}</p>
-          </div>
-          <div className="bg-[#CADB2A]/12 p-5 rounded-xl transition-transform duration-200 hover:scale-[1.01]">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="w-8 h-8 bg-[#CADB2A]/30 rounded-full flex items-center justify-center">
-                <Clock className="w-4 h-4 text-[#004417]" />
-              </div>
-              <span className="text-sm font-semibold text-[#004417]">Programadas</span>
-            </div>
-            <p className="text-[22px] font-bold text-[#004417]">{atividadesFuturas.length}</p>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] transition-transform duration-200 hover:scale-[1.01]">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="w-8 h-8 bg-[#00A651]/20 rounded-full flex items-center justify-center">
-                <MapPin className="w-4 h-4 text-[#00A651]" />
-              </div>
-              <span className="text-sm font-semibold text-[#004417]">Talhões</span>
-            </div>
-            <p className="text-[22px] font-bold text-[#004417]">{talhoes.length}</p>
-          </div>
-          <div className="bg-[#004417]/5 p-5 rounded-xl transition-transform duration-200 hover:scale-[1.01]">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="w-8 h-8 bg-[#004417]/15 rounded-full flex items-center justify-center">
-                <Calendar className="w-4 h-4 text-[#004417]" />
-              </div>
-              <span className="text-sm font-semibold text-[#004417]">Total</span>
-            </div>
-            <p className="text-[22px] font-bold text-[#004417]">{todasAtividades.length}</p>
-          </div>
-        </div>
+      {/* Header reduzido: título compacto (resumo removido conforme solicitado) */}
+      <div className="mb-4">
+        <h2 className="text-lg font-bold text-[#004417]">Manejo Agrícola</h2>
+        <p className="text-sm text-[#004417]/75">Controle de atividades técnicas da propriedade</p>
       </div>
 
       {/* Filtro de Talhões */}
       {talhoes.length > 0 && (
         <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-[#004417]">Filtrar por Talhão</h3>
+            <h3 className="text-sm font-bold text-[#004417]">Filtrar por Talhão</h3>
             <div className="text-[13px] text-[rgba(0,68,23,0.75)] font-medium">
               {talhoes.length} {talhoes.length === 1 ? 'talhão encontrado' : 'talhões encontrados'}
             </div>
           </div>
           
-            <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
+            <div className="flex items-center flex-row flex-nowrap gap-2 overflow-x-auto pb-2 snap-x snap-mandatory">
             {opcoesFiltraTalhao.map((opcao) => (
               <button
                 key={opcao}
                 onClick={() => setFiltroTalhao(opcao)}
-                className={`px-4 py-2 rounded-[10px] text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                className={`px-4 py-2 rounded-[10px] text-sm font-semibold transition-all duration-200 whitespace-nowrap snap-start flex-shrink-0 ${
                   filtroTalhao === opcao
                     ? 'bg-[rgba(0,166,81,0.10)] border border-[#00A651] text-[#004417] font-semibold'
                     : 'bg-white border border-[rgba(0,68,23,0.10)] text-[#004417] hover:bg-[rgba(0,68,23,0.03)] hover:border-[rgba(0,68,23,0.12)]'
@@ -533,10 +487,8 @@ export default function ManejoAgricolaPanel() {
     )}
   </div>
 </div>
-          
-         
-          </div>
-        
+
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -621,36 +573,64 @@ export default function ManejoAgricolaPanel() {
                     {atividadeDisplay.observacoes && (
                   <div className="mt-3 pt-3 border-t border-[rgba(0,68,23,0.08)]">
                     <div className="flex items-start justify-between">
+                      <div className="flex-shrink-0 text-xs text-[#004417]/65 mr-3">
+                        {atividade.created_at && (
+                          <>Lançado em {new Date(atividade.created_at).toLocaleString('pt-BR', {
+                            timeZone: 'America/Sao_Paulo',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}</>
+                        )}
+                      </div>
                       <div className="flex-1">
                         <span className="text-[rgba(0,68,23,0.75)] font-medium text-sm">Observações:</span>
                         <p className="text-sm text-[#00A651] mt-1">{atividadeDisplay.observacoes}</p>
                       </div>
-                      <button
-                        onClick={() => openAttachmentModal(
-                          atividade.id_atividade || '',
-                          atividade.nome_atividade || 'Atividade'
-                        )}
-                        className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none flex-shrink-0 ml-2"
-                        title="Gerenciar anexo"
-                      >
-                        <Paperclip className="w-4 h-4 text-[#00A651]" />
-                      </button>
+                      <div className="flex-shrink-0 ml-3">
+                        <button
+                          onClick={() => openAttachmentModal(
+                            atividade.id_atividade || '',
+                            atividade.nome_atividade || 'Atividade'
+                          )}
+                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none flex-shrink-0"
+                          title="Gerenciar anexo"
+                        >
+                          <Paperclip className="w-4 h-4 text-[#00A651]" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                     )}
                     {!atividadeDisplay.observacoes && (
                   <div className="mt-3 pt-3 border-t border-[rgba(0,68,23,0.08)]">
-                    <div className="flex items-center justify-end">
-                      <button
-                        onClick={() => openAttachmentModal(
-                          atividade.id_atividade || '',
-                          atividade.nome_atividade || 'Atividade'
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-[#004417]/65">
+                        {atividade.created_at && (
+                          <>Lançado em {new Date(atividade.created_at).toLocaleString('pt-BR', {
+                            timeZone: 'America/Sao_Paulo',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}</>
                         )}
-                        className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
-                        title="Gerenciar anexo"
-                      >
-                        <Paperclip className="w-4 h-4 text-[#00A651]" />
-                      </button>
+                      </div>
+                      <div>
+                        <button
+                          onClick={() => openAttachmentModal(
+                            atividade.id_atividade || '',
+                            atividade.nome_atividade || 'Atividade'
+                          )}
+                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
+                          title="Gerenciar anexo"
+                        >
+                          <Paperclip className="w-4 h-4 text-[#00A651]" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                     )}
@@ -672,115 +652,10 @@ export default function ManejoAgricolaPanel() {
               </span>
             </div>
           </div>
-          
-          <div className="space-y-4">
-            {atividadesFuturas.length === 0 ? (
-              <div className="text-center py-8 bg-[rgba(0,166,81,0.05)] rounded-xl p-6">
-                <Clock className="w-12 h-12 mx-auto mb-3 text-[#00A651]" />
-                <p className="text-[#004417] font-medium">Nenhuma atividade futura programada</p>
-                <p className="text-sm text-[rgba(0,68,23,0.85)]">Programe atividades via WhatsApp do ZÉ</p>
-              </div>
-            ) : (
-              atividadesFuturas.map((atividade) => {
-                const atividadeDisplay = mapAtividadeToDisplay(atividade);
-                return (
-                  <div key={atividade.id_atividade} className="p-5 rounded-xl bg-white shadow-[0_2px_8px_rgba(0,68,23,0.06)] transition-all duration-200">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                        {getIconByType(atividade.nome_atividade || '')}
-                    <div>
-                          <h4 className="font-semibold text-[#004417]">{atividadeDisplay.descricao}</h4>
-                          <p className="text-[13px] text-[rgba(0,68,23,0.75)] font-medium">{atividade.dataFormatada}</p>
-                    </div>
-                  </div>
-                  <span className="text-xs bg-[#CADB2A]/20 text-[#004417] font-semibold px-2 py-1 rounded-full">
-                        {atividadeDisplay.talhao}
-                  </span>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-[rgba(0,68,23,0.75)] font-medium">Produtos:</span>
-                    <ul className="mt-1 space-y-1">
-                      {atividade.produtos && atividade.produtos.length > 0 ? (
-                        atividade.produtos.map((p, idx) => (
-                          <li key={idx} className="flex justify-between">
-                            <span className="font-semibold text-[#004417]">{p.nome_produto}</span>
-                            <span className="text-[rgba(0,68,23,0.75)] font-medium text-right">
-                              {p.quantidade_val ?? '-'} {p.quantidade_un ?? ''}
-                              {p.dose_val ? ` · ${p.dose_val} ${p.dose_un ?? ''}` : ''}
-                            </span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-[rgba(0,68,23,0.75)] font-medium">Não informado</li>
-                      )}
-                    </ul>
-                  </div>
-                  <div>
-                    <span className="text-[rgba(0,68,23,0.75)] font-medium">Máquinas:</span>
-                    <ul className="mt-1 space-y-1">
-                      {atividade.maquinas && atividade.maquinas.length > 0 ? (
-                        atividade.maquinas.map((m, idx) => (
-                          <li key={idx} className="flex justify-between">
-                            <span className="font-semibold text-[#004417]">{m.nome_maquina}</span>
-                            <span className="text-[rgba(0,68,23,0.75)] font-medium">{m.horas_maquina ?? '-'} h</span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-[rgba(0,68,23,0.75)] font-medium">Não informado</li>
-                      )}
-                    </ul>
-
-                    <div className="mt-2">
-                      <span className="text-[rgba(0,68,23,0.75)] font-medium">Responsável:</span>
-                      <p className="mt-1 text-sm text-[rgba(0,68,23,0.75)]">{atividade.responsaveis && atividade.responsaveis.length > 0 ? atividade.responsaveis.map(r => r.nome).join(', ') : 'Não informado'}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                
-
-                    {atividadeDisplay.observacoes && (
-                  <div className="mt-3 pt-3 border-t border-[rgba(0,68,23,0.08)]">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <span className="text-[rgba(0,68,23,0.75)] font-medium text-sm">Observações:</span>
-                        <p className="text-sm text-[#00A651] mt-1">{atividadeDisplay.observacoes}</p>
-                      </div>
-                      <button
-                        onClick={() => openAttachmentModal(
-                          atividade.id_atividade || '',
-                          atividade.nome_atividade || 'Atividade'
-                        )}
-                        className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none flex-shrink-0 ml-2"
-                        title="Gerenciar anexo"
-                      >
-                        <Paperclip className="w-4 h-4 text-[#00A651]" />
-                      </button>
-                    </div>
-                  </div>
-                    )}
-                    {!atividadeDisplay.observacoes && (
-                  <div className="mt-3 pt-3 border-t border-[rgba(0,68,23,0.08)]">
-                    <div className="flex items-center justify-end">
-                      <button
-                        onClick={() => openAttachmentModal(
-                          atividade.id_atividade || '',
-                          atividade.nome_atividade || 'Atividade'
-                        )}
-                        className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
-                        title="Gerenciar anexo"
-                      >
-                        <Paperclip className="w-4 h-4 text-[#00A651]" />
-                      </button>
-                    </div>
-                  </div>
-                    )}
-              </div>
-                );
-              })
-            )}
+          <div className="text-center py-8 rounded-xl p-6">
+            <Clock className="w-12 h-12 text-[#00A651] mx-auto mb-3" />
+            <p className="text-[#004417] font-medium">Em breve</p>
           </div>
         </div>
       </div>

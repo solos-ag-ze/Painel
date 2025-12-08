@@ -96,10 +96,10 @@ export default function MinhaFazendaPanel() {
   };
 
   const getStatusColor = (ativo: boolean) => {
-    // Stickers use green background with low opacity and green text
+    // Selo menor e discreto: sem fundo verde, apenas texto com borda sutil
     return ativo
-      ? 'bg-[rgba(0,166,81,0.12)] text-[#00A651] rounded-[20px] px-3 py-1 text-xs font-medium'
-      : 'bg-[rgba(0,166,81,0.06)] text-[#00A651] rounded-[20px] px-3 py-1 text-xs font-medium';
+      ? 'text-[#004417] text-xs font-medium px-2 py-0.5 rounded-full border border-[rgba(0,68,23,0.06)]'
+      : 'text-[rgba(0,68,23,0.6)] text-xs font-medium px-2 py-0.5 rounded-full border border-[rgba(0,68,23,0.04)]';
   };
 
   const getStatusIcon = (ativo: boolean) => {
@@ -214,7 +214,9 @@ export default function MinhaFazendaPanel() {
               </span>
 
               <div className="mb-3">
-                <h4 className="text-lg font-bold text-[#004417]">{talhao.nome}</h4>
+                <h4 className="text-lg">
+                  <span className="inline-block bg-[rgba(0,166,81,0.12)] text-[#004417] rounded-full px-3 py-1 text-sm font-semibold">{talhao.nome}</span>
+                </h4>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

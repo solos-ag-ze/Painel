@@ -10,46 +10,31 @@ export interface CotacaoCafe {
 
 export class CotacaoService {
   static async getCotacaoAtual(): Promise<number> {
-    try {
-      console.log('🔍 Buscando cotação atual da tabela cotacao_diaria_cafe...');
-      
-      // Primeiro teste: buscar sem filtro
-      const { data: allRecords, error: allError } = await supabase
-        .from('cotacao_diaria_cafe')
-        .select('*')
-        .limit(5);
+    console.log('🔍 Buscando cotação atual da tabela cotacao_diaria_cafe...');
 
-      console.log('📋 Primeiros registros da tabela:', { allRecords, allError });
+    // Primeiro: tentar buscar o registro com id = 1
+    const { data, error } = await supabase
+      .from('cotacao_diaria_cafe')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
 
-      // Segundo teste: buscar com maybeSingle em vez de single
-      const { data, error } = await supabase
-        .from('cotacao_diaria_cafe')
-        .select('*')
-        .eq('id', 1)
-        .maybeSingle();
+    console.log('📊 Resposta do Supabase (getCotacaoAtual):', { data, error });
 
-      console.log('📊 Resposta do Supabase:', { data, error });
-
-      if (error) {
-        console.error('❌ Erro ao buscar cotação:', error);
-        console.log('🔄 Usando valor padrão: 1726');
-        return 1726; // Valor padrão em caso de erro
-      }
-
-      if (data?.preco) {
-        console.log('💰 Preço encontrado na tabela:', data.preco);
-        // Converte "R$1.959,00" para número 1959
-        const precoNumerico = this.parsePrecoString(data.preco);
-        console.log('🔢 Preço convertido para número:', precoNumerico);
-        return precoNumerico;
-      }
-
-      console.log('⚠️ Nenhum preço encontrado, usando valor padrão: 1726');
-      return 1726; // Valor padrão se não encontrar
-    } catch (error) {
-      console.error('💥 Erro no serviço de cotação:', error);
-      return 1726; // Valor padrão em caso de erro
+    if (error) {
+      console.error('❌ Erro ao buscar cotação:', error);
+      throw new Error('Erro ao buscar cotação: ' + String(error.message || error));
     }
+
+    if (!data || !data.preco) {
+      console.error('⚠️ Nenhum preço encontrado no registro ID=1');
+      throw new Error('Cotação não encontrada na tabela cotacao_diaria_cafe');
+    }
+
+    // Converte "R$1.959,00" para número 1959 (lança em caso de formato inválido)
+    const precoNumerico = this.parsePrecoString(data.preco);
+    console.log('🔢 Preço convertido para número:', precoNumerico);
+    return precoNumerico;
   }
 
   static async getCotacaoCompleta(): Promise<CotacaoCafe | null> {
@@ -80,26 +65,29 @@ export class CotacaoService {
   // Converte string "R$1.959,00" para número 1959
   static parsePrecoString(precoString: string): number {
     if (!precoString) {
-      console.log('⚠️ Preço string vazia, retornando 1726');
-      return 1726;
+      console.error('⚠️ Preço string vazia');
+      throw new Error('Preço vazio ou inválido');
     }
-    
+
     console.log('🔄 Convertendo preço:', precoString);
-    
+
     // Remove "R$", pontos e substitui vírgula por ponto
     const numeroLimpo = precoString
-      .replace(/R\$/, '')
+      .replace(/R\$/g, '')
       .replace(/\./g, '')
       .replace(',', '.')
       .trim();
-    
+
     console.log('🧹 Número limpo:', numeroLimpo);
-    
+
     const numero = parseFloat(numeroLimpo);
-    const resultado = isNaN(numero) ? 1726 : numero;
-    
-    console.log('🎯 Resultado final da conversão:', resultado);
-    return resultado;
+    if (!Number.isFinite(numero)) {
+      console.error('❌ Falha ao converter preço para número:', precoString);
+      throw new Error('Formato de preço inválido: ' + String(precoString));
+    }
+
+    console.log('🎯 Resultado final da conversão:', numero);
+    return numero;
   }
 
   // Converte string "+1,03" para número 1.03

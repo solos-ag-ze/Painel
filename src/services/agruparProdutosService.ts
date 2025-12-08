@@ -1,7 +1,11 @@
 // src/services/agruparProdutosService.ts
-import { ProdutoEstoque } from "./estoqueService";
+import { ProdutoEstoque, EstoqueService } from "./estoqueService";
 import { convertToStandardUnit, convertBetweenUnits, isMassUnit, isVolumeUnit } from '../lib/unitConverter';
 
+/**
+ * Normaliza o nome do produto para comparação
+ * Remove acentos, converte para minúsculo, mas PRESERVA números e hífens
+ */
 function normalizeName(name: string | null | undefined): string {
   if (!name || typeof name !== 'string') {
     return '';
@@ -9,10 +13,49 @@ function normalizeName(name: string | null | undefined): string {
   return name
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]/g, " ")
+    .replace(/[\u0300-\u036f]/g, "") // Remove acentos
     .trim()
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " "); // Normaliza espaços
+}
+
+/**
+ * Extrai a "fórmula" ou números significativos do nome do produto
+ * Ex: "NPK 20-05-20" → "20-05-20"
+ * Ex: "Boro 10%" → "10"
+ * Ex: "Roundup" → ""
+ */
+function extractFormula(name: string): string {
+  if (!name) return '';
+  
+  // Padrão para fórmulas tipo "20-05-20", "10-10-10", etc.
+  const formulaMatch = name.match(/\d+[-]\d+[-]\d+/);
+  if (formulaMatch) return formulaMatch[0];
+  
+  // Padrão para percentuais tipo "10%", "5%"
+  const percentMatch = name.match(/\d+\s*%/g);
+  if (percentMatch) return percentMatch.join('-');
+  
+  // Padrão para números isolados significativos (ex: "Boro 10")
+  const numbersMatch = name.match(/\d+/g);
+  if (numbersMatch && numbersMatch.length > 0) {
+    return numbersMatch.join('-');
+  }
+  
+  return '';
+}
+
+/**
+ * Extrai o nome base do produto (sem números/fórmulas)
+ * Ex: "NPK 20-05-20" → "npk"
+ * Ex: "Ureia" → "ureia"
+ */
+function extractBaseName(name: string): string {
+  if (!name) return '';
+  return normalizeName(name)
+    .replace(/\d+[-]?\d*[-]?\d*/g, '') // Remove números e fórmulas
+    .replace(/%/g, '')                  // Remove %
+    .replace(/\s+/g, ' ')               // Normaliza espaços
+    .trim();
 }
 
 function levenshteinDistance(a: string, b: string): number {
@@ -38,6 +81,10 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[a.length][b.length];
 }
 
+/**
+ * Verifica se dois nomes de produtos são similares o suficiente para agrupar
+ * REGRA IMPORTANTE: Se ambos têm fórmulas/números, eles DEVEM ser IGUAIS
+ */
 function areSimilar(name1: string | null | undefined, name2: string | null | undefined): boolean {
   if (!name1 || !name2 || typeof name1 !== 'string' || typeof name2 !== 'string') {
     return false;
@@ -46,26 +93,58 @@ function areSimilar(name1: string | null | undefined, name2: string | null | und
   const norm1 = normalizeName(name1);
   const norm2 = normalizeName(name2);
   
+  // Se os nomes normalizados são idênticos, são iguais
   if (norm1 === norm2) return true;
   if (!norm1 || !norm2) return false;
 
-  const avgLength = (norm1.length + norm2.length) / 2;
-  const distance = levenshteinDistance(norm1, norm2);
-  const similarity = 1 - (distance / Math.max(norm1.length, norm2.length));
+  // Extrair fórmulas/números
+  const formula1 = extractFormula(name1);
+  const formula2 = extractFormula(name2);
   
-  if (avgLength < 4) return norm1 === norm2;
-  if (avgLength <= 6) return similarity > 0.85;
-  if (avgLength <= 10) return similarity > 0.75;
-  return similarity > 0.7;
+  // 🚨 REGRA CRÍTICA: Se ambos têm fórmulas, elas DEVEM ser idênticas
+  // Isso evita agrupar "NPK 10-10-10" com "NPK 20-20-20"
+  if (formula1 && formula2) {
+    if (formula1 !== formula2) {
+      return false; // Fórmulas diferentes = produtos diferentes
+    }
+  }
+  
+  // Extrair nomes base (sem números)
+  const base1 = extractBaseName(name1);
+  const base2 = extractBaseName(name2);
+  
+  // Se os nomes base são muito diferentes, não agrupa
+  if (!base1 || !base2) {
+    // Se um tem base e outro não, compara os nomes completos
+    const distance = levenshteinDistance(norm1, norm2);
+    const similarity = 1 - (distance / Math.max(norm1.length, norm2.length));
+    return similarity > 0.9; // Exige 90% de similaridade
+  }
+  
+  // Comparar nomes base usando Levenshtein
+  const baseDistance = levenshteinDistance(base1, base2);
+  const baseSimilarity = 1 - (baseDistance / Math.max(base1.length, base2.length));
+  
+  // Nomes base devem ter alta similaridade (85%+)
+  if (baseSimilarity < 0.85) {
+    return false;
+  }
+  
+  // Se chegou aqui:
+  // - Fórmulas são iguais (ou um/ambos não têm fórmula)
+  // - Nomes base são similares
+  return true;
 }
 
 export interface ProdutoAgrupado {
   nome: string;
-  produtos: ProdutoEstoque[];
+  produtos: ProdutoEstoque[];          // Todos os registros (entradas e saídas)
+  entradas: ProdutoEstoque[];          // Apenas entradas
+  saidas: ProdutoEstoque[];            // Apenas saídas
   mediaPreco: number;
   mediaPrecoDisplay: number;
-  totalEstoque: number;
-  totalEstoqueDisplay: number;
+  totalEstoque: number;                // Estoque em unidade padrão (mg/mL)
+  totalEstoqueDisplay: number;         // Estoque na unidade de display (entradas - saídas)
   unidadeDisplay: string;
   marcas: string[];
   categorias: string[];
@@ -81,18 +160,22 @@ export interface ProdutoAgrupado {
   }[];
   unidadeValorOriginal: string | null;
   mediaPrecoOriginal: number | null;
+  valorAtualEstoque?: number;
+  mediaPrecoAtual?: number;
+  quantidadeLiquidaAtual?: number;
 }
 
-export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
-  if (!produtos.length) return [];
+export async function agruparProdutos(produtos: ProdutoEstoque[]): Promise<ProdutoAgrupado[]> {
+  try {
+    if (!produtos.length) return [];
 
-  const produtosValidos = produtos.filter(p => 
-    p.nome_produto && 
-    typeof p.nome_produto === 'string' && 
-    p.nome_produto.trim()
-  );
-  
-  if (!produtosValidos.length) return [];
+    const produtosValidos = produtos.filter(p => 
+      p.nome_produto && 
+      typeof p.nome_produto === 'string' && 
+      p.nome_produto.trim()
+    );
+    
+    if (!produtosValidos.length) return [];
 
   const grupos: Record<string, ProdutoEstoque[]> = {};
   grupos[produtosValidos[0].nome_produto] = [produtosValidos[0]];
@@ -114,8 +197,34 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
     }
   }
 
+  // ✅ Buscar lançamentos de produtos uma única vez
+  const todosIds = produtosValidos.map(p => p.id);
+  const lancamentosPorProduto = new Map<number, number>();
+  
+  try {
+    const lancamentos = await EstoqueService.getLancamentosPorProdutos(todosIds);
+    
+    if (lancamentos && Array.isArray(lancamentos)) {
+      lancamentos.forEach(l => {
+        const produtoId = Number(l.produto_id);
+        const quantidade = l.quantidade_val ?? 0;
+        const unidade = l.quantidade_un || 'un';
+        
+        const produto = produtosValidos.find(p => Number(p.id) === produtoId);
+        if (produto) {
+          const quantidadeConvertida = convertBetweenUnits(quantidade, unidade, produto.unidade);
+          const atual = lancamentosPorProduto.get(produtoId) || 0;
+          lancamentosPorProduto.set(produtoId, atual + quantidadeConvertida);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('⚠️ Erro ao buscar lançamentos (continuando sem eles):', err);
+    // Continuar sem lançamentos em caso de erro
+  }
+
   return Object.values(grupos).map(grupo => {
-    // 1️⃣ ORDENAR produtos por created_at (mais antigo primeiro)
+    // 1️⃣ ORDENAR produtos por created_at (mais antigo primeiro - FIFO)
     grupo.sort((a, b) => {
       const dateA = new Date(a.created_at || 0).getTime();
       const dateB = new Date(b.created_at || 0).getTime();
@@ -127,113 +236,84 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
       nomes.filter(n => n === a).length - nomes.filter(n => n === b).length
     ).pop() || grupo[0].nome_produto;
 
-    const produtosEmEstoque = grupo.filter(p => (p.quantidade ?? 0) > 0);
+    // 2️⃣ SEPARAR ENTRADAS E SAÍDAS
+    // tipo_de_movimentacao pode ser 'entrada', 'saida', 'aplicacao' ou undefined (legado = entrada)
+    const entradas = grupo.filter(p => 
+      !p.tipo_de_movimentacao || p.tipo_de_movimentacao === 'entrada'
+    );
+    // Considerar tanto 'saida' quanto 'aplicacao' como saídas de estoque
+    const saidas = grupo.filter(p => 
+      p.tipo_de_movimentacao === 'saida' || p.tipo_de_movimentacao === 'aplicacao'
+    );
 
-    // 2️⃣ CALCULAR MÉDIA PONDERADA DO GRUPO CORRETAMENTE
-    // Converter TUDO para a mesma unidade de referência antes de somar
-    const produtoMaisAntigo = grupo[0];
+    // 3️⃣ DETERMINAR UNIDADE DE REFERÊNCIA (do produto mais antigo)
+    const produtoMaisAntigo = entradas[0] || grupo[0];
     const unidadeReferencia = produtoMaisAntigo.unidade_valor_original || produtoMaisAntigo.unidade;
-    const primeiraUnidade = grupo[0].unidade;
+    const primeiraUnidade = produtoMaisAntigo.unidade;
     
+    // 4️⃣ CALCULAR ESTOQUE: ENTRADAS - SAÍDAS
+    let totalEntradas = 0;
+    let totalSaidas = 0;
     let somaValorTotal = 0;
-    let somaQuantidadeEmEstoque = 0;
     
-    // 💰 USAR VALOR_MEDIO DO BANCO (já calculado pelo trigger)
-    // O banco calcula automaticamente o valor_medio via trigger
-    // Calculamos a média ponderada do grupo baseada no valor_medio de cada produto
-    
-    console.log(`\n📊 Calculando média do grupo: ${nomeMaisComum}`);
-    console.log(`   Unidade de referência do grupo: ${unidadeReferencia}`);
-    
-    produtosEmEstoque.forEach(p => {
-      const valorMedio = p.valor_medio ?? 0;
-      const quantidadeAtual = p.quantidade ?? 0;
-      const unidadeValorProduto = p.unidade_valor_original || p.unidade;
-      
-      console.log(`\n   🔹 Produto ID ${p.id}:`, {
-        nome: p.nome_produto,
-        valor_medio_banco: valorMedio,
-        unidade_valor_original: unidadeValorProduto,
-        quantidade_atual: quantidadeAtual,
-        unidade_estoque: p.unidade
-      });
-      
-      // Converter quantidade atual para unidade de referência do grupo
+    // Somar entradas (quantidade positiva)
+    entradas.forEach(p => {
+      const quantidadeAtual = p.quantidade_inicial ?? p.quantidade ?? 0;
       const quantidadeNaUnidadeRef = convertBetweenUnits(
         quantidadeAtual,
         p.unidade,
         unidadeReferencia
       );
+      totalEntradas += quantidadeNaUnidadeRef;
       
-      console.log(`      Quantidade convertida: ${quantidadeAtual} ${p.unidade} → ${quantidadeNaUnidadeRef} ${unidadeReferencia}`);
-      
-      // O valor_medio está na unidade_valor_original do produto
-      // Precisamos converter para a unidade de referência do grupo
-      // Ex: produto A tem valor_medio em kg, grupo usa ton → converter preço de R$/kg para R$/ton
+      // Calcular valor para média ponderada
+      const valorMedio = p.valor_medio ?? p.valor ?? 0;
+      const unidadeValorProduto = p.unidade_valor_original || p.unidade;
       const fatorConversaoValor = convertBetweenUnits(1, unidadeReferencia, unidadeValorProduto);
       const valorMedioNaUnidadeRef = valorMedio * fatorConversaoValor;
-      
-      console.log(`      Valor médio no banco: R$ ${valorMedio.toFixed(2)}/${unidadeValorProduto}`);
-      console.log(`      Fator conversão: 1 ${unidadeReferencia} = ${fatorConversaoValor} ${unidadeValorProduto}`);
-      console.log(`      Valor médio convertido: R$ ${valorMedioNaUnidadeRef.toFixed(2)}/${unidadeReferencia}`);
-      console.log(`      Contribuição total: R$ ${valorMedioNaUnidadeRef.toFixed(2)} × ${quantidadeNaUnidadeRef.toFixed(2)} = R$ ${(valorMedioNaUnidadeRef * quantidadeNaUnidadeRef).toFixed(2)}`);
-      
-      // Agora podemos calcular: valor_total = valor_medio_convertido * quantidade_convertida
       somaValorTotal += valorMedioNaUnidadeRef * quantidadeNaUnidadeRef;
-      somaQuantidadeEmEstoque += quantidadeNaUnidadeRef;
     });
     
-    // Calcular média ponderada do grupo na unidade de referência
-    const mediaPrecoFinal = somaQuantidadeEmEstoque > 0 
-      ? somaValorTotal / somaQuantidadeEmEstoque 
-      : 0;
-    
-    console.log(`\n   💰 RESULTADO FINAL:`);
-    console.log(`      Total em valor: R$ ${somaValorTotal.toFixed(2)}`);
-    console.log(`      Total em quantidade: ${somaQuantidadeEmEstoque.toFixed(2)} ${unidadeReferencia}`);
-    console.log(`      Média ponderada: R$ ${mediaPrecoFinal.toFixed(2)}/${unidadeReferencia}\n`);
-
-    // 3️⃣ CALCULAR totalEstoqueDisplay DIRETAMENTE na UNIDADE DE REFERÊNCIA
-    // Usar a mesma lógica do convertBetweenUnits para garantir consistência
-    let totalEstoqueDisplay = 0;
-    
-    produtosEmEstoque.forEach(p => {
-      const quantidadeConvertida = convertBetweenUnits(
-        p.quantidade ?? 0,
+    // Subtrair saídas (quantidade negativa no cálculo)
+    saidas.forEach(p => {
+      const quantidadeAtual = p.quantidade ?? 0;
+      const quantidadeNaUnidadeRef = convertBetweenUnits(
+        quantidadeAtual,
         p.unidade,
         unidadeReferencia
       );
-      totalEstoqueDisplay += quantidadeConvertida;
+      totalSaidas += quantidadeNaUnidadeRef;
     });
-
-    const unidadeDisplay = unidadeReferencia;
     
-    // Manter totalEstoque em unidade padrão para compatibilidade com código legado (se necessário)
+    // Estoque real = entradas - saídas (lançamentos antigos ignorados em favor da tabela unificada)
+    const totalEstoqueDisplay = totalEntradas - totalSaidas;
+    
+    // Média ponderada (baseada apenas nas entradas)
+    const mediaPrecoFinal = totalEntradas > 0 
+      ? somaValorTotal / totalEntradas 
+      : 0;
+
+    // 5️⃣ CALCULAR totalEstoque em unidade padrão (para compatibilidade)
     let totalEstoqueEmUnidadePadrao = 0;
     if (isMassUnit(primeiraUnidade)) {
-      produtosEmEstoque.forEach(p => {
-        const converted = convertToStandardUnit(p.quantidade ?? 0, p.unidade);
-        totalEstoqueEmUnidadePadrao += converted.quantidade;
-      });
+      const converted = convertToStandardUnit(totalEstoqueDisplay, unidadeReferencia);
+      totalEstoqueEmUnidadePadrao = converted.quantidade;
     } else if (isVolumeUnit(primeiraUnidade)) {
-      produtosEmEstoque.forEach(p => {
-        const converted = convertToStandardUnit(p.quantidade ?? 0, p.unidade);
-        totalEstoqueEmUnidadePadrao += converted.quantidade;
-      });
+      const converted = convertToStandardUnit(totalEstoqueDisplay, unidadeReferencia);
+      totalEstoqueEmUnidadePadrao = converted.quantidade;
     } else {
-      totalEstoqueEmUnidadePadrao = produtosEmEstoque.reduce((sum, p) => sum + (p.quantidade ?? 0), 0);
+      totalEstoqueEmUnidadePadrao = totalEstoqueDisplay;
     }
 
-    const totalEstoque = totalEstoqueEmUnidadePadrao;
+    const marcas = Array.from(new Set(entradas.map(p => p.marca)));
+    const categorias = Array.from(new Set(entradas.map(p => p.categoria)));
+    const unidades = Array.from(new Set(entradas.map(p => p.unidade)));
+    const lotes = Array.from(new Set(entradas.map(p => p.lote)));
+    const validades = Array.from(new Set(entradas.map(p => p.validade)));
 
-    const marcas = Array.from(new Set(grupo.map(p => p.marca)));
-    const categorias = Array.from(new Set(grupo.map(p => p.categoria)));
-    const unidades = Array.from(new Set(grupo.map(p => p.unidade)));
-    const lotes = Array.from(new Set(grupo.map(p => p.lote)));
-    const validades = Array.from(new Set(grupo.map(p => p.validade)));
-
+    // Fornecedores apenas das entradas
     const fornecedoresMap: Record<string, { fornecedor: string|null, quantidade: number, valor: number|null, registro_mapa: string|null, ids: number[] }> = {};
-    produtosEmEstoque.forEach(p => {
+    entradas.forEach(p => {
       const key = (p.fornecedor ?? "Desconhecido") + "_" + (p.valor ?? "0");
       if (!fornecedoresMap[key]) {
         fornecedoresMap[key] = {
@@ -248,15 +328,16 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
       fornecedoresMap[key].ids.push(p.id);
     });
 
-    // ✅ Usar média ponderada calculada e unidadeReferencia do produto mais antigo
     return {
       nome: nomeMaisComum,
       produtos: grupo,
+      entradas,
+      saidas,
       mediaPreco: mediaPrecoFinal,
       mediaPrecoDisplay: mediaPrecoFinal,
-      totalEstoque,
+      totalEstoque: totalEstoqueEmUnidadePadrao,
       totalEstoqueDisplay,
-      unidadeDisplay,
+      unidadeDisplay: unidadeReferencia,
       marcas,
       categorias,
       unidades,
@@ -264,7 +345,12 @@ export function agruparProdutos(produtos: ProdutoEstoque[]): ProdutoAgrupado[] {
       validades,
       fornecedores: Object.values(fornecedoresMap),
       unidadeValorOriginal: unidadeReferencia,
-      mediaPrecoOriginal: mediaPrecoFinal
+      mediaPrecoOriginal: mediaPrecoFinal,
     };
   });
+
+  } catch (error) {
+    console.error('❌ Erro crítico em agruparProdutos:', error);
+    return [];
+  }
 }

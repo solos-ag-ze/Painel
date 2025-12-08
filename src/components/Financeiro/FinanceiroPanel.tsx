@@ -111,12 +111,20 @@ const FinanceiroPanel: React.FC = () => {
       const customStart = customStartDate ? new Date(customStartDate) : undefined;
       const customEnd = customEndDate ? new Date(customEndDate) : undefined;
 
-      const [balance, transactions] = await Promise.all([
+      const [balance, transactions, somaAteHoje] = await Promise.all([
         FinanceService.getPeriodBalance(currentUser.user_id, filterPeriod, customStart, customEnd),
-        FinanceService.getTransactionsByPeriod(currentUser.user_id, filterPeriod, customStart, customEnd)
+        FinanceService.getTransactionsByPeriod(currentUser.user_id, filterPeriod, customStart, customEnd),
+        // Garantir que o saldo atual use a mesma fonte do Dashboard
+        FinanceService.getSomaTransacoesAteHoje(currentUser.user_id)
       ]);
 
-      setPeriodBalance(balance);
+      // Sobrescreve saldoReal com a soma usada pelo Dashboard para manter os valores idênticos
+      const balanceWithUnifiedSaldoReal = {
+        ...balance,
+        saldoReal: somaAteHoje
+      };
+
+      setPeriodBalance(balanceWithUnifiedSaldoReal);
 
       // ✅ LÓGICA ALTERADA AQUI
       // 1. Ordena transações realizadas: primeiro por data de registro (lançamento mais recente primeiro)
@@ -199,7 +207,7 @@ const FinanceiroPanel: React.FC = () => {
       <div
         key={transaction.id_transacao}
         className={`relative rounded-xl p-[18px] transition-all duration-200 ${
-          isFuture ? 'bg-[rgba(202,219,42,0.20)]' : isIncome ? 'bg-[rgba(0,166,81,0.08)]' : 'bg-[rgba(247,148,31,0.10)]'
+          isIncome ? 'bg-[rgba(0,166,81,0.08)]' : 'bg-[rgba(247,148,31,0.10)]'
         }`}
       >
         <div className="flex items-start justify-between mb-3">
@@ -212,7 +220,7 @@ const FinanceiroPanel: React.FC = () => {
             </div>
           </div>
           <span className={`text-xs px-2.5 py-1 rounded-[8px] font-medium ${
-            isFuture ? 'bg-[rgba(202,219,42,0.25)] text-[#004417]' : isIncome ? 'bg-[rgba(0,166,81,0.15)] text-[#00A651]' : 'bg-[rgba(247,148,31,0.15)] text-[#F7941F]'
+            isIncome ? 'bg-[rgba(0,166,81,0.15)] text-[#00A651]' : 'bg-[rgba(247,148,31,0.15)] text-[#F7941F]'
           }`}>
             {isFuture ? 'Planejada' : (isIncome ? 'Entrada' : 'Saída')}
           </span>
@@ -232,19 +240,23 @@ const FinanceiroPanel: React.FC = () => {
           <div>
             <span className="text-[#004417]/65">Data de pagamento:</span>
               <p className="font-semibold text-[#004417]">
-              {isFuture 
+              {isFuture
                 ? FinanceService.formatDataPagamento(String(transaction.data_agendamento_pagamento || ''))
                 : FinanceService.formatDataPagamento(String(transaction.data_agendamento_pagamento || transaction.data_agendamento_pagamento || ''))
               }
             </p>
           </div>
           <div>
+            <span className="text-[#004417]/65">Talhão:</span>
+            <p className="font-semibold text-[#004417]">{transaction.nome_talhao || 'Sem talhão específico'}</p>
+          </div>
+          <div className="col-span-2">
             <span className="text-[#004417]/65">Forma de pagamento:</span>
             <p className="font-semibold text-[#004417]">{transaction.forma_pagamento_recebimento || 'Não informado'}</p>
           </div>
           {/* Campo Parcela - só aparece se tiver valor */}
           {transaction.parcela && (
-            <div>
+            <div className="col-span-2">
               <p className="font-semibold text-[#004417]"><span className="text-[#004417]/65">Parcela: </span>{transaction.parcela}</p>
             </div>
           )}
@@ -255,7 +267,14 @@ const FinanceiroPanel: React.FC = () => {
           {/* Informação de lançamento para transações futuras */}
           {transaction.data_registro && (
             <div className="text-xs text-[#004417]/65 flex-shrink-0">
-              Lançado em {new Date(transaction.data_registro).toLocaleDateString('pt-BR')}
+              Lançado em {new Date(transaction.data_registro).toLocaleString('pt-BR', {
+                timeZone: 'America/Sao_Paulo',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
             </div>
           )}
           {/* Espaçador quando não há informação de lançamento */}
@@ -266,7 +285,7 @@ const FinanceiroPanel: React.FC = () => {
               transaction.id_transacao || '',
               transaction.descricao || 'Transação'
             )}
-            className="p-2 text-[#00A651] hover:bg-[#00A651]/10 rounded-lg transition-colors flex-shrink-0"
+            className={`p-2 rounded-lg transition-colors flex-shrink-0 ${isIncome ? 'text-[#00A651] hover:bg-[#00A651]/10' : 'text-[#F7941F] hover:bg-[#F7941F]/10'}`}
             title="Gerenciar anexo"
           >
             <Paperclip className="w-4 h-4" />
@@ -278,18 +297,111 @@ const FinanceiroPanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Aviso Importante (topo) */}
-      <div className="bg-[rgba(247,148,31,0.06)] border-l-4 border-[#F7941F] rounded-xl shadow-card py-4 px-5">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[rgba(247,148,31,0.15)] flex-shrink-0 mt-0.5">
-            <AlertCircle className="w-5 h-5 text-[#F7941F]" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-[#004417] mb-1">Aviso Importante</h3>
-            <p className="text-sm text-[#004417] leading-relaxed">
-              Este painel é apenas um registro de conferência. O Zé não executa pagamentos, transferências ou movimentações financeiras.
+      {/* Aviso Importante removido — ícone de isenção ficará somente no final da página */}
+
+      
+
+      {/* Cards de Saldo */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-[#004417]">Fluxo de Caixa</h2>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+          {/* Card 1: Entradas */}
+          <div className="bg-[rgba(0,166,81,0.10)] rounded-xl p-5 shadow-card transition-transform duration-200 hover:scale-[1.01]">
+            <div className="flex items-center space-x-2 mb-3">
+              <div className="w-10 h-10 rounded-full bg-[#00A651]/20 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-[#00A651]" />
+              </div>
+            </div>
+            <p className="text-sm font-semibold text-[#004417] mb-1">
+              {isFuturePeriod() ? 'Entradas Planejadas' : 'Entradas (Período)'}
+            </p>
+            <p className="text-[22px] font-bold text-[#004417] mb-1">
+              {FinanceService.formatCurrency(periodBalance.totalEntradas)}
+            </p>
+            <p className="text-[13px] text-[#004417]/65">
+              {isFuturePeriod() ? 'Total de entradas planejadas' : 'Total de entradas registradas'}
             </p>
           </div>
+            
+          {/* Card 2: Saídas */}
+          <div className="bg-[rgba(247,148,31,0.12)] rounded-xl p-5 shadow-card transition-transform duration-200 hover:scale-[1.01]">
+            <div className="flex items-center space-x-2 mb-3">
+              <div className="w-10 h-10 rounded-full bg-[#F7941F]/20 flex items-center justify-center">
+                <TrendingDown className="w-5 h-5 text-[#F7941F]" />
+              </div>
+            </div>
+            <p className="text-sm font-semibold text-[#004417] mb-1">
+              {isFuturePeriod() ? 'Saídas Planejadas' : 'Saídas (Período)'}
+            </p>
+            <p className="text-[22px] font-bold text-[#004417] mb-1">
+              {FinanceService.formatCurrency(periodBalance.totalSaidas)}
+            </p>
+            <p className="text-[13px] text-[#004417]/65">
+              {isFuturePeriod() ? 'Total de saídas planejadas' : 'Total de saídas registradas'}
+            </p>
+          </div>
+          
+          {/* Card 3: Saldo Real (agora condicional) */}
+          {!isPastPeriod() && (
+            <div className="bg-white rounded-xl p-5 shadow-sm transition-transform duration-200 hover:scale-[1.01]">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="w-10 h-10 rounded-full bg-[#00A651]/20 flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-[#00A651]" />
+                </div>
+                <button
+                  onClick={() => toggleTooltip('saldo-real')}
+                  className="p-1 text-[#00A651] hover:bg-[#00A651]/10 rounded transition-colors"
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-sm font-semibold text-[#004417] mb-1">
+                {isFuturePeriod() ? 'Saldo Atual' : 'Saldo Atual (Hoje)'}
+              </p>
+              <p className="text-[22px] font-bold text-[#004417] mb-1">
+                {FinanceService.formatCurrency(periodBalance.saldoReal)}
+              </p>
+              <p className="text-[13px] text-[#004417]/65">
+                Saldo até hoje (lançamentos feitos)
+              </p>
+            </div>
+          )}
+          
+          {shouldShowProjected() && (
+            <div className="bg-white rounded-xl p-5 shadow-sm transition-transform duration-200 hover:scale-[1.01]">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="w-10 h-10 rounded-full bg-[#CADB2A]/30 flex items-center justify-center">
+                  <Target className="w-5 h-5 text-[#004417]" />
+                </div>
+                <button
+                  onClick={() => toggleTooltip('saldo-projetado')}
+                  className="p-1 text-[#004417] hover:bg-[#CADB2A]/20 rounded transition-colors"
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-sm font-semibold text-[#004417] mb-1">
+                {filterPeriod === 'todos' ? 'Saldo Projetado (Geral)' : 'Saldo Projetado (Período)'}
+              </p>
+              <p className="text-[22px] font-bold text-[#004417] mb-1">
+                {FinanceService.formatCurrency(periodBalance.saldoProjetado || 0)}
+              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[13px] text-[#004417]/65">
+                  {filterPeriod === 'todos' ? 'Saldo hoje + futuros (total)' : 'Saldo hoje + futuros do período'}
+                </p>
+                {(periodBalance.impactoFuturo7Dias !== undefined || periodBalance.impactoFuturo30Dias !== undefined) && (
+                  <button
+                    onClick={() => toggleTooltip('impacto-futuro')}
+                    className="p-1 text-[#004417] hover:bg-[#CADB2A]/20 rounded transition-colors flex-shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -355,110 +467,6 @@ const FinanceiroPanel: React.FC = () => {
             )}
           </div>
         )}
-      </div>
-
-      {/* Cards de Saldo */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold text-[#004417]">Fluxo de Caixa</h2>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-          {/* Card 1: Entradas */}
-          <div className="bg-[rgba(0,166,81,0.10)] rounded-xl p-5 shadow-card transition-transform duration-200 hover:scale-[1.01]">
-            <div className="flex items-center space-x-2 mb-3">
-              <div className="w-10 h-10 rounded-full bg-[#00A651]/20 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-[#00A651]" />
-              </div>
-            </div>
-            <p className="text-sm font-semibold text-[#004417] mb-1">
-              {isFuturePeriod() ? 'Entradas Planejadas' : 'Entradas (Período)'}
-            </p>
-            <p className="text-[22px] font-bold text-[#004417] mb-1">
-              {FinanceService.formatCurrency(periodBalance.totalEntradas)}
-            </p>
-            <p className="text-[13px] text-[#004417]/65">
-              {isFuturePeriod() ? 'Total de entradas planejadas' : 'Total de entradas registradas'}
-            </p>
-          </div>
-            
-          {/* Card 2: Saídas */}
-          <div className="bg-[rgba(247,148,31,0.12)] rounded-xl p-5 shadow-card transition-transform duration-200 hover:scale-[1.01]">
-            <div className="flex items-center space-x-2 mb-3">
-              <div className="w-10 h-10 rounded-full bg-[#F7941F]/20 flex items-center justify-center">
-                <TrendingDown className="w-5 h-5 text-[#F7941F]" />
-              </div>
-            </div>
-            <p className="text-sm font-semibold text-[#004417] mb-1">
-              {isFuturePeriod() ? 'Saídas Planejadas' : 'Saídas (Período)'}
-            </p>
-            <p className="text-[22px] font-bold text-[#004417] mb-1">
-              {FinanceService.formatCurrency(periodBalance.totalSaidas)}
-            </p>
-            <p className="text-[13px] text-[#004417]/65">
-              {isFuturePeriod() ? 'Total de saídas planejadas' : 'Total de saídas registradas'}
-            </p>
-          </div>
-          
-          {/* Card 3: Saldo Real (agora condicional) */}
-          {!isPastPeriod() && (
-            <div className="bg-[rgba(0,166,81,0.12)] rounded-xl p-5 shadow-card transition-transform duration-200 hover:scale-[1.01]">
-              <div className="flex items-center space-x-2 mb-3">
-                <div className="w-10 h-10 rounded-full bg-[#00A651]/20 flex items-center justify-center">
-                  <Wallet className="w-5 h-5 text-[#00A651]" />
-                </div>
-                <button
-                  onClick={() => toggleTooltip('saldo-real')}
-                  className="p-1 text-[#00A651] hover:bg-[#00A651]/10 rounded transition-colors"
-                >
-                  <Info className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-sm font-semibold text-[#004417] mb-1">
-                {isFuturePeriod() ? 'Saldo Atual' : 'Saldo Atual (Hoje)'}
-              </p>
-              <p className="text-[22px] font-bold text-[#004417] mb-1">
-                {FinanceService.formatCurrency(periodBalance.saldoReal)}
-              </p>
-              <p className="text-[13px] text-[#004417]/65">
-                Saldo até hoje (lançamentos feitos)
-              </p>
-            </div>
-          )}
-          
-          {shouldShowProjected() && (
-            <div className="bg-[rgba(202,219,42,0.12)] rounded-xl p-5 shadow-card transition-transform duration-200 hover:scale-[1.01]">
-              <div className="flex items-center space-x-2 mb-3">
-                <div className="w-10 h-10 rounded-full bg-[#CADB2A]/30 flex items-center justify-center">
-                  <Target className="w-5 h-5 text-[#004417]" />
-                </div>
-                <button
-                  onClick={() => toggleTooltip('saldo-projetado')}
-                  className="p-1 text-[#004417] hover:bg-[#CADB2A]/20 rounded transition-colors"
-                >
-                  <Info className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-sm font-semibold text-[#004417] mb-1">
-                {filterPeriod === 'todos' ? 'Saldo Projetado (Geral)' : 'Saldo Projetado (Período)'}
-              </p>
-              <p className="text-[22px] font-bold text-[#004417] mb-1">
-                {FinanceService.formatCurrency(periodBalance.saldoProjetado || 0)}
-              </p>
-              <div className="flex items-center justify-between">
-                <p className="text-[13px] text-[#004417]/65">
-                  {filterPeriod === 'todos' ? 'Saldo hoje + futuros (total)' : 'Saldo hoje + futuros do período'}
-                </p>
-                {(periodBalance.impactoFuturo7Dias !== undefined || periodBalance.impactoFuturo30Dias !== undefined) && (
-                  <button
-                    onClick={() => toggleTooltip('impacto-futuro')}
-                    className="p-1 text-[#004417] hover:bg-[#CADB2A]/20 rounded transition-colors flex-shrink-0"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Colunas de Transações */}
@@ -578,18 +586,15 @@ const FinanceiroPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Rodapé de Compliance */}
-      <div className="bg-[rgba(202,219,42,0.18)] rounded-xl p-4 mt-8">
-        <div className="flex items-start gap-3">
-          <Info className="w-5 h-5 text-[#00A651] flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h4 className="text-sm font-semibold text-[#004417] mb-1">Isenção de Responsabilidade</h4>
-            <p className="text-sm text-[#004417]/80 leading-relaxed">
-              Os valores exibidos aqui são apenas um resumo dos lançamentos feitos pelo produtor via WhatsApp. 
-              O Zé não movimenta contas, não executa pagamentos nem garante recebimentos.
-            </p>
-          </div>
-        </div>
+      {/* Rodapé de Compliance - substituído por ícone que abre modal com texto combinado */}
+      <div className="flex justify-end mt-6">
+        <button
+          onClick={() => toggleTooltip('disclaimer')}
+          className="p-2 rounded-lg text-[#004417] bg-white border border-[rgba(0,68,23,0.06)] hover:bg-[rgba(0,68,23,0.03)] transition-colors"
+          title="Aviso de responsabilidade"
+        >
+          <Info className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Estado vazio geral */}
@@ -710,6 +715,38 @@ const FinanceiroPanel: React.FC = () => {
                 Estes valores mostram o impacto das transações agendadas nos próximos períodos.
               </p>
               
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setActiveTooltip(null)}
+                  className="flex-1 px-4 py-2 bg-[#004417] text-white rounded-lg hover:bg-[#003015] transition-colors"
+                >
+                  Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTooltip === 'disclaimer' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl">
+            <div className="text-left">
+              <div className="flex items-center justify-center w-16 h-16 bg-[rgba(0,166,81,0.08)] rounded-full mx-auto mb-4">
+                <Info className="w-8 h-8 text-[#00A651]" />
+              </div>
+
+              <h3 className="text-lg font-bold text-[#004417] mb-3 text-center">Aviso e Isenção de Responsabilidade</h3>
+
+              <div className="space-y-4 text-sm text-[#004417]/90 mb-4">
+                <p>
+                  Este painel é apenas um registro de conferência. O Zé não executa pagamentos, transferências ou movimentações financeiras.
+                </p>
+                <p>
+                  Os valores exibidos aqui são apenas um resumo dos lançamentos feitos pelo produtor via WhatsApp. O Zé não movimenta contas, não executa pagamentos nem garante recebimentos.
+                </p>
+              </div>
+
               <div className="flex space-x-3">
                 <button
                   onClick={() => setActiveTooltip(null)}

@@ -72,25 +72,27 @@ export function convertFromStandardUnit(
 }
 
 export function getBestDisplayUnit(quantidadeMgOrMl: number, unidadePadrao: 'mg' | 'mL'): { quantidade: number; unidade: string } {
+  const absQtd = Math.abs(quantidadeMgOrMl);
+
   if (unidadePadrao === 'mg') {
-    if (quantidadeMgOrMl >= 1_000_000_000) {
+    if (absQtd >= 1_000_000_000) {
       const tons = quantidadeMgOrMl / 1_000_000_000;
       return {
-        quantidade: Number(tons.toFixed(tons >= 10 ? 1 : 2)),
+        quantidade: Number(tons.toFixed(Math.abs(tons) >= 10 ? 1 : 2)),
         unidade: 'ton'
       };
     }
-    if (quantidadeMgOrMl >= 1_000_000) {
+    if (absQtd >= 1_000_000) {
       const kg = quantidadeMgOrMl / 1_000_000;
       return {
-        quantidade: Number(kg.toFixed(kg >= 10 ? 1 : 2)),
+        quantidade: Number(kg.toFixed(Math.abs(kg) >= 10 ? 1 : 2)),
         unidade: 'kg'
       };
     }
-    if (quantidadeMgOrMl >= 1_000) {
+    if (absQtd >= 1_000) {
       const g = quantidadeMgOrMl / 1_000;
       return {
-        quantidade: Number(g.toFixed(g >= 10 ? 1 : 2)),
+        quantidade: Number(g.toFixed(Math.abs(g) >= 10 ? 1 : 2)),
         unidade: 'g'
       };
     }
@@ -101,10 +103,10 @@ export function getBestDisplayUnit(quantidadeMgOrMl: number, unidadePadrao: 'mg'
   }
 
   if (unidadePadrao === 'mL') {
-    if (quantidadeMgOrMl >= 1_000) {
+    if (absQtd >= 1_000) {
       const liters = quantidadeMgOrMl / 1_000;
       return {
-        quantidade: Number(liters.toFixed(liters >= 10 ? 1 : 2)),
+        quantidade: Number(liters.toFixed(Math.abs(liters) >= 10 ? 1 : 2)),
         unidade: 'L'
       };
     }
@@ -123,6 +125,15 @@ export function formatQuantityWithUnit(quantidade: number, unidade: string): str
 }
 
 export function autoScaleQuantity(quantidade: number, unidade: string): { quantidade: number; unidade: string } {
+  // Validar entrada para evitar NaN
+  if (typeof quantidade !== 'number' || isNaN(quantidade) || !isFinite(quantidade)) {
+    return { quantidade: 0, unidade: unidade || 'un' };
+  }
+  
+  if (!unidade) {
+    return { quantidade, unidade: 'un' };
+  }
+
   const standardized = convertToStandardUnit(quantidade, unidade);
 
   if (standardized.unidade === 'mg' || standardized.unidade === 'mL') {

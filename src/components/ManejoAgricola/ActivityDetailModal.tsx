@@ -69,53 +69,82 @@ export default function ActivityDetailModal({ isOpen, onClose, activityId, activ
           <div className="text-center py-8 text-red-600">{error}</div>
         ) : activity ? (
           <div className="space-y-4">
+            {/* Talhões */}
+            {activity.talhoes && activity.talhoes.length > 0 && (
+              <div className="bg-[rgba(0,68,23,0.03)] rounded-lg p-4 border border-[rgba(0,68,23,0.08)]">
+                <h4 className="text-sm font-semibold text-[#004417] mb-2">Talhões</h4>
+                <div className="flex flex-wrap gap-2">
+                  {activity.talhoes.map((t: any, idx: number) => (
+                    <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#00A651] text-white">
+                      {t.nome_talhao || `Talhão ${idx + 1}`}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Produtos:</span>
-                <ul className="mt-2 space-y-1">
+              {/* Produtos */}
+              <div className="bg-white rounded-lg p-4 border border-[rgba(0,68,23,0.08)]">
+                <h4 className="text-sm font-semibold text-[#004417] mb-2">Produtos</h4>
+                <ul className="space-y-2">
                   {activity.produtos && activity.produtos.length > 0 ? (
                     activity.produtos.map((p: any, idx: number) => {
                       const quantidade = p.quantidade_val ?? 0;
                       const unidade = p.quantidade_un || 'un';
                       const qtyUsed = autoScaleQuantity(quantidade, unidade);
+                      const quantidadeDisplay = (!qtyUsed.quantidade || isNaN(qtyUsed.quantidade) || !isFinite(qtyUsed.quantidade)) ? 0 : qtyUsed.quantidade;
                       
                       return (
-                        <li key={idx} className="flex justify-between">
+                        <li key={idx} className="flex justify-between items-center pb-2 border-b border-[rgba(0,68,23,0.08)] last:border-0 last:pb-0">
                           <span className="font-medium text-[#092f20]">{p.nome_produto}</span>
-                          <span className="text-gray-500">{qtyUsed.quantidade} {qtyUsed.unidade}</span>
+                          <span className="text-[#00A651] font-semibold">{quantidadeDisplay.toFixed(2)} {qtyUsed.unidade || unidade}</span>
                         </li>
                       );
                     })
                   ) : (
-                    <li className="text-gray-500">Não informado</li>
+                    <li className="text-gray-500 text-center py-2">Nenhum produto informado</li>
                   )}
                 </ul>
               </div>
-              <div>
-                <span className="text-gray-600">Máquinas:</span>
-                <ul className="mt-2 space-y-1">
+
+              {/* Máquinas */}
+              <div className="bg-white rounded-lg p-4 border border-[rgba(0,68,23,0.08)]">
+                <h4 className="text-sm font-semibold text-[#004417] mb-2">Máquinas</h4>
+                <ul className="space-y-2">
                   {activity.maquinas && activity.maquinas.length > 0 ? (
                     activity.maquinas.map((m: any, idx: number) => (
-                      <li key={idx} className="flex justify-between">
+                      <li key={idx} className="flex justify-between items-center pb-2 border-b border-[rgba(0,68,23,0.08)] last:border-0 last:pb-0">
                         <span className="font-medium text-[#092f20]">{m.nome_maquina}</span>
-                        <span className="text-gray-500">{m.horas_maquina ?? '-'} h</span>
+                        <span className="text-[#00A651] font-semibold">{m.horas_maquina ?? '-'} h</span>
                       </li>
                     ))
                   ) : (
-                    <li className="text-gray-500">Não informado</li>
+                    <li className="text-gray-500 text-center py-2">Nenhuma máquina informada</li>
                   )}
                 </ul>
-                <div className="mt-3">
-                  <span className="text-gray-600">Responsáveis:</span>
-                  <p className="mt-1 text-sm text-[#092f20]">{activity.responsaveis && activity.responsaveis.length > 0 ? activity.responsaveis.map((r: any) => r.nome).join(', ') : 'Não informado'}</p>
-                </div>
               </div>
             </div>
 
+            {/* Responsáveis */}
+            {activity.responsaveis && activity.responsaveis.length > 0 && (
+              <div className="bg-white rounded-lg p-4 border border-[rgba(0,68,23,0.08)]">
+                <h4 className="text-sm font-semibold text-[#004417] mb-2">Responsáveis</h4>
+                <div className="flex flex-wrap gap-2">
+                  {activity.responsaveis.map((r: any, idx: number) => (
+                    <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[rgba(0,166,81,0.15)] text-[#004417]">
+                      {r.nome || `Responsável ${idx + 1}`}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Observações */}
             {activity.observacao && (
-              <div className="pt-3 border-t border-gray-200">
-                <h4 className="text-sm text-gray-600">Observações</h4>
-                <p className="text-sm text-[#397738] mt-1">{activity.observacao}</p>
+              <div className="bg-[rgba(202,219,42,0.08)] rounded-lg p-4 border border-[rgba(0,68,23,0.08)]">
+                <h4 className="text-sm font-semibold text-[#004417] mb-2">Observações</h4>
+                <p className="text-sm text-[rgba(0,68,23,0.85)] italic">"{activity.observacao}"</p>
               </div>
             )}
           </div>

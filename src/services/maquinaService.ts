@@ -1,23 +1,33 @@
 import { supabase, MaquinasEquipamentos } from '../lib/supabase';
+import { PropriedadeService } from './propriedadeService';
 
+
+interface AddMaquinaPayload {
+    user_id: string;
+    nome: string;
+    marca_modelo: string;
+    categoria: string;
+    horimetro_atual: number | null;
+    valor_compra: number | null;
+    data_compra: string | null;
+    fornecedor: string | null;
+    numero_serie: string | null;
+    id_propriedade?: string | null;
+}
 
 export class MaquinaService {
 
-    async addMaquina(data: {
-        user_id: string;
-        nome: string;
-        marca_modelo: string;
-        categoria: string;
-        horimetro_atual: number | null;
-        valor_compra: number | null;
-        data_compra: string | null;
-        fornecedor: string | null;
-        numero_serie: string | null;
-    }): Promise<MaquinasEquipamentos> {
+    async addMaquina(data: AddMaquinaPayload): Promise<MaquinasEquipamentos> {
         try {
+            const payload = { ...data };
+
+            if (!payload.id_propriedade) {
+                payload.id_propriedade = await PropriedadeService.getPropriedadeAtivaDoUsuario(payload.user_id);
+            }
+
             const { data: maquina, error } = await supabase
                 .from('maquinas_equipamentos')
-                .insert([data])
+                .insert([payload])
                 .select()
                 .single();
 

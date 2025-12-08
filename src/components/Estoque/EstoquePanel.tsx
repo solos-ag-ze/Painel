@@ -17,6 +17,8 @@ import ListaProdutosMobile from "./ListaProdutosMobile";
 import EstoqueFiltros from "./EstoqueFiltros";
 import { agruparProdutos, ProdutoAgrupado } from '../../services/agruparProdutosService';
 import SuccessToast from '../common/SuccessToast';
+import AjusteEstoqueModal from './AjusteEstoqueModal';
+import { convertBetweenUnits, convertValueBetweenUnits } from '../../lib/unitConverter';
 
 export default function EstoquePanel() {
   // 📌 Constantes
@@ -30,7 +32,7 @@ export default function EstoquePanel() {
     total: 0,
     valorTotal: 0
   });
-
+  
   // 📌 Estados dos filtros
   const [search, setSearch] = useState("");
   const [categoria, setCategoria] = useState("");
@@ -51,19 +53,190 @@ export default function EstoquePanel() {
     isOpen: false,
     product: null as ProdutoAgrupado | null,
   });
-  const [attachmentModal, setAttachmentModal] = useState({
-    isOpen: false,
-    productId: '',
-    productName: ''
-  });
-  const [showToast, setShowToast] = useState(false);
+
+  // 📌 Estado para modal de ajuste simples (Solução 1)
+  const [ajusteModal, setAjusteModal] = useState({ isOpen: false, product: null as ProdutoAgrupado | null });
+
+  // 🧮 Helpers para calcular resumo de estoque a partir dos grupos
+  const EPSILON = 1e-6;
+
+  const calcularResumoGrupoFIFO = (grupo: ProdutoAgrupado) => {
+    if (!grupo.entradas.length) {
+      const quantidadeLiquidaFallback = Number(grupo.totalEstoqueDisplay) || 0;
+      const precoMedioFallback = Number(grupo.mediaPrecoDisplay) || 0;
+      const valorFallback = quantidadeLiquidaFallback * precoMedioFallback;
+      return {
+        quantidadeLiquida: quantidadeLiquidaFallback,
+        valorAtual: quantidadeLiquidaFallback > EPSILON ? valorFallback : 0,
+        mediaAtual: quantidadeLiquidaFallback > EPSILON ? precoMedioFallback : 0,
+      };
+    }
+
+    const ordenarPorData = (a?: string, b?: string) => {
+      const dataA = a ? new Date(a).getTime() : 0;
+      const dataB = b ? new Date(b).getTime() : 0;
+      return dataA - dataB;
+    };
+
+    const entradasOrdenadas = [...grupo.entradas].sort((a, b) => ordenarPorData(a.created_at, b.created_at));
+    const saidasOrdenadas = [...grupo.saidas].sort((a, b) => ordenarPorData(a.created_at, b.created_at));
+
+    const unidadeBase = grupo.unidadeValorOriginal
+      || grupo.unidadeDisplay
+      || entradasOrdenadas[0]?.unidade_valor_original
+      || entradasOrdenadas[0]?.unidade
+      || 'un';
+
+    type Lote = { quantidade: number; valorUnitario: number };
+
+    const lotes: Lote[] = entradasOrdenadas
+      .map((entrada) => {
+        const unidadeEntrada = entrada.unidade || unidadeBase;
+        const unidadeValorEntrada = entrada.unidade_valor_original || unidadeEntrada;
+        const quantidadeBruta = Number(entrada.quantidade_inicial ?? entrada.quantidade ?? 0) || 0;
+        const quantidadeConvertida = convertBetweenUnits(quantidadeBruta, unidadeEntrada, unidadeBase);
+
+        if (!Number.isFinite(quantidadeConvertida) || Math.abs(quantidadeConvertida) < EPSILON) {
+          return null;
+        }
+
+        const valorTotalEntrada = Number(entrada.valor_total ?? 0) || 0;
+        let valorUnitario = 0;
+
+        if (valorTotalEntrada > 0) {
+          valorUnitario = valorTotalEntrada / quantidadeConvertida;
+        } else {
+          const valorInformado = Number(entrada.valor ?? 0) || 0;
+          if (valorInformado > 0) {
+            valorUnitario = convertValueBetweenUnits(valorInformado, unidadeValorEntrada, unidadeBase);
+          }
+        }
+
+        return {
+          quantidade: quantidadeConvertida,
+          valorUnitario,
+        } satisfies Lote;
+      })
+      .filter((lote): lote is Lote => Boolean(lote));
+
+    if (!lotes.length) {
+      const quantidadeLiquidaFallback = Number(grupo.totalEstoqueDisplay) || 0;
+      const precoMedioFallback = Number(grupo.mediaPrecoDisplay) || 0;
+      const valorFallback = quantidadeLiquidaFallback * precoMedioFallback;
+      return {
+        quantidadeLiquida: quantidadeLiquidaFallback,
+        valorAtual: quantidadeLiquidaFallback > EPSILON ? valorFallback : 0,
+        mediaAtual: quantidadeLiquidaFallback > EPSILON ? precoMedioFallback : 0,
+      };
+    }
+
+    let valorTotalGrupo = lotes.reduce((acc, lote) => acc + lote.quantidade * (lote.valorUnitario || 0), 0);
+    let quantidadeLiquida = lotes.reduce((acc, lote) => acc + lote.quantidade, 0);
+    let ultimoValorUnitario = lotes[lotes.length - 1]?.valorUnitario || grupo.mediaPrecoDisplay || 0;
+
+    const consumirDoEstoque = (quantidadeSaida: number) => {
+      if (quantidadeSaida <= 0) return;
+
+      while (quantidadeSaida > EPSILON && lotes.length) {
+        const lote = lotes[0];
+        const valorUnitarioLote = lote.valorUnitario || ultimoValorUnitario;
+        const quantidadeConsumida = Math.min(quantidadeSaida, lote.quantidade);
+
+        valorTotalGrupo -= quantidadeConsumida * (valorUnitarioLote || 0);
+        lote.quantidade -= quantidadeConsumida;
+        quantidadeSaida -= quantidadeConsumida;
+        quantidadeLiquida -= quantidadeConsumida;
+        ultimoValorUnitario = valorUnitarioLote || ultimoValorUnitario;
+
+        if (lote.quantidade <= EPSILON) {
+          lotes.shift();
+        }
+      }
+
+      if (quantidadeSaida > EPSILON) {
+        quantidadeLiquida -= quantidadeSaida;
+        valorTotalGrupo -= quantidadeSaida * (ultimoValorUnitario || 0);
+      }
+    };
+
+    saidasOrdenadas.forEach((saida) => {
+      const unidadeSaida = saida.unidade || unidadeBase;
+      const quantidadeBrutaSaida = Number(saida.quantidade ?? 0) || 0;
+      const quantidadeConvertidaSaida = convertBetweenUnits(quantidadeBrutaSaida, unidadeSaida, unidadeBase);
+
+      if (Number.isFinite(quantidadeConvertidaSaida) && quantidadeConvertidaSaida > 0) {
+        consumirDoEstoque(quantidadeConvertidaSaida);
+      }
+    });
+
+    if (Math.abs(quantidadeLiquida) <= EPSILON) {
+      return {
+        quantidadeLiquida,
+        valorAtual: 0,
+        mediaAtual: 0,
+      };
+    }
+
+    const valorAtual = valorTotalGrupo;
+    const mediaAtual = valorAtual / quantidadeLiquida;
+
+    return {
+      quantidadeLiquida,
+      valorAtual,
+      mediaAtual,
+    };
+  };
+
+  const enriquecerGruposComValor = (grupos: ProdutoAgrupado[]) => {
+    return grupos.map((grupo) => {
+      const resumo = calcularResumoGrupoFIFO(grupo);
+      return {
+        ...grupo,
+        valorAtualEstoque: Number(resumo.valorAtual.toFixed(2)),
+        mediaPrecoAtual: Math.abs(resumo.quantidadeLiquida) > EPSILON ? Number(resumo.mediaAtual.toFixed(2)) : undefined,
+        quantidadeLiquidaAtual: Number(resumo.quantidadeLiquida.toFixed(6)),
+      };
+    });
+  };
+
+  const atualizarResumo = (grupos: ProdutoAgrupado[]) => {
+    const total = grupos.length;
+    const valorTotal = grupos.reduce((acc, grupo) => {
+      if (grupo.valorAtualEstoque != null) return acc + grupo.valorAtualEstoque;
+      const estoqueLiquidoFallback = Number(grupo.totalEstoqueDisplay) || 0;
+      const precoMedioFallback = Number(grupo.mediaPrecoDisplay) || 0;
+      return acc + estoqueLiquidoFallback * precoMedioFallback;
+    }, 0);
+
+    setResumoEstoque({
+      total,
+      valorTotal: Number(valorTotal.toFixed(2)),
+    });
+  };
+
+  const refetchAll = async () => {
+    try {
+      const dados = await EstoqueService.getProdutos();
+      const grupos = await agruparProdutos(dados);
+      setProdutos(dados);
+      const gruposEnriquecidos = enriquecerGruposComValor(grupos);
+      setProdutosAgrupados(gruposEnriquecidos);
+      atualizarResumo(gruposEnriquecidos);
+    } catch (err) {
+      console.error('Erro ao refetch all:', err);
+    }
+  };
+
   const [toastMessage, setToastMessage] = useState('');
+  const [showToast, setShowToast] = useState(false);
+
+  const [attachmentModal, setAttachmentModal] = useState<{ isOpen: boolean; productId: string; productName: string }>({ isOpen: false, productId: '', productName: '' });
 
   // ...existing code...
 
   // 🔄 Carregar produtos ao montar
   useEffect(() => {
-    const carregar = async () => {
+    const carregarDados = async () => {
       try {
         const authService = AuthService.getInstance();
         const user = authService.getCurrentUser();
@@ -71,32 +244,24 @@ export default function EstoquePanel() {
           console.warn("⚠️ Nenhum usuário autenticado");
           return;
         }
-        const dados = await EstoqueService.getProdutos();
-        setProdutos(dados);
-        setProdutosAgrupados(agruparProdutos(dados));
 
-        const valorTotal = await EstoqueService.calcularValorTotalEstoque();
-        setResumoEstoque(prev => ({ ...prev, valorTotal }));
+        const dados = await EstoqueService.getProdutos();
+        const grupos = await agruparProdutos(dados);
+        const gruposEnriquecidos = enriquecerGruposComValor(grupos);
+        setProdutos(dados);
+        setProdutosAgrupados(gruposEnriquecidos);
+        atualizarResumo(gruposEnriquecidos);
       } catch (error) {
         console.error("❌ Erro ao carregar estoque:", error);
       }
     };
-    carregar();
+
+    carregarDados();
 
     // 🔄 Auto-atualização a cada 30 segundos para pegar valores atualizados pelo trigger
     const intervalo = setInterval(async () => {
       try {
-        const authService = AuthService.getInstance();
-        const user = authService.getCurrentUser();
-        if (!user) return;
-
-        console.log('🔄 Atualizando estoque automaticamente...');
-        const dados = await EstoqueService.getProdutos();
-        setProdutos(dados);
-        setProdutosAgrupados(agruparProdutos(dados));
-
-        const valorTotal = await EstoqueService.calcularValorTotalEstoque();
-        setResumoEstoque(prev => ({ ...prev, valorTotal }));
+        await carregarDados();
       } catch (error) {
         console.error("❌ Erro ao atualizar estoque automaticamente:", error);
       }
@@ -106,14 +271,19 @@ export default function EstoquePanel() {
     return () => clearInterval(intervalo);
   }, []);
 
-  // � Sempre que a lista de produtos mudar, reagrupa para atualizar a UI automaticamente
+  // 💠 Sempre que a lista de produtos mudar, reagrupa para atualizar a UI automaticamente
   useEffect(() => {
-    try {
-      setProdutosAgrupados(agruparProdutos(produtos));
-      setResumoEstoque(prev => ({ ...prev, total: produtos.length }));
-    } catch (err) {
-      console.error('Erro ao reagrupar produtos:', err);
-    }
+    const reagrupar = async () => {
+      try {
+        const grupos = await agruparProdutos(produtos);
+        const gruposEnriquecidos = enriquecerGruposComValor(grupos);
+        setProdutosAgrupados(gruposEnriquecidos);
+        atualizarResumo(gruposEnriquecidos);
+      } catch (err) {
+        console.error('Erro ao reagrupar produtos:', err);
+      }
+    };
+    reagrupar();
   }, [produtos]);
 
   // ...existing code...
@@ -129,6 +299,11 @@ export default function EstoquePanel() {
     if (c.includes('foliar') || c.includes('nutricional')) return <Droplets className="w-6 h-6 text-[#004417]" />;
     if (c.includes('adjuvante') || c.includes('óleo')) return <Droplets className="w-6 h-6 text-[#004417]" />;
     return <Package className="w-6 h-6 text-[#004417]" />;
+  };
+
+  // Wrappers para passar às listas (garante assinatura correta)
+  const openHistoryModal = (params: { isOpen: boolean; product: ProdutoAgrupado | null }) => {
+    setHistoryModal(params);
   };
 
   // 🔎 Aplicação dos filtros e ordenação nos grupos (useMemo para evitar loops)
@@ -168,7 +343,7 @@ export default function EstoquePanel() {
         isVisible={showToast}
         onClose={() => setShowToast(false)}
       />
-      <div className="space-y-6">
+      <div className="space-y-6 relative">
       {/* Headers */}
       <EstoqueHeaderDesktop resumoEstoque={resumoEstoque} onOpenModal={() => setShowModal(true)} />
       <EstoqueHeaderMobile resumoEstoque={resumoEstoque} onOpenModal={() => setShowModal(true)} />
@@ -189,7 +364,7 @@ export default function EstoquePanel() {
             <ListaProdutosDesktop
         produtos={gruposExibidos}
         getCategoryIcon={getCategoryIcon}
-        setHistoryModal={setHistoryModal}
+        setHistoryModal={openHistoryModal}
         setRemoveModal={(params) => {
           const { isOpen, product } = params;
           setRemoveModal(prev => ({
@@ -200,12 +375,13 @@ export default function EstoquePanel() {
             observacao: '',
           }));
         }}
+        onAjustarEstoque={(product) => setAjusteModal({ isOpen: true, product })}
       />
 
             <ListaProdutosMobile
         produtos={gruposExibidos}
         getCategoryIcon={getCategoryIcon}
-        setHistoryModal={setHistoryModal}
+        setHistoryModal={openHistoryModal}
         setRemoveModal={(params) => {
           const { isOpen, product } = params;
           setRemoveModal(prev => ({
@@ -215,6 +391,19 @@ export default function EstoquePanel() {
             quantidade: 1,
             observacao: '',
           }));
+        }}
+        onAjustarEstoque={(product) => setAjusteModal({ isOpen: true, product })}
+      />
+
+      {/* Modal de Ajuste de Estoque Simples (Solução 1) */}
+      <AjusteEstoqueModal
+        isOpen={ajusteModal.isOpen}
+        onClose={() => setAjusteModal({ isOpen: false, product: null })}
+        productGroup={ajusteModal.product}
+        onSaved={async () => {
+          await refetchAll();
+          setToastMessage('Estoque ajustado com sucesso!');
+          setShowToast(true);
         }}
       />
 
@@ -254,8 +443,6 @@ export default function EstoquePanel() {
           onClose={() => setShowModal(false)}
           onCreated={async (produto) => {
             setProdutos((prev) => [produto, ...prev]);
-            const valorTotal = await EstoqueService.calcularValorTotalEstoque();
-            setResumoEstoque(prev => ({ ...prev, valorTotal }));
           }}
         />
       )}
@@ -274,22 +461,25 @@ export default function EstoquePanel() {
             // Remove quantidade usando FIFO (First In, First Out)
             // quantidadeConvertida já vem na unidade de referência do produto (kg, L, un, etc.)
             // ✅ Passar média ponderada do grupo para registrar valor histórico correto
+            const idsEntradas = removeModal.productGroup.entradas.map(e => e.id);
+            console.log('📤 Enviando IDs para remoção:', idsEntradas);
+
             await EstoqueService.removerQuantidadeFIFO(
               removeModal.productGroup.nome,
               quantidadeConvertida,
               removeModal.observacao,
-              removeModal.productGroup.mediaPrecoDisplay,
-              removeModal.productGroup.unidadeValorOriginal
+              removeModal.productGroup.mediaPrecoAtual ?? removeModal.productGroup.mediaPrecoDisplay,
+              removeModal.productGroup.unidadeValorOriginal,
+              idsEntradas
             );
             
             // Recarrega produtos
             const produtosAtualizados = await EstoqueService.getProdutos();
             setProdutos(produtosAtualizados);
-            setProdutosAgrupados(agruparProdutos(produtosAtualizados));
-
-            // Recalcula valor total
-            const valorTotal = await EstoqueService.calcularValorTotalEstoque();
-            setResumoEstoque(prev => ({ ...prev, valorTotal }));
+            const gruposAtualizados = await agruparProdutos(produtosAtualizados);
+            const gruposEnriquecidos = enriquecerGruposComValor(gruposAtualizados);
+            setProdutosAgrupados(gruposEnriquecidos);
+            atualizarResumo(gruposEnriquecidos);
 
             setRemoveModal({ isOpen: false, productGroup: null, quantidade: 1, observacao: '' });
             setToastMessage('Quantidade removida com sucesso!');
@@ -304,21 +494,11 @@ export default function EstoquePanel() {
 
       {/* inline histórico modal removed; using HistoryMovementsModal component below */}
 
-      {/* Mantém também o modal de histórico original para movimentações detalhadas */}
+      {/* Modal de histórico de movimentações */}
       <HistoryMovementsModal
         isOpen={historyModal.isOpen}
         product={historyModal.product}
         onClose={() => setHistoryModal({ isOpen: false, product: null })}
-        onProdutosUpdate={async () => {
-          // 🔄 Recarrega produtos para pegar valores atualizados pelo trigger
-          const produtosAtualizados = await EstoqueService.getProdutos();
-          setProdutos(produtosAtualizados);
-          setProdutosAgrupados(agruparProdutos(produtosAtualizados));
-          
-          // Recalcula valor total
-          const valorTotal = await EstoqueService.calcularValorTotalEstoque();
-          setResumoEstoque(prev => ({ ...prev, valorTotal }));
-        }}
       />
     </div>
     </>

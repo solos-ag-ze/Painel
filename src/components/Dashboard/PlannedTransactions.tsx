@@ -113,14 +113,12 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
               <p className="text-sm">Programe transações via WhatsApp do ZÉ</p>
             </div>
           ) : (
-            plannedTransactions.map((transaction) => {
+            plannedTransactions.map((transaction, idx) => {
               const isIncome = Number(transaction.valor) > 0;
               
               return (
-                <div
-                  key={transaction.id_transacao}
-                  className="relative p-4 rounded-xl bg-white transition-all duration-200 hover:scale-[1.01]"
-                >
+                <div key={transaction.id_transacao}>
+                  <div className="relative p-4 rounded-xl bg-white transition-all duration-200 hover:scale-[1.01]">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-3 pr-8">
                       {isIncome ? (
@@ -162,12 +160,16 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
                       </p>
                     </div>
                     <div>
+                      <span className="text-[#004417]/65 font-medium">Talhão:</span>
+                      <p className="font-semibold text-[#004417]">{transaction.nome_talhao || 'Sem talhão específico'}</p>
+                    </div>
+                    <div className="col-span-2">
                       <span className="text-[#004417]/65 font-medium">Forma de pagamento:</span>
                       <p className="font-semibold text-[#004417]">{transaction.forma_pagamento_recebimento || 'Não informado'}</p>
                     </div>
                     {/* Campo Parcela - só aparece se tiver valor */}
                     {transaction.parcela && (
-                      <div>
+                      <div className="col-span-2">
                         <p className="font-semibold text-[#004417]"><span className="text-[#004417]/65 font-medium">Parcela: </span>{transaction.parcela}</p>
                       </div>
                     )}
@@ -178,7 +180,7 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
                     {/* Informação de lançamento */}
                     {transaction.data_registro && (
                       <div className="text-xs text-[#004417]/65 font-medium flex-shrink-0">
-                        Lançado em {new Date(transaction.data_registro).toLocaleDateString('pt-BR')}
+                        Lançado em {new Date(transaction.data_registro).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </div>
                     )}
                     {/* Espaçador quando não há informação de lançamento */}
@@ -195,6 +197,12 @@ export default function PlannedTransactions({ transactions, proximas5 }: Planned
                       <Paperclip className="w-4 h-4" />
                     </button>
                   </div>
+                  </div>
+
+                  {/* Divider between items (except last) */}
+                  {idx < plannedTransactions.length - 1 && (
+                    <div className="h-[1px] bg-[rgba(0,68,23,0.06)] my-3 mx-1 rounded-sm" />
+                  )}
                 </div>
               );
             })

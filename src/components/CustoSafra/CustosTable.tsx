@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { TrendingUp, Minus } from 'lucide-react';
+import { TrendingUp, Minus, Info, X } from 'lucide-react';
 import { FinanceService} from '../../services/financeService';
 import { CustoConabService } from '../../services/custoService';
 
@@ -23,7 +23,7 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
   produtividade,
 }) => {
   const [custos, setCustos] = useState<CustoItem[]>([]);
-  const [custoService] = useState(() => new CustoConabService());
+  const [selectedInfo, setSelectedInfo] = useState<null | 'ha' | 'saca'>(null);
 
   // Category mapping from financial categories to CustoService discriminacao
 
@@ -97,8 +97,11 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
     console.log("Custos no estado >>>", custos);
   }, [custos]);
 
-  const formatNumber = (num: number, decimals: number = 4): string => {
-    return num.toFixed(decimals).replace('.', ',');
+  const formatNumber = (num: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(num);
   };
 
   // Sort custos alphabetically by categoria
@@ -117,20 +120,28 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] p-5 transition-transform duration-200 hover:scale-[1.01]">
-          <div className="flex items-center space-x-2 mb-3">
-            <TrendingUp className="w-5 h-5 text-[#00A651]" />
-            <span className="text-sm font-semibold text-[#004417]">Custo Real/ha</span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <TrendingUp className="w-5 h-5 text-[#00A651]" />
+              <span className="text-sm font-semibold text-[#004417]">Custo Real/ha</span>
+            </div>
+            <button onClick={() => setSelectedInfo('ha')} aria-label="Informações Custo Real por hectare" className="text-[#004417] hover:opacity-80">
+              <Info className="w-4 h-4" />
+            </button>
           </div>
-          <p className="text-[22px] font-bold text-[#004417]">R$ {formatNumber(totalRealHectare)}</p>
-          <p className="text-[13px] text-[rgba(0,68,23,0.75)] font-medium">Calculado com dados reais</p>
+          <p className="text-4xl font-extrabold text-[#00A651]">R$ {formatNumber(totalRealHectare)}</p>
         </div>
         <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] p-5 transition-transform duration-200 hover:scale-[1.01]">
-          <div className="flex items-center space-x-2 mb-3">
-            <Minus className="w-5 h-5 text-[#00A651]" />
-            <span className="text-sm font-semibold text-[#004417]">Custo Real/Saca</span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <Minus className="w-5 h-5 text-[#00A651]" />
+              <span className="text-sm font-semibold text-[#004417]">Custo Real/Saca</span>
+            </div>
+            <button onClick={() => setSelectedInfo('saca')} aria-label="Informações Custo Real por saca" className="text-[#004417] hover:opacity-80">
+              <Info className="w-4 h-4" />
+            </button>
           </div>
-          <p className="text-[22px] font-bold text-[#004417]">R$ {formatNumber(totalRealSaca)}</p>
-          <p className="text-[13px] text-[rgba(0,68,23,0.75)] font-medium">Calculado com dados reais</p>
+          <p className="text-4xl font-extrabold text-[#00A651]">R$ {formatNumber(totalRealSaca)}</p>
         </div>
       </div>
 
@@ -139,38 +150,28 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
         <h3 className="text-xl font-bold text-[#004417]">Custos por Hectare</h3>
         <div className="overflow-x-auto bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] overflow-hidden">
           <table className="min-w-full">
-            <thead className="bg-[#004417]">
-              <tr>
-                <th className="px-5 py-3 text-left text-[13px] font-semibold text-white">Categoria</th>
-                <th className="px-5 py-3 text-center text-[13px] font-semibold text-white">Estimado (R$/ha)</th>
-                <th className="px-5 py-3 text-center text-[13px] font-semibold text-white">Real (R$/ha)</th>
+            <thead>
+              <tr className="bg-[rgba(0,166,81,0.06)] rounded-t-2xl">
+                <th className="px-6 py-4 text-left text-[14px] font-bold text-[#004417]">Categoria</th>
+                <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Estimado (R$/ha)</th>
+                <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Real (R$/ha)</th>
               </tr>
             </thead>
             <tbody>
               {custosSorted.map((item, index) => (
-                <tr key={`ha-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-[rgba(0,68,23,0.02)]'}>
-                  <td className="px-5 py-2 text-xs sm:text-sm text-[#004417] font-medium break-words max-w-[120px] border-b border-[rgba(0,68,23,0.06)]">
-                    {item.categoria}
-                  </td>
-                  <td className="px-5 py-2 text-center border-b border-[rgba(0,68,23,0.06)]">
-                    <span className="text-sm font-medium text-[#004417]">
-                      R$ {formatNumber(item.estimadoHectare)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-2 text-center border-b border-[rgba(0,68,23,0.06)]">
-                    <span className="text-sm font-semibold text-[#00A651]">
-                      R$ {formatNumber(item.realHectare)}
-                    </span>
-                  </td>
+                <tr key={`ha-${index}`} className="bg-white border-b border-[rgba(0,0,0,0.06)]">
+                  <td className="px-6 py-5 text-sm text-[#004417] font-medium align-top">{item.categoria}</td>
+                  <td className="px-6 py-5 text-sm text-right text-[#004417] font-medium align-top">R$ {formatNumber(item.estimadoHectare)}</td>
+                  <td className="px-6 py-5 text-sm text-right font-bold text-[#00A651] align-top">R$ {formatNumber(item.realHectare)}</td>
                 </tr>
               ))}
               {/* Totals */}
               <tr className="total-geral bg-[rgba(0,166,81,0.06)]">
                 <td className="px-5 py-4 text-sm text-[#004417] font-bold">TOTAL GERAL</td>
-                <td className="px-5 py-4 text-center text-sm text-[#004417] font-bold">
+                <td className="px-5 py-4 text-right text-sm text-[#004417] font-bold">
                   R$ {formatNumber(totalEstimadoHectare)}
                 </td>
-                <td className="px-5 py-4 text-center text-sm text-[#004417] font-bold">
+                <td className="px-5 py-4 text-right text-sm text-[#004417] font-bold">
                   R$ {formatNumber(totalRealHectare)}
                 </td>
               </tr>
@@ -184,38 +185,28 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
         <h3 className="text-xl font-bold text-[#004417]">Custos por Saca</h3>
         <div className="overflow-x-auto bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] overflow-hidden">
           <table className="min-w-full">
-            <thead className="bg-[#004417]">
-              <tr>
-                <th className="px-5 py-3 text-left text-[13px] font-semibold text-white">Categoria</th>
-                <th className="px-5 py-3 text-center text-[13px] font-semibold text-white">Estimado (R$/sc)</th>
-                <th className="px-5 py-3 text-center text-[13px] font-semibold text-white">Real (R$/sc)</th>
+            <thead>
+              <tr className="bg-[rgba(0,166,81,0.06)] rounded-t-2xl">
+                <th className="px-6 py-4 text-left text-[14px] font-bold text-[#004417]">Categoria</th>
+                <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Estimado (R$/sc)</th>
+                <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Real (R$/sc)</th>
               </tr>
             </thead>
             <tbody>
               {custosSorted.map((item, index) => (
-                <tr key={`saca-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-[rgba(0,68,23,0.02)]'}>
-                  <td className="px-5 py-2 text-xs sm:text-sm text-[#004417] font-medium break-words max-w-[120px] border-b border-[rgba(0,68,23,0.06)]">
-                    {item.categoria}
-                  </td>
-                  <td className="px-5 py-2 text-center border-b border-[rgba(0,68,23,0.06)]">
-                    <span className="text-sm font-medium text-[#004417]">
-                      R$ {formatNumber(item.estimadoSaca)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-2 text-center border-b border-[rgba(0,68,23,0.06)]">
-                    <span className="text-sm font-semibold text-[#00A651]">
-                      R$ {formatNumber(item.realSaca)}
-                    </span>
-                  </td>
+                <tr key={`saca-${index}`} className="bg-white border-b border-[rgba(0,0,0,0.06)]">
+                  <td className="px-6 py-5 text-sm text-[#004417] font-medium align-top">{item.categoria}</td>
+                  <td className="px-6 py-5 text-sm text-right text-[#004417] font-medium align-top">R$ {formatNumber(item.estimadoSaca)}</td>
+                  <td className="px-6 py-5 text-sm text-right font-bold text-[#00A651] align-top">R$ {formatNumber(item.realSaca)}</td>
                 </tr>
               ))}
               {/* Totals */}
               <tr className="total-geral bg-[rgba(0,166,81,0.06)]">
                 <td className="px-5 py-4 text-sm text-[#004417] font-bold">TOTAL GERAL</td>
-                <td className="px-5 py-4 text-center text-sm text-[#004417] font-bold">
+                <td className="px-5 py-4 text-right text-sm text-[#004417] font-bold">
                   R$ {formatNumber(totalEstimadoSaca)}
                 </td>
-                <td className="px-5 py-4 text-center text-sm text-[#004417] font-bold">
+                <td className="px-5 py-4 text-right text-sm text-[#004417] font-bold">
                   R$ {formatNumber(totalRealSaca)}
                 </td>
               </tr>
@@ -223,6 +214,23 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
           </table>
         </div>
       </div>
+      {/* Info Modal for KPI explanations */}
+      {selectedInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedInfo(null)} />
+          <div className="bg-white rounded-xl p-6 z-10 max-w-md w-full mx-4">
+            <div className="flex items-start justify-between">
+              <h4 className="text-lg font-bold text-[#004417]">
+                {selectedInfo === 'ha' ? 'Custo Real por Hectare' : 'Custo Real por Saca'}
+              </h4>
+              <button onClick={() => setSelectedInfo(null)} aria-label="Fechar" className="text-[#004417] hover:opacity-80">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="mt-3 text-sm text-[#004417]">Calculado com dados reais do financeiro do usuário. Os valores por hectare e por saca consideram todos os lançamentos categorizados e a área/productividade informadas.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
