@@ -7,7 +7,7 @@ import ActivityDetailModal from '../ManejoAgricola/ActivityDetailModal';
 import Pagination from './Pagination';
 import { formatUnitAbbreviated } from '../../lib/formatUnit';
 import { autoScaleQuantity, convertFromStandardUnit, convertToStandardUnit, isMassUnit, isVolumeUnit, convertBetweenUnits } from '../../lib/unitConverter';
-import { formatSmartCurrency } from '../../lib/currencyFormatter';
+import { formatCurrency } from '../../lib/currencyFormatter';
 
 // ============================================================================
 // Types
@@ -635,7 +635,7 @@ function LancamentoDetails({ nomeAtividade, quantidade, unidade, custoCalculado 
       </div>
       {temCustoValido && (
         <div>
-          <strong className="font-semibold text-[#004417]">Custo do produto usado:</strong> {formatSmartCurrency(custoCalculado!)}
+          <strong className="font-semibold text-[#004417]">Custo do produto usado:</strong> {formatCurrency(custoCalculado!)}
         </div>
       )}
     </div>
@@ -663,11 +663,11 @@ function EntradaDetails({ movement: m }: { movement: MovementItem }) {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-[13px]">
             <div>
               <strong className="font-semibold text-[#004417]">Valor Unitário:</strong>{' '}
-              <span className="text-[#004417]">{formatSmartCurrency(valorUnitario)} / {unidadeValorOriginal}</span>
+              <span className="text-[#004417]">{formatCurrency(valorUnitario)} / {unidadeValorOriginal}</span>
             </div>
             {valorTotalValido && (
               <div className="text-[15px] font-bold text-[#00A651]">
-                Total: {formatSmartCurrency(m.valor_total!)}
+                Total: {formatCurrency(m.valor_total!)}
               </div>
             )}
           </div>
@@ -714,10 +714,10 @@ function SaidaDetails({ movement: m }: { movement: MovementItem }) {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div className="text-[13px] text-[rgba(0,68,23,0.85)]">
             <strong className="font-semibold text-[#004417]">Valor Unitário:</strong>{' '}
-            <span className="text-[#004417]">{formatSmartCurrency(valorUnitario)} / {unidadeValorOriginal}</span>
+            <span className="text-[#004417]">{formatCurrency(valorUnitario)} / {unidadeValorOriginal}</span>
           </div>
           <div className="text-[15px] font-bold text-[#F7941F]">
-            Total: {formatSmartCurrency(valorTotal)}
+            Total: {formatCurrency(valorTotal)}
           </div>
         </div>
       )}

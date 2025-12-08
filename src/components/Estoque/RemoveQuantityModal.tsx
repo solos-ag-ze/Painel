@@ -2,7 +2,7 @@
 import { X } from "lucide-react";
 import { ProdutoAgrupado } from "../../services/agruparProdutosService";
 import { convertBetweenUnits, isMassUnit, isVolumeUnit } from "../../lib/unitConverter";
-import { formatSmartCurrency } from "../../lib/currencyFormatter";
+import { formatCurrency } from "../../lib/currencyFormatter";
 import { useState, useEffect } from "react";
 
 interface RemoveQuantityModalProps {
@@ -181,7 +181,7 @@ export default function RemoveQuantityModal({
                 Valor unitário
               </p>
               <p className="text-[15px] font-bold text-[#00A651]">
-                {formatSmartCurrency(productGroup.mediaPrecoOriginal)}
+                {formatCurrency(productGroup.mediaPrecoOriginal)}
                 <span className="text-[rgba(0,68,23,0.7)]"> / {productGroup.unidadeValorOriginal}</span>
               </p>
             </div>

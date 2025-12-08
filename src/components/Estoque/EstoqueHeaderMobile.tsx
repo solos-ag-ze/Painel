@@ -1,5 +1,5 @@
 // src/components/Estoque/EstoqueHeaderMobile.tsx
-import { formatSmartCurrency } from '../../lib/currencyFormatter';
+import { formatCurrency } from '../../lib/currencyFormatter';
 
 interface Props {
   resumoEstoque: {
@@ -31,7 +31,7 @@ export default function EstoqueHeaderMobile({ resumoEstoque, onOpenModal }: Prop
           <div className="bg-white p-6 rounded-[12px] text-center transition-transform active:scale-[0.98] shadow-[0_1px_3px_rgba(0,68,23,0.06)]">
             <p className="text-[13px] text-[rgba(0,68,23,0.7)] mb-1">Valor Total</p>
             <p className="text-[22px] font-bold text-[#004417]">
-              {formatSmartCurrency(resumoEstoque.valorTotal)}
+              {formatCurrency(resumoEstoque.valorTotal)}
             </p>
           </div>
 

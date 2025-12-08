@@ -2,7 +2,7 @@
 import { ProdutoAgrupado } from '../../services/agruparProdutosService';
 import { formatUnitFull, formatUnitAbbreviated } from '../../lib/formatUnit';
 import { autoScaleQuantity } from '../../lib/unitConverter';
-import { formatSmartCurrency } from '../../lib/currencyFormatter';
+import { formatCurrency } from '../../lib/currencyFormatter';
 import { AlertTriangle } from 'lucide-react';
 
 type ModalParams = {
@@ -112,7 +112,7 @@ export default function ListaProdutosDesktop({
 
                     if (valorMedio == null || unidadeValor == null) return "—";
 
-                    return `${formatSmartCurrency(Number(valorMedio))} / ${formatUnitFull(unidadeValor)}`;
+                    return `${formatCurrency(Number(valorMedio))} / ${formatUnitFull(unidadeValor)}`;
                   })()}
                 </p>
               </div>

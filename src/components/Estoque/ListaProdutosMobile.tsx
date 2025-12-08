@@ -1,7 +1,7 @@
 // src/components/Estoque/ListaProdutosMobile.tsx
 import { ProdutoAgrupado } from '../../services/agruparProdutosService';
 import { formatUnitFull } from '../../lib/formatUnit';
-import { formatSmartCurrency } from '../../lib/currencyFormatter';
+import { formatCurrency } from '../../lib/currencyFormatter';
 import { AlertTriangle } from 'lucide-react';
 
 type ModalParams = {
@@ -70,7 +70,7 @@ export default function ListaProdutosMobile({
 
                     if (valorMedio == null || unidadeValor == null) return "—";
 
-                    return `${formatSmartCurrency(Number(valorMedio))} / ${formatUnitFull(unidadeValor)}`;
+                    return `${formatCurrency(Number(valorMedio))} / ${formatUnitFull(unidadeValor)}`;
                   })()}
                 </p>
               </div>

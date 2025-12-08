@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Save, AlertTriangle } from 'lucide-react';
 import { EstoqueService } from '../../services/estoqueService';
-import { formatCurrencyInput, formatSmartCurrency } from '../../lib/currencyFormatter';
+import { formatCurrencyInput, formatCurrency } from '../../lib/currencyFormatter';
 import { formatUnitFull } from '../../lib/formatUnit';
 import { ProdutoAgrupado } from '../../services/agruparProdutosService';
 import { convertBetweenUnits, convertValueBetweenUnits } from '../../lib/unitConverter';
@@ -248,7 +248,7 @@ export default function AjusteEstoqueModal({ isOpen, onClose, productGroup, onSa
               </span>
             </div>
             <p className="text-xs text-[rgba(0,68,23,0.6)] mt-1.5">
-              Sugestão (última entrada): <strong>{formatSmartCurrency(precoSugerido)}</strong>
+              Sugestão (última entrada): <strong>{formatCurrency(precoSugerido)}</strong>
             </p>
           </div>
 
@@ -300,7 +300,7 @@ export default function AjusteEstoqueModal({ isOpen, onClose, productGroup, onSa
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-[#004417]">Valor Total da Entrada</span>
                 <span className="text-lg font-bold text-[#00A651]">
-                  {formatSmartCurrency(Number(quantidade) * Number(valor))}
+                  {formatCurrency(Number(quantidade) * Number(valor))}
                 </span>
               </div>
             </div>
