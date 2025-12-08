@@ -153,7 +153,15 @@ export class FinanceService {
     try {
       const { data, error } = await supabase
         .from('transacoes_financeiras')
-        .select('*')
+        .select(`
+          *,
+          transacoes_talhoes!left(
+            id_talhao,
+            talhoes!inner(
+              nome
+            )
+          )
+        `)
         .eq('user_id', userId)
         .order('data_agendamento_pagamento', { ascending: false })
         .limit(limit);
@@ -163,7 +171,20 @@ export class FinanceService {
         return [];
       }
 
-      return data || [];
+      // Processa dados para adicionar nome do talhão
+      const transacoesComTalhoes = (data || []).map(transacao => {
+        const talhoes = (transacao as any).transacoes_talhoes || [];
+        const nomeTalhao = talhoes.length > 0 && talhoes[0].talhoes?.nome
+          ? talhoes[0].talhoes.nome
+          : 'Sem talhão específico';
+
+        return {
+          ...transacao,
+          nome_talhao: nomeTalhao
+        } as TransacaoFinanceira;
+      });
+
+      return transacoesComTalhoes;
     } catch (error) {
       console.error('Erro no serviço financeiro:', error);
       return [];
@@ -408,7 +429,15 @@ export class FinanceService {
 
       const { data, error } = await supabase
         .from('transacoes_financeiras')
-        .select('*')
+        .select(`
+          *,
+          transacoes_talhoes!left(
+            id_talhao,
+            talhoes!inner(
+              nome
+            )
+          )
+        `)
         .eq('user_id', userId)
         .in('status', ['Agendado', 'Pago'])
         .gt('data_agendamento_pagamento', hoje)
@@ -422,14 +451,24 @@ export class FinanceService {
 
       console.log('✅ Próximas 5 transações futuras encontradas:', data?.length || 0);
 
-      if (data && data.length > 0) {
-        console.log('📊 Detalhes das transações:');
-        data.forEach((t, index) => {
-          console.log(`  ${index + 1}. ${t.descricao} - ${t.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(t.valor))}`);
-        });
-      }
+      // Processa dados para adicionar nome do talhão
+      const transacoesComTalhoes = (data || []).map(transacao => {
+        const talhoes = (transacao as any).transacoes_talhoes || [];
+        const nomeTalhao = talhoes.length > 0 && talhoes[0].talhoes?.nome
+          ? talhoes[0].talhoes.nome
+          : 'Sem talhão específico';
 
-      return data || [];
+        if (data && data.length > 0) {
+          console.log(`  ${transacao.descricao} - ${transacao.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(transacao.valor))} - ${nomeTalhao}`);
+        }
+
+        return {
+          ...transacao,
+          nome_talhao: nomeTalhao
+        } as TransacaoFinanceira;
+      });
+
+      return transacoesComTalhoes;
 
     } catch (error) {
       console.error('❌ Erro crítico ao buscar próximas 5 transações futuras:', error);
@@ -451,7 +490,15 @@ export class FinanceService {
 
       const { data, error } = await supabase
         .from('transacoes_financeiras')
-        .select('*')
+        .select(`
+          *,
+          transacoes_talhoes!left(
+            id_talhao,
+            talhoes!inner(
+              nome
+            )
+          )
+        `)
         .eq('user_id', userId)
         .or(`status.neq.Agendado,and(status.eq.Agendado,data_agendamento_pagamento.lte.${hoje})`)
         .order('data_registro', { ascending: false })
@@ -465,14 +512,24 @@ export class FinanceService {
 
       console.log('✅ Últimas 5 transações executadas encontradas:', data?.length || 0);
 
-      if (data && data.length > 0) {
-        console.log('📊 Detalhes das transações (ordenadas por data_registro):');
-        data.forEach((t, index) => {
-          console.log(`  ${index + 1}. ${t.descricao} - Lançado: ${t.data_registro} - Pagamento: ${t.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(t.valor))}`);
-        });
-      }
+      // Processa dados para adicionar nome do talhão
+      const transacoesComTalhoes = (data || []).map(transacao => {
+        const talhoes = (transacao as any).transacoes_talhoes || [];
+        const nomeTalhao = talhoes.length > 0 && talhoes[0].talhoes?.nome
+          ? talhoes[0].talhoes.nome
+          : 'Sem talhão específico';
 
-      return data || [];
+        if (data && data.length > 0) {
+          console.log(`  ${transacao.descricao} - Lançado: ${transacao.data_registro} - Pagamento: ${transacao.data_agendamento_pagamento} - ${FinanceService.formatCurrency(Number(transacao.valor))} - ${nomeTalhao}`);
+        }
+
+        return {
+          ...transacao,
+          nome_talhao: nomeTalhao
+        } as TransacaoFinanceira;
+      });
+
+      return transacoesComTalhoes;
 
     } catch (error) {
       console.error('❌ Erro crítico ao buscar últimas 5 transações executadas:', error);
@@ -1236,48 +1293,69 @@ static async getTotalNegativeTransactions(userId: string): Promise<number> {
       // Ordenação composta: primeiro por data_registro (mais recente primeiro), depois por data_agendamento_pagamento
       const { data: todasTransacoes, error } = await supabase
         .from('transacoes_financeiras')
-        .select('*')
+        .select(`
+          *,
+          transacoes_talhoes!left(
+            id_talhao,
+            talhoes!inner(
+              nome
+            )
+          )
+        `)
         .eq('user_id', userId)
         .order('data_registro', { ascending: false })
         .order('data_agendamento_pagamento', { ascending: false });
-  
+
       if (error) {
         console.error('Erro ao buscar transações:', error);
         return { realizadas: [], futuras: [] };
       }
-      
+
       console.log('📊 Total de transações encontradas:', todasTransacoes?.length || 0);
-  
+
       const realizadas: TransacaoFinanceira[] = [];
       const futuras: TransacaoFinanceira[] = [];
-  
+
       // 3. FILTRA E CLASSIFICA CADA TRANSAÇÃO
-      (todasTransacoes || []).forEach(transacao => {
+      (todasTransacoes || []).forEach(transacaoRaw => {
+        // Processa talhão
+        const talhoes = (transacaoRaw as any).transacoes_talhoes || [];
+        const nomeTalhao = talhoes.length > 0 && talhoes[0].talhoes?.nome
+          ? talhoes[0].talhoes.nome
+          : 'Sem talhão específico';
+
+        const transacao = {
+          ...transacaoRaw,
+          nome_talhao: nomeTalhao
+        } as TransacaoFinanceira;
+
         const dataTransacao = this.getTransactionDate(transacao);
         if (!dataTransacao) return;
-        
+
         // Normaliza a data da transação para comparação
         const dataTransacaoSemHora = new Date(dataTransacao.getFullYear(), dataTransacao.getMonth(), dataTransacao.getDate());
         const dataInicioSemHora = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
         const dataFimSemHora = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-        
+
         // Verifica se está no período
         const estaNoPeriodo = dataTransacaoSemHora >= dataInicioSemHora && dataTransacaoSemHora <= dataFimSemHora;
-        
+
         if (estaNoPeriodo) {
           if (this.isTransacaoProcessada(transacao)) {
             realizadas.push(transacao);
             console.log('✅ Transação realizada no período:', {
               descricao: transacao.descricao,
               data: format(dataTransacao, 'dd/MM/yyyy'),
-              valor: transacao.valor
+              valor: transacao.valor,
+              talhao: nomeTalhao
             });
           } else {
             futuras.push(transacao);
             console.log('⏰ Transação futura no período:', {
               descricao: transacao.descricao,
               data: format(dataTransacao, 'dd/MM/yyyy'),
-              valor: transacao.valor
+              valor: transacao.valor,
+              talhao: nomeTalhao
             });
           }
         }

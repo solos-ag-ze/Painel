@@ -166,12 +166,16 @@ export default function RecentTransactions({ transactions, ultimas5 }: RecentTra
                       </p>
                     </div>
                     <div>
+                      <span className="text-[#004417]/65 font-medium">Talhão:</span>
+                      <p className="font-semibold text-[#004417]">{transaction.nome_talhao || 'Sem talhão específico'}</p>
+                    </div>
+                    <div className="col-span-2">
                       <span className="text-[#004417]/65 font-medium">Forma de pagamento:</span>
                       <p className="font-semibold text-[#004417]">{transaction.forma_pagamento_recebimento || 'Não informado'}</p>
                     </div>
                     {/* Campo Parcela - só aparece se tiver valor */}
                     {transaction.parcela && (
-                      <div>
+                      <div className="col-span-2">
                         <p className="font-semibold text-[#004417]"><span className="text-[#004417]/65 font-medium">Parcela: </span>{transaction.parcela}</p>
                       </div>
                     )}

@@ -102,6 +102,7 @@ export interface TransacaoFinanceira {
   anexo_arquivo_url?: string;
   id_grupo_anexo?: string;
   parcela_com_anexo_original?: boolean;
+  nome_talhao?: string; // Nome do talhão vinculado
 }
 
 export interface AtividadeAgricola {
