@@ -96,6 +96,9 @@ export default function RecentTransactions({ transactions, ultimas5 }: RecentTra
     return formatDateBR(dateString);
   };
 
+  // Log para debug: mostra as transações recentes no console
+  console.log('Transações recentes (debug):', recentTransactions);
+
   return (
     <>
       <div className="bg-white rounded-xl shadow-card p-6">
