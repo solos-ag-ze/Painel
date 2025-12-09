@@ -152,7 +152,7 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
           <table className="min-w-full">
             <thead>
               <tr className="bg-[rgba(0,166,81,0.06)] rounded-t-2xl">
-                <th className="px-3 py-4 text-left text-[14px] font-bold text-[#004417]">Categoria</th>
+                <th className="px-2 py-4 text-left text-[14px] font-bold text-[#004417]">Categoria</th>
                 <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Estimado (R$/ha)</th>
                 <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Real (R$/ha)</th>
               </tr>
@@ -160,14 +160,14 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
             <tbody>
               {custosSorted.map((item, index) => (
                 <tr key={`ha-${index}`} className="bg-white border-b border-[rgba(0,0,0,0.06)]">
-                  <td className="px-3 py-5 text-sm text-[#004417] font-medium align-top">{item.categoria}</td>
+                  <td className="px-2 py-5 text-sm text-[#004417] font-medium align-top">{item.categoria}</td>
                   <td className="px-6 py-5 text-sm text-right text-[#004417] font-medium align-top whitespace-nowrap">R$ {formatNumber(item.estimadoHectare)}</td>
                   <td className="px-6 py-5 text-sm text-right font-bold text-[#00A651] align-top whitespace-nowrap">R$ {formatNumber(item.realHectare)}</td>
                 </tr>
               ))}
               {/* Totals */}
               <tr className="total-geral bg-[rgba(0,166,81,0.06)]">
-                <td className="px-3 py-4 text-sm text-[#004417] font-bold">TOTAL GERAL</td>
+                <td className="px-2 py-4 text-sm text-[#004417] font-bold">TOTAL GERAL</td>
                 <td className="px-5 py-4 text-right text-sm text-[#004417] font-bold whitespace-nowrap">
                   R$ {formatNumber(totalEstimadoHectare)}
                 </td>
@@ -187,7 +187,7 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
           <table className="min-w-full">
             <thead>
               <tr className="bg-[rgba(0,166,81,0.06)] rounded-t-2xl">
-                <th className="px-3 py-4 text-left text-[14px] font-bold text-[#004417]">Categoria</th>
+                <th className="px-2 py-4 text-left text-[14px] font-bold text-[#004417]">Categoria</th>
                 <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Estimado (R$/sc)</th>
                 <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Real (R$/sc)</th>
               </tr>
@@ -195,14 +195,14 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
             <tbody>
               {custosSorted.map((item, index) => (
                 <tr key={`saca-${index}`} className="bg-white border-b border-[rgba(0,0,0,0.06)]">
-                  <td className="px-3 py-5 text-sm text-[#004417] font-medium align-top">{item.categoria}</td>
+                  <td className="px-2 py-5 text-sm text-[#004417] font-medium align-top">{item.categoria}</td>
                   <td className="px-6 py-5 text-sm text-right text-[#004417] font-medium align-top whitespace-nowrap">R$ {formatNumber(item.estimadoSaca)}</td>
                   <td className="px-6 py-5 text-sm text-right font-bold text-[#00A651] align-top whitespace-nowrap">R$ {formatNumber(item.realSaca)}</td>
                 </tr>
               ))}
               {/* Totals */}
               <tr className="total-geral bg-[rgba(0,166,81,0.06)]">
-                <td className="px-3 py-4 text-sm text-[#004417] font-bold">TOTAL GERAL</td>
+                <td className="px-2 py-4 text-sm text-[#004417] font-bold">TOTAL GERAL</td>
                 <td className="px-5 py-4 text-right text-sm text-[#004417] font-bold whitespace-nowrap">
                   R$ {formatNumber(totalEstimadoSaca)}
                 </td>
