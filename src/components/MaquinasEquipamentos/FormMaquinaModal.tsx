@@ -4,6 +4,7 @@ import { MaquinaService } from '../../services/maquinaService';
 import { AuthService } from '../../services/authService';
 import { AttachmentService } from '../../services/attachmentService';
 import { formatCurrencyInput } from '../../lib/currencyFormatter';
+import DateInput from '../common/DateInput';
 
 interface Props {
   isOpen: boolean;
@@ -310,11 +311,10 @@ export default function FormMaquinaModal({ isOpen, onClose, onCreated }: Props) 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[14px] font-semibold text-[#004417] mb-2">Data de compra (opcional)</label>
-              <input
-                type="date"
+              <DateInput
                 value={formData.data_compra}
-                onChange={(e) => handleInputChange('data_compra', e.target.value)}
-                className="w-full px-4 py-3 rounded-[12px] bg-[#F8FCF9] text-[#004417] transition-all border border-[#00A65133]"
+                onChange={(value) => handleInputChange('data_compra', value)}
+                placeholder="Selecione a data"
               />
             </div>
             <div>

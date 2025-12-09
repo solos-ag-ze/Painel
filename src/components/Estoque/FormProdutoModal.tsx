@@ -6,6 +6,7 @@ import { AuthService } from '../../services/authService';
 import { AttachmentProductService } from '../../services/attachmentProductService';
 import { formatCurrencyInput } from '../../lib/currencyFormatter';
 import SuccessToast from '../common/SuccessToast';
+import DateInput from '../common/DateInput';
 
 interface Props {
   isOpen: boolean;
@@ -263,11 +264,10 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
             </div>
             <div>
               <label className="block text-sm font-medium text-[#004417] mb-1">Validade (opcional)</label>
-              <input
-                type="date"
+              <DateInput
                 value={formData.validade}
-                onChange={(e) => handleInputChange('validade', e.target.value)}
-                className="w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] text-[#004417]"
+                onChange={(value) => handleInputChange('validade', value)}
+                placeholder="Selecione a validade"
               />
             </div>
           </div>

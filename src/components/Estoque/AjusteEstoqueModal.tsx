@@ -6,6 +6,7 @@ import { formatCurrencyInput, formatCurrency } from '../../lib/currencyFormatter
 import { formatUnitFull } from '../../lib/formatUnit';
 import { ProdutoAgrupado } from '../../services/agruparProdutosService';
 import { convertBetweenUnits, convertValueBetweenUnits } from '../../lib/unitConverter';
+import DateInput from '../common/DateInput';
 
 interface Props {
   isOpen: boolean;
@@ -284,11 +285,11 @@ export default function AjusteEstoqueModal({ isOpen, onClose, productGroup, onSa
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#004417] mb-1">Validade</label>
-                <input
-                  type="date"
+                <DateInput
                   value={validade}
-                  onChange={(e) => setValidade(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] border border-[rgba(0,68,23,0.08)] text-[#004417]"
+                  onChange={setValidade}
+                  placeholder="Selecione a validade"
+                  className="text-sm"
                 />
               </div>
             </div>

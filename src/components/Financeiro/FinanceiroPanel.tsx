@@ -30,6 +30,7 @@ import { TransacaoFinanceira } from '../../lib/supabase';
 import LoadingSpinner from '../Dashboard/LoadingSpinner';
 import ErrorMessage from '../Dashboard/ErrorMessage';
 import AttachmentModal from './AttachmentModal';
+import DateInput from '../common/DateInput';
 
 const FinanceiroPanel: React.FC = () => {
   const INITIAL_ITEM_COUNT = 10; // 📌 Definimos o numero 10 como constante para utilizar no carregamento parcial das transações
@@ -460,20 +461,18 @@ const FinanceiroPanel: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-lg">
                 <div>
                   <label className="block text-sm font-medium text-[rgba(0,68,23,0.85)] mb-2">Data Inicial</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-[rgba(0,68,23,0.12)] rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-[#00A651]"
+                    onChange={setCustomStartDate}
+                    placeholder="Selecione a data inicial"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[rgba(0,68,23,0.85)] mb-2">Data Final</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-[rgba(0,68,23,0.12)] rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-[#00A651]"
+                    onChange={setCustomEndDate}
+                    placeholder="Selecione a data final"
                   />
                 </div>
               </div>
