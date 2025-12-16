@@ -58,7 +58,7 @@ export default function OcorrenciaDetailPanel({
       {/* Panel */}
       <div className="fixed right-0 top-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="border-b border-gray-200 p-4 md:p-6 flex items-start justify-between">
+        <div className="border-b border-gray-100 p-4 md:p-6 flex items-start justify-between">
           <div className="flex-1">
             <h2 className="text-lg md:text-xl font-bold text-gray-900">
               {ocorrencia.nomePraga || 'Ocorrência sem identificação'}
@@ -83,7 +83,7 @@ export default function OcorrenciaDetailPanel({
           {ocorrencia.fotoPrincipal && (
             <div>
               <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Foto Principal</p>
-              <div className="w-full h-40 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center text-5xl">
+              <div className="w-full h-40 bg-gray-100 rounded-lg flex items-center justify-center text-5xl">
                 {ocorrencia.fotoPrincipal}
               </div>
             </div>
@@ -158,7 +158,7 @@ export default function OcorrenciaDetailPanel({
           )}
         </div>
 
-        <div className="border-t border-gray-200 p-4 md:p-6 space-y-2">
+        <div className="border-t border-gray-100 p-4 md:p-6 space-y-2">
           <button
             onClick={() => {
               onEdit(ocorrencia);
@@ -175,7 +175,7 @@ export default function OcorrenciaDetailPanel({
                 onMarkResolved(ocorrencia);
                 onClose();
               }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-[#00A651] hover:bg-[#00A651] hover:bg-opacity-10 text-[#00A651] rounded-lg font-medium transition-colors text-sm"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 hover:bg-[#00A651] hover:bg-opacity-10 text-[#00A651] rounded-lg font-medium transition-colors text-sm"
             >
               <CheckCircle className="w-4 h-4" />
               Marcar como Resolvida
@@ -186,7 +186,7 @@ export default function OcorrenciaDetailPanel({
               onDelete(ocorrencia.id);
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-[#F7941F] hover:bg-[#F7941F] hover:bg-opacity-10 text-[#F7941F] rounded-lg font-medium transition-colors text-sm"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 hover:bg-[#F7941F] hover:bg-opacity-10 text-[#F7941F] rounded-lg font-medium transition-colors text-sm"
           >
             <Trash2 className="w-4 h-4" />
             Excluir

@@ -150,7 +150,7 @@ export default function OcorrenciaFormModal({
 
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between p-6 border-b border-gray-100">
             <h2 className="text-2xl font-bold text-gray-900">
               {initialData ? 'Editar Ocorrencia' : 'Nova Ocorrencia'}
             </h2>
@@ -180,7 +180,7 @@ export default function OcorrenciaFormModal({
                       Nenhum talhao cadastrado. Cadastre seus talhoes primeiro.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded-lg">
+                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 rounded-lg">
                       {talhoes.map((talhao) => (
                         <button
                           key={talhao.id_talhao}
@@ -216,7 +216,7 @@ export default function OcorrenciaFormModal({
                     name="dataOcorrencia"
                     value={formData.dataOcorrencia || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
                     required
                   />
                 </div>
@@ -229,7 +229,7 @@ export default function OcorrenciaFormModal({
                     name="faseLavoura"
                     value={formData.faseLavoura || 'Vegetativo'}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
                     required
                   >
                     {fasesOptions.map((opt) => (
@@ -248,7 +248,7 @@ export default function OcorrenciaFormModal({
                     name="tipoOcorrencia"
                     value={formData.tipoOcorrencia || 'Praga'}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
                     required
                   >
                     {tiposOptions.map((opt) => (
@@ -267,7 +267,7 @@ export default function OcorrenciaFormModal({
                     name="severidade"
                     value={formData.severidade || 'Media'}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
                     required
                   >
                     {severidadeOptions.map((opt) => (
@@ -287,7 +287,7 @@ export default function OcorrenciaFormModal({
                     name="areaAfetada"
                     value={formData.areaAfetada || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
                     placeholder="Ex: ~10% do talhao"
                     required
                   />
@@ -301,7 +301,7 @@ export default function OcorrenciaFormModal({
                     name="sintomas"
                     value={formData.sintomas || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none resize-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none resize-none"
                     rows={3}
                     placeholder="Descreva os sintomas observados"
                     required
@@ -316,7 +316,7 @@ export default function OcorrenciaFormModal({
                     name="acaoTomada"
                     value={formData.acaoTomada || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none resize-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none resize-none"
                     rows={2}
                     placeholder="Qual acao foi tomada para contornar o problema"
                     required
@@ -324,7 +324,7 @@ export default function OcorrenciaFormModal({
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-200">
+              <div className="pt-4 border-t border-gray-100">
                 <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
                   Informacoes Adicionais
                 </h3>
@@ -338,7 +338,7 @@ export default function OcorrenciaFormModal({
                     name="nomePraga"
                     value={formData.nomePraga || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
                     placeholder="Ex: Ferrugem do cafeeiro"
                   />
                 </div>
@@ -351,7 +351,7 @@ export default function OcorrenciaFormModal({
                     name="descricaoDetalhada"
                     value={formData.descricaoDetalhada || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none resize-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none resize-none"
                     rows={2}
                     placeholder="Detalhe mais sobre os sintomas"
                   />
@@ -366,7 +366,7 @@ export default function OcorrenciaFormModal({
                     name="climaRecente"
                     value={formData.climaRecente || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
                     placeholder="Ex: Ultimos 7 dias com muita chuva"
                   />
                 </div>
@@ -381,7 +381,7 @@ export default function OcorrenciaFormModal({
                       value={produtoInput}
                       onChange={(e) => setProdutoInput(e.target.value)}
                       placeholder="Ex: Fungicida X - 0,5 L/ha"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none text-sm"
+                      className="flex-1 px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none text-sm"
                       onKeyPress={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -427,7 +427,7 @@ export default function OcorrenciaFormModal({
                     name="dataAplicacao"
                     value={formData.dataAplicacao || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
                   />
                 </div>
 
@@ -439,7 +439,7 @@ export default function OcorrenciaFormModal({
                     name="recomendacoes"
                     value={formData.recomendacoes || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none resize-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none resize-none"
                     rows={2}
                     placeholder="Recomendacoes para acompanhamento futuro"
                   />
@@ -453,7 +453,7 @@ export default function OcorrenciaFormModal({
                     name="status"
                     value={formData.status || 'Nova'}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
+                    className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
                     required
                   >
                     {statusOptions.map((opt) => (
@@ -467,10 +467,10 @@ export default function OcorrenciaFormModal({
             </div>
           </form>
 
-          <div className="border-t border-gray-200 p-4 md:p-6 flex gap-3 justify-end">
+          <div className="border-t border-gray-100 p-4 md:p-6 flex gap-3 justify-end">
             <button
               onClick={onClose}
-              className="px-6 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+              className="px-6 py-2 border border-gray-100 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700 transition-colors"
             >
               Cancelar
             </button>

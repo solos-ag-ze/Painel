@@ -211,7 +211,7 @@ export default function PragasDoencasPanel() {
       </div>
 
       {ocorrencias.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+        <div className="bg-white rounded-xl shadow-sm p-12 text-center">
           <div className="text-6xl mb-4">🌾</div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhuma ocorrencia registrada</h3>
           <p className="text-gray-600 mb-6">

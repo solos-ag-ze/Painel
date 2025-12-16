@@ -41,11 +41,11 @@ export default function OcorrenciaCard({
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow">
       {/* Topo: Foto + Título + Tags */}
       <div className="flex gap-3 mb-3">
         {/* Foto Miniatura */}
-        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 text-3xl border border-gray-200">
+        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 text-3xl">
           {ocorrencia.fotoPrincipal || '📋'}
         </div>
 
@@ -100,7 +100,7 @@ export default function OcorrenciaCard({
         <div className="flex gap-2">
           <button
             onClick={() => onViewDetails(ocorrencia)}
-            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-xs font-medium text-gray-700 transition-colors"
           >
             Ver
             <ChevronRight className="w-3 h-3" />
@@ -115,7 +115,7 @@ export default function OcorrenciaCard({
           {ocorrencia.status !== 'Resolvida' && (
             <button
               onClick={() => onMarkResolved(ocorrencia)}
-              className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-[#00A651] hover:bg-[#00A651] hover:bg-opacity-10 text-[#00A651] rounded-lg text-xs font-medium transition-colors"
+              className="flex-1 flex items-center justify-center gap-1 px-3 py-2 hover:bg-[#00A651] hover:bg-opacity-10 text-[#00A651] rounded-lg text-xs font-medium transition-colors"
             >
               <CheckCircle className="w-3 h-3" />
             </button>
