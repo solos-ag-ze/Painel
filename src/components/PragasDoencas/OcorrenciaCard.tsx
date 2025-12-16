@@ -54,6 +54,9 @@ export default function OcorrenciaCard({
           <h3 className="text-sm font-bold text-gray-900 truncate">
             {ocorrencia.nomePraga || 'Ocorrência sem identificação'}
           </h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {ocorrencia.talhao} – {formatDateBR(ocorrencia.dataOcorrencia)}
+          </p>
 
           {/* Tags */}
           <div className="flex gap-1 mt-2 flex-wrap">
