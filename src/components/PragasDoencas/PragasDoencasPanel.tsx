@@ -200,7 +200,6 @@ export default function PragasDoencasPanel() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Pragas e Doencas</h1>
-          <p className="text-gray-600 mt-1">Acompanhe ocorrencias de pragas e doencas nas suas culturas</p>
         </div>
         <button
           onClick={handleNewOcorrencia}
