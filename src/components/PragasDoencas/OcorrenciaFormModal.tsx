@@ -408,7 +408,7 @@ export default function OcorrenciaFormModal({
                           <button
                             type="button"
                             onClick={() => handleRemoveProduto(idx)}
-                            className="text-red-600 hover:text-red-800 font-medium"
+                            className="text-[#F7941F] hover:text-[#F7941F] hover:opacity-70 font-medium"
                           >
                             X
                           </button>

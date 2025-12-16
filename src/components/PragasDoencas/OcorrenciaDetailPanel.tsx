@@ -14,11 +14,11 @@ interface OcorrenciaDetailPanelProps {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'Nova':
-      return 'bg-red-100 text-red-800';
+      return 'bg-[#F7941F] bg-opacity-20 text-[#F7941F]';
     case 'Em acompanhamento':
-      return 'bg-amber-100 text-amber-800';
+      return 'bg-[#CADB2A] bg-opacity-30 text-[#004417]';
     case 'Resolvida':
-      return 'bg-green-100 text-green-800';
+      return 'bg-[#00A651] bg-opacity-20 text-[#004417]';
     default:
       return 'bg-gray-100 text-gray-800';
   }
@@ -175,7 +175,7 @@ export default function OcorrenciaDetailPanel({
                 onMarkResolved(ocorrencia);
                 onClose();
               }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-green-200 hover:bg-green-50 text-green-700 rounded-lg font-medium transition-colors text-sm"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-[#00A651] hover:bg-[#00A651] hover:bg-opacity-10 text-[#00A651] rounded-lg font-medium transition-colors text-sm"
             >
               <CheckCircle className="w-4 h-4" />
               Marcar como Resolvida
@@ -186,7 +186,7 @@ export default function OcorrenciaDetailPanel({
               onDelete(ocorrencia.id);
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-red-200 hover:bg-red-50 text-red-700 rounded-lg font-medium transition-colors text-sm"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-[#F7941F] hover:bg-[#F7941F] hover:bg-opacity-10 text-[#F7941F] rounded-lg font-medium transition-colors text-sm"
           >
             <Trash2 className="w-4 h-4" />
             Excluir
