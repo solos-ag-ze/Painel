@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Ocorrencia } from './mockOcorrencias';
 import { ChevronRight, Edit2, CheckCircle } from 'lucide-react';
 import { formatDateBR } from '../../lib/dateUtils';
+import ImageViewerModal from './ImageViewerModal';
 
 interface OcorrenciaCardProps {
   ocorrencia: Ocorrencia;
@@ -39,6 +41,7 @@ export default function OcorrenciaCard({
   onMarkResolved,
 }: OcorrenciaCardProps) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow">
@@ -50,7 +53,11 @@ export default function OcorrenciaCard({
             <img
               src={ocorrencia.fotoPrincipal}
               alt="Foto da ocorrência"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsImageViewerOpen(true);
+              }}
             />
           ) : (
             <span>{ocorrencia.fotoPrincipal || '📋'}</span>
@@ -129,6 +136,16 @@ export default function OcorrenciaCard({
             </button>
           )}
         </div>
+      )}
+
+      {/* Image Viewer Modal */}
+      {ocorrencia.fotoPrincipal && (ocorrencia.fotoPrincipal.startsWith('http') || ocorrencia.fotoPrincipal.startsWith('/')) && (
+        <ImageViewerModal
+          isOpen={isImageViewerOpen}
+          imageUrl={ocorrencia.fotoPrincipal}
+          onClose={() => setIsImageViewerOpen(false)}
+          altText={`Foto: ${ocorrencia.nomePraga || 'Ocorrência'}`}
+        />
       )}
     </div>
   );

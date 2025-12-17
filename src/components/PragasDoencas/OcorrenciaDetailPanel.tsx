@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Ocorrencia } from './mockOcorrencias';
 import { X, Edit2, CheckCircle, Trash2 } from 'lucide-react';
 import { formatDateBR } from '../../lib/dateUtils';
+import ImageViewerModal from './ImageViewerModal';
 
 interface OcorrenciaDetailPanelProps {
   ocorrencia: Ocorrencia | null;
@@ -45,6 +47,8 @@ export default function OcorrenciaDetailPanel({
   onMarkResolved,
   onDelete,
 }: OcorrenciaDetailPanelProps) {
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+
   if (!isOpen || !ocorrencia) return null;
 
   return (
@@ -88,7 +92,8 @@ export default function OcorrenciaDetailPanel({
                   <img
                     src={ocorrencia.fotoPrincipal}
                     alt="Foto da ocorrência"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setIsImageViewerOpen(true)}
                   />
                 ) : (
                   <span>{ocorrencia.fotoPrincipal}</span>
@@ -201,6 +206,16 @@ export default function OcorrenciaDetailPanel({
           </button>
         </div>
       </div>
+
+      {/* Image Viewer Modal */}
+      {ocorrencia.fotoPrincipal && (ocorrencia.fotoPrincipal.startsWith('http') || ocorrencia.fotoPrincipal.startsWith('/')) && (
+        <ImageViewerModal
+          isOpen={isImageViewerOpen}
+          imageUrl={ocorrencia.fotoPrincipal}
+          onClose={() => setIsImageViewerOpen(false)}
+          altText={`Foto: ${ocorrencia.nomePraga || 'Ocorrência'}`}
+        />
+      )}
     </>
   );
 }
