@@ -29,7 +29,7 @@ export default function ImageViewerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-16 md:pt-8 px-4 md:px-8">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 md:px-8">
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-black bg-opacity-90"
@@ -46,7 +46,7 @@ export default function ImageViewerModal({
       </button>
 
       {/* Image Container */}
-      <div className="relative w-full max-w-xs md:max-w-lg max-h-[50vh] md:h-[35vh]">
+      <div className="relative w-full max-w-xs md:max-w-2xl max-h-[50vh] md:h-[75vh]">
         <img
           src={imageUrl}
           alt={altText}
