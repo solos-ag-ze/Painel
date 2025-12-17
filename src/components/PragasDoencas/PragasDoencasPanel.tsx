@@ -167,6 +167,7 @@ export default function PragasDoencasPanel() {
 
       if (error) {
         console.error('Erro ao atualizar ocorrencia:', error);
+        alert('Erro ao atualizar ocorrência. Verifique o console para mais detalhes.');
         return;
       }
 
@@ -200,6 +201,7 @@ export default function PragasDoencasPanel() {
 
       if (error) {
         console.error('Erro ao criar ocorrencia:', error);
+        alert('Erro ao salvar ocorrência. Verifique o console para mais detalhes.');
         return;
       }
 

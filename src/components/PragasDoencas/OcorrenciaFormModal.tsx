@@ -156,6 +156,12 @@ export default function OcorrenciaFormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (selectedTalhaoIds.length === 0 && !formData.talhao) {
+      alert('Por favor, selecione pelo menos um talhão afetado');
+      return;
+    }
+
     const selectedTalhaoNames = talhoes
       .filter((t) => selectedTalhaoIds.includes(t.id_talhao))
       .map((t) => t.nome)
@@ -193,7 +199,7 @@ export default function OcorrenciaFormModal({
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+          <form onSubmit={handleSubmit} id="ocorrenciaForm" className="flex-1 overflow-y-auto p-6">
             <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
@@ -546,7 +552,8 @@ export default function OcorrenciaFormModal({
               Cancelar
             </button>
             <button
-              onClick={handleSubmit}
+              type="submit"
+              form="ocorrenciaForm"
               className="px-6 py-2 bg-[#00A651] hover:bg-[#008c44] text-white rounded-lg text-sm font-medium transition-colors"
             >
               Salvar
