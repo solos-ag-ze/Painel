@@ -126,7 +126,7 @@ export default function DividaFormModal({
           </div>
 
           {/* Form Content */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+          <form id="divida-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 space-y-4">
               {/* 1. Nome */}
               <div className="col-span-1 md:col-span-2">
@@ -544,6 +544,7 @@ export default function DividaFormModal({
               Cancelar
             </button>
             <button
+              form="divida-form"
               type="submit"
               className="px-6 py-2 bg-[#00A651] hover:bg-[#008c44] text-white rounded-lg text-sm font-medium transition-colors"
             >
