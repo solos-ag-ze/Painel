@@ -79,8 +79,8 @@ export default function DividaCard({
           )}
 
           {divida.pagamento_parcelado?.numParcelas > 0 && divida.pagamento_parcelado?.valorParcela > 0 && (
-            <div className="mb-2 p-2 bg-blue-50 rounded-lg">
-              <p className="text-xs text-blue-600 font-medium">
+            <div className="mb-2 p-2 bg-gray-100 rounded-lg">
+              <p className="text-xs text-gray-700 font-medium">
                 {divida.pagamento_parcelado.numParcelas}x R$ {divida.pagamento_parcelado.valorParcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
