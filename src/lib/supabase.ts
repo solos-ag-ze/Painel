@@ -1,9 +1,18 @@
 // src/lib/supabase.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL!;
-const anon = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+const url = import.meta.env.VITE_SUPABASE_URL;
+const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const serviceRole = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+
+if (!url || !anon) {
+  console.error('❌ Configuração do Supabase incompleta:', {
+    url: url ? '✓' : '✗ FALTANDO',
+    anon: anon ? '✓' : '✗ FALTANDO',
+    serviceRole: serviceRole ? '✓' : '✗ (opcional)'
+  });
+  throw new Error('VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórios!');
+}
 
 // 🔧 Detecta ambiente de desenvolvimento
 const isDevelopment = () => {
@@ -24,6 +33,15 @@ const DEV_MODE = isDevelopment();
 // 🔑 Em desenvolvimento, use service role para bypass de RLS
 // Em produção, use anon key (RLS será aplicado baseado no JWT do n8n)
 const apiKey = DEV_MODE && serviceRole ? serviceRole : anon;
+
+if (!apiKey) {
+  console.error('❌ Nenhuma chave API disponível!', {
+    DEV_MODE,
+    serviceRole: !!serviceRole,
+    anon: !!anon
+  });
+  throw new Error('Falha ao determinar chave API do Supabase');
+}
 
 console.log('🔧 Supabase Client Mode:', {
   mode: import.meta.env.MODE,
