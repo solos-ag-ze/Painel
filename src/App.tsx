@@ -20,6 +20,7 @@ import VendasPanel from './components/Vendas/VendasPanel';
 import PlanejamentoTecnicoPanel from './components/PlanejamentoTecnico/PlanejamentoTecnicoPanel';
 import AgendaTecnicaPanel from './components/AgendaTecnica/AgendaTecnicaPanel';
 import MaquinasEquipamentosPanel from './components/MaquinasEquipamentos/MaquinasEquipamentosPanel';
+import DREPanel from './components/DRE/DREPanel';
 
 const authService = AuthService.getInstance();
 
@@ -113,6 +114,8 @@ function App() {
         return <CustoSafraPanel />;
       case 'custo-por-talhao':
         return <CustoPorTalhaoPanel />;
+      case 'dre':
+        return <DREPanel />;
       case 'manejo-agricola':
         return <ManejoAgricolaPanel />;
       case 'minha-fazenda':

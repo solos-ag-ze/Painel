@@ -15,7 +15,8 @@ import {
   BarChart3,
   FileText,
   Folder,
-  Bug
+  Bug,
+  TrendingDown
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -30,6 +31,7 @@ const menuItems = [
   { id: 'dividas-financiamentos', icon: FileText, label: 'Dívidas e Financiamentos', description: 'Gestão de dívidas' },
   { id: 'custo-safra', icon: Calculator, label: 'Custo Safra', description: 'Análise de custos' },
   { id: 'custo-por-talhao', icon: BarChart3, label: 'Custo por Talhão', description: 'Competência por Área' },
+  { id: 'dre', icon: TrendingDown, label: 'Resultados da Operação (DRE)', description: 'DRE da Fazenda' },
   { id: 'manejo-agricola', icon: Sprout, label: 'Manejo Agrícola', description: 'Atividades técnicas' },
   { id: 'pragas-doencas', icon: Bug, label: 'Pragas e Doenças', description: 'Ocorrências de pragas' },
   { id: 'minha-fazenda', icon: LandPlot, label: 'Minha Fazenda', description: 'Detalhes dos talhões'},
