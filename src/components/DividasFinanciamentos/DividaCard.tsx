@@ -1,5 +1,6 @@
 import { DividaFinanciamento } from '../../services/dividasFinanciamentosService';
 import { ChevronRight } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 
 interface DividaCardProps {
   divida: DividaFinanciamento;
@@ -53,7 +54,7 @@ export default function DividaCard({
       {/* Campos exibidos (ocultando os vazios) */}
       <div className="space-y-2 mb-5 pb-4 border-b border-gray-100">
         {renderField('Tipo', divida.tipo)}
-        {renderField('Data da Contratação', divida.data_contratacao)}
+        {renderField('Data da Contratação', divida.data_contratacao ? format(parseISO(divida.data_contratacao), 'dd/MM/yyyy') : undefined)}
         {renderField('Valor Contratado', `R$ ${divida.valor_contratado.toLocaleString('pt-BR')}`)}
         {renderField('Taxa', divida.taxa)}
         {renderField('Carência', divida.carencia)}
