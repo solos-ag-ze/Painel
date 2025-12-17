@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { DividaFinanciamento } from '../../services/dividasFinanciamentosService';
+import CurrencyInput from '../common/CurrencyInput';
 
 interface DividaFormModalProps {
   isOpen: boolean;
@@ -196,17 +197,16 @@ export default function DividaFormModal({
 
               {/* 5. Valor contratado */}
               <div className="col-span-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Valor Contratado (R$)
-                </label>
-                <input
-                  type="number"
-                  name="valor_contratado"
+                <CurrencyInput
                   value={formData.valor_contratado || 0}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
-                  placeholder="0.00"
-                  step="0.01"
+                  onChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      valor_contratado: value,
+                    }))
+                  }
+                  label="Valor Contratado"
+                  required
                 />
               </div>
 
@@ -352,22 +352,12 @@ export default function DividaFormModal({
                 <h4 className="text-sm font-medium text-gray-700 mb-3">Parcela Única</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Valor (R$)
-                    </label>
-                    <input
-                      type="number"
+                    <CurrencyInput
                       value={formData.pagamento_parcela?.valor || 0}
-                      onChange={(e) =>
-                        handleNestedChange(
-                          'pagamento_parcela',
-                          'valor',
-                          parseFloat(e.target.value) || 0
-                        )
+                      onChange={(value) =>
+                        handleNestedChange('pagamento_parcela', 'valor', value)
                       }
-                      className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
-                      placeholder="0.00"
-                      step="0.01"
+                      label="Valor"
                     />
                   </div>
                   <div>
@@ -409,22 +399,12 @@ export default function DividaFormModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Valor/Parcela (R$)
-                    </label>
-                    <input
-                      type="number"
+                    <CurrencyInput
                       value={formData.pagamento_parcelado?.valorParcela || 0}
-                      onChange={(e) =>
-                        handleNestedChange(
-                          'pagamento_parcelado',
-                          'valorParcela',
-                          parseFloat(e.target.value) || 0
-                        )
+                      onChange={(value) =>
+                        handleNestedChange('pagamento_parcelado', 'valorParcela', value)
                       }
-                      className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
-                      placeholder="0.00"
-                      step="0.01"
+                      label="Valor/Parcela"
                     />
                   </div>
                   <div>
@@ -480,22 +460,12 @@ export default function DividaFormModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Preço/Saca (R$)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.pagamento_producao?.precoPorSaca || ''}
-                      onChange={(e) =>
-                        handleNestedChange(
-                          'pagamento_producao',
-                          'precoPorSaca',
-                          parseFloat(e.target.value) || undefined
-                        )
+                    <CurrencyInput
+                      value={formData.pagamento_producao?.precoPorSaca || 0}
+                      onChange={(value) =>
+                        handleNestedChange('pagamento_producao', 'precoPorSaca', value)
                       }
-                      className="w-full px-3 py-2 border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#00A651] focus:border-transparent outline-none"
-                      placeholder="0.00"
-                      step="0.01"
+                      label="Preço/Saca"
                     />
                   </div>
                   <div>
@@ -567,13 +537,14 @@ export default function DividaFormModal({
           {/* Footer */}
           <div className="border-t border-gray-100 p-4 md:p-6 flex gap-3 justify-end">
             <button
+              type="button"
               onClick={onClose}
               className="px-6 py-2 border border-gray-100 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700 transition-colors"
             >
               Cancelar
             </button>
             <button
-              onClick={handleSubmit}
+              type="submit"
               className="px-6 py-2 bg-[#00A651] hover:bg-[#008c44] text-white rounded-lg text-sm font-medium transition-colors"
             >
               Salvar
