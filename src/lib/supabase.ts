@@ -51,6 +51,15 @@ console.log('🔧 Supabase Client Mode:', {
   keyType: DEV_MODE && serviceRole ? 'SERVICE_ROLE (⚠️ BYPASS RLS)' : 'ANON (✅ RLS ATIVO)'
 });
 
+console.log('🔑 Criando Supabase Client com:', {
+  url: url ? `${url.substring(0, 30)}...` : 'UNDEFINED',
+  apiKey: apiKey ? `${apiKey.substring(0, 20)}...` : 'UNDEFINED',
+  urlType: typeof url,
+  apiKeyType: typeof apiKey,
+  urlLength: url?.length || 0,
+  apiKeyLength: apiKey?.length || 0
+});
+
 // Singleton Supabase client
 export const supabase: SupabaseClient = createClient(url, apiKey, {
   auth: {
