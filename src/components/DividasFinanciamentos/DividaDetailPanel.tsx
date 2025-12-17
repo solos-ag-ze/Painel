@@ -122,12 +122,14 @@ export default function DividaDetailPanel({
           )}
 
           {/* Cronograma de Pagamento */}
-          {(divida.pagamento_parcelado || divida.pagamento_parcela || divida.pagamento_producao) && (
+          {(divida.pagamento_parcelado?.numParcelas ||
+            divida.pagamento_parcela?.valor ||
+            divida.pagamento_producao?.quantidadeSacas) && (
             <div>
               <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">
                 Cronograma de Pagamento
               </h3>
-              {divida.pagamento_parcelado && (
+              {divida.pagamento_parcelado?.numParcelas && (
                 <div className="bg-gray-50 p-3 rounded-lg space-y-2 mb-3">
                   <p className="text-sm text-gray-700">
                     <strong>Parcelado:</strong> {divida.pagamento_parcelado.numParcelas} parcelas de R${' '}
@@ -135,12 +137,14 @@ export default function DividaDetailPanel({
                       minimumFractionDigits: 2,
                     })}
                   </p>
-                  <p className="text-sm text-gray-600">
-                    Primeira parcela: {divida.pagamento_parcelado.primeiradata}
-                  </p>
+                  {divida.pagamento_parcelado.primeiradata && (
+                    <p className="text-sm text-gray-600">
+                      Primeira parcela: {divida.pagamento_parcelado.primeiradata}
+                    </p>
+                  )}
                 </div>
               )}
-              {divida.pagamento_parcela && (
+              {divida.pagamento_parcela?.valor && (
                 <div className="bg-gray-50 p-3 rounded-lg space-y-2 mb-3">
                   <p className="text-sm text-gray-700">
                     <strong>Parcela Única:</strong> R${' '}
@@ -148,12 +152,14 @@ export default function DividaDetailPanel({
                       minimumFractionDigits: 2,
                     })}
                   </p>
-                  <p className="text-sm text-gray-600">
-                    Data: {divida.pagamento_parcela.data}
-                  </p>
+                  {divida.pagamento_parcela.data && (
+                    <p className="text-sm text-gray-600">
+                      Data: {divida.pagamento_parcela.data}
+                    </p>
+                  )}
                 </div>
               )}
-              {divida.pagamento_producao && (
+              {divida.pagamento_producao?.quantidadeSacas && (
                 <div className="bg-gray-50 p-3 rounded-lg space-y-2">
                   <p className="text-sm text-gray-700">
                     <strong>Com Produção:</strong> {divida.pagamento_producao.quantidadeSacas} sacas de{' '}
@@ -164,9 +170,11 @@ export default function DividaDetailPanel({
                       Preço: R$ {divida.pagamento_producao.precoPorSaca.toLocaleString('pt-BR')} / saca
                     </p>
                   )}
-                  <p className="text-sm text-gray-600">
-                    Período: {divida.pagamento_producao.dataPeriodo}
-                  </p>
+                  {divida.pagamento_producao.dataPeriodo && (
+                    <p className="text-sm text-gray-600">
+                      Período: {divida.pagamento_producao.dataPeriodo}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
