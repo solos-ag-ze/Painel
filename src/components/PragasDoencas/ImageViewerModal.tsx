@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 interface ImageViewerModalProps {
@@ -13,6 +14,18 @@ export default function ImageViewerModal({
   onClose,
   altText = 'Imagem ampliada',
 }: ImageViewerModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -33,7 +46,7 @@ export default function ImageViewerModal({
       </button>
 
       {/* Image Container */}
-      <div className="relative w-full max-w-2xl md:max-w-3xl max-h-[70vh] md:max-h-[80vh]">
+      <div className="relative w-full max-w-sm md:max-w-xl max-h-[50vh] md:max-h-[60vh]">
         <img
           src={imageUrl}
           alt={altText}
