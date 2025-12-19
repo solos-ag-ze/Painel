@@ -354,6 +354,54 @@ export default function AttachmentModal({
     return 'text-gray-600';
   };
 
+  // Pre-compute attachments to avoid multiple finds and build URLs safely
+  const imageAttachment = attachments.find(a => a.type === 'image') || null;
+  const fileAttachment = attachments.find(a => a.type === 'pdf' || a.type === 'xml' || a.type === 'file') || null;
+
+  const buildCacheBustedUrl = (url: string | undefined | null, key: number) => {
+    if (!url) return '';
+    return url.includes('?') ? `${url}&t=${key}` : `${url}?t=${key}`;
+  };
+
+  const [diagnosticInfo, setDiagnosticInfo] = useState<{
+    ok: boolean;
+    status: number | null;
+    contentType?: string | null;
+    url?: string;
+  } | null>(null);
+
+  // Diagnostic fetch to inspect image URL response (helps identificar 400/403/CORS)
+  React.useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      if (!imageAttachment?.url) {
+        setDiagnosticInfo(null);
+        return;
+      }
+
+      const urlToCheck = imageAttachment.url.split('?')[0];
+      console.log('🧪 Diagnostic: verificando URL de imagem (HEAD):', urlToCheck);
+      try {
+        const res = await fetch(urlToCheck, { method: 'HEAD', cache: 'no-cache', mode: 'cors' });
+        if (!mounted) return;
+        console.log('🧪 Diagnostic HEAD result:', res.status, res.headers.get('content-type'));
+        setDiagnosticInfo({ ok: res.ok, status: res.status, contentType: res.headers.get('content-type'), url: urlToCheck });
+        if (!res.ok) {
+          // tentar GET para inspecionar corpo (pode conter página de erro)
+          const getRes = await fetch(urlToCheck, { method: 'GET', cache: 'no-cache', mode: 'cors' });
+          console.log('🧪 Diagnostic GET result:', getRes.status, getRes.headers.get('content-type'));
+          const text = await getRes.text().catch(() => null);
+          console.log('🧪 Diagnostic GET body (truncated):', typeof text === 'string' ? text?.slice(0, 300) : text);
+        }
+      } catch (err) {
+        console.error('🧪 Diagnostic fetch error:', err);
+        setDiagnosticInfo({ ok: false, status: null, contentType: null, url: imageAttachment.url });
+      }
+    };
+    run();
+    return () => { mounted = false; };
+  }, [imageAttachment?.url, imageKey]);
+
   if (!isOpen) return null;
 
   return (
@@ -455,11 +503,11 @@ export default function AttachmentModal({
           </div>
 
           {/* Se houver imagem */}
-          {attachments.find(a => a.type === 'image') && (
+          {imageAttachment && (
             <div className="flex flex-col items-center gap-2 bg-white p-3 rounded-lg border border-[rgba(0,68,23,0.06)]">
               <img
                 key={imageKey}
-                src={`${attachments.find(a => a.type === 'image')?.url}&t=${imageKey}`}
+                src={buildCacheBustedUrl(imageAttachment.url, imageKey)}
                 alt="Imagem anexada"
                 className="max-h-32 mb-2 rounded"
                 onLoad={() => console.log('🖼️ Imagem carregada:', imageKey)}
@@ -494,25 +542,27 @@ export default function AttachmentModal({
           )}
 
           {/* Se houver arquivo (PDF, XML) */}
-          {attachments.find(a => a.type === 'pdf' || a.type === 'xml' || a.type === 'file') && (
+          {fileAttachment && (
             <div className="flex flex-col items-center gap-2 bg-white p-3 rounded-lg border border-[rgba(0,68,23,0.06)]">
-              {(() => {
-                const attachment = attachments.find(a => a.type === 'pdf' || a.type === 'xml' || a.type === 'file');
-                if (!attachment) return null;
+              {
+                (() => {
+                  const attachment = fileAttachment;
+                  if (!attachment) return null;
 
-                const FileIcon = getFileIcon(attachment.type as 'pdf' | 'xml' | 'file');
-                const iconColor = getFileIconColor(attachment.type as 'pdf' | 'xml' | 'file');
-                const fileLabel = getFileTypeLabel(attachment.type as 'pdf' | 'xml' | 'file');
+                  const FileIcon = getFileIcon(attachment.type as 'pdf' | 'xml' | 'file');
+                  const iconColor = getFileIconColor(attachment.type as 'pdf' | 'xml' | 'file');
+                  const fileLabel = getFileTypeLabel(attachment.type as 'pdf' | 'xml' | 'file');
 
-                return (
-                  <div className="flex flex-col items-center gap-2 mb-2">
-                    <div className={iconColor}>
-                      <FileIcon className="w-8 h-8" />
+                  return (
+                    <div className="flex flex-col items-center gap-2 mb-2">
+                      <div className={iconColor}>
+                        <FileIcon className="w-8 h-8" />
+                      </div>
+                      <span className="font-medium text-[#092f20]">{fileLabel}</span>
                     </div>
-                    <span className="font-medium text-[#092f20]">{fileLabel}</span>
-                  </div>
-                );
-              })()}
+                  );
+                })()
+              }
               <div className="flex gap-2 mb-2">
                 <button
                   className="bg-white border border-[rgba(0,68,23,0.06)] text-[#004417] px-2 py-1 rounded hover:bg-[rgba(0,68,23,0.03)] flex items-center gap-1 transition-colors"

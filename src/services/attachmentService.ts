@@ -564,32 +564,17 @@ export class AttachmentService {
       const fileId = await this.getStorageFileId(transactionId);
       const fileName = `${fileId}.jpg`;
 
-      console.log('📦 Gerando URL pública para arquivo:', fileName);
+      console.log('📦 Gerando URL pública para arquivo (construída):', fileName);
 
-      // Tentar obter URL pública com service role primeiro
-      let { data } = supabaseServiceRole.storage
-        .from(this.BUCKET_NAME)
-        .getPublicUrl(fileName);
+      // Construir diretamente a URL pública conhecida do Supabase Storage para buckets públicos.
+      // Evita chamadas HEAD/GET adicionais que podem resultar em 400 em alguns ambientes.
+      const baseUrl = url.replace(/\/+$/, '');
+      const publicUrlBase = `${baseUrl}/storage/v1/object/public/${this.BUCKET_NAME}/${fileName}`;
 
-      // Se não conseguir com service role, tentar com cliente normal
-      if (!data?.publicUrl) {
-        console.log('⚠️ Tentando URL pública com cliente normal...');
-        const result = supabase.storage
-          .from(this.BUCKET_NAME)
-          .getPublicUrl(fileName);
-        data = result.data;
-      }
-
-      if (!data?.publicUrl) {
-        console.log('❌ Não foi possível obter URL pública');
-        return null;
-      }
-
-      // Adicionar timestamp com mais informação para forçar bypass completo do cache
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
-      const urlWithTimestamp = `${data.publicUrl}?v=${timestamp}&r=${random}&nocache=true`;
-      console.log('📎 URL gerada com cache-busting:', urlWithTimestamp);
+      const urlWithTimestamp = `${publicUrlBase}?v=${timestamp}&r=${random}&nocache=true`;
+      console.log('📎 URL construída com cache-busting:', urlWithTimestamp);
       return urlWithTimestamp;
     } catch (error) {
       console.error('💥 Erro ao obter URL do anexo:', error);
@@ -890,20 +875,18 @@ export class AttachmentService {
 
         console.log(`📦 Verificando arquivo: ${fileName}`);
 
-        const { data } = supabaseServiceRole.storage
-          .from(this.BUCKET_NAME)
-          .getPublicUrl(fileName);
-
-        if (!data?.publicUrl) continue;
-
-        const response = await fetch(data.publicUrl, {
-          method: 'HEAD',
-          cache: 'no-cache'
-        });
-
-        if (response.ok) {
-          console.log(`✅ ${isFile ? 'Arquivo' : 'Imagem'} encontrado: ${fileName}`);
-          return true;
+        // Construir URL pública diretamente e tentar GET (evita problemas com HEAD em alguns ambientes)
+        const baseUrl = url.replace(/\/+$/, '');
+        const publicUrl = `${baseUrl}/storage/v1/object/public/${this.BUCKET_NAME}/${fileName}`;
+        try {
+          const response = await fetch(publicUrl, { method: 'GET', cache: 'no-cache' });
+          if (response.ok) {
+            console.log(`✅ ${isFile ? 'Arquivo' : 'Imagem'} encontrado: ${fileName}`);
+            return true;
+          }
+        } catch (err) {
+          console.warn('⚠️ Erro ao verificar URL pública (GET):', publicUrl, err);
+          // continuar tentando outras extensões
         }
       }
 
@@ -1180,36 +1163,20 @@ export class AttachmentService {
       const fileId = await this.getStorageFileIdForFile(transactionId);
   const extensions = ['pdf','xml','xls','xlsx','doc','docx','csv','txt'];
 
+      // Construir URLs públicas conhecidas (sem HEAD) para buckets públicos.
+      const baseUrl = url.replace(/\/+$/, '');
       for (const ext of extensions) {
         const fileName = `${this.FILE_FOLDER}/${fileId}.${ext}`;
-
-        console.log('📦 Gerando URL pública para arquivo:', fileName);
-
-        let { data } = supabaseServiceRole.storage
-          .from(this.BUCKET_NAME)
-          .getPublicUrl(fileName);
-
-        if (!data?.publicUrl) {
-          console.log('⚠️ Tentando URL pública com cliente normal...');
-          const result = supabase.storage
-            .from(this.BUCKET_NAME)
-            .getPublicUrl(fileName);
-          data = result.data;
-        }
-
-        if (data?.publicUrl) {
-          const response = await fetch(data.publicUrl, { method: 'HEAD', cache: 'no-cache' });
-          if (response.ok) {
-            const timestamp = Date.now();
-            const random = Math.random().toString(36).substring(7);
-            const urlWithTimestamp = `${data.publicUrl}?v=${timestamp}&r=${random}&nocache=true`;
-            console.log('📎 URL gerada com cache-busting:', urlWithTimestamp);
-            return urlWithTimestamp;
-          }
-        }
+        const publicUrlBase = `${baseUrl}/storage/v1/object/public/${this.BUCKET_NAME}/${fileName}`;
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(7);
+        const urlWithTimestamp = `${publicUrlBase}?v=${timestamp}&r=${random}&nocache=true`;
+        console.log('📎 URL construída (possível):', urlWithTimestamp);
+        // Retornar a primeira URL construída; se não existir, o cliente receberá 404.
+        return urlWithTimestamp;
       }
 
-      console.log('❌ Não foi possível obter URL pública do arquivo');
+      console.log('❌ Não foi possível construir URL pública do arquivo');
       return null;
     } catch (error) {
       console.error('💥 Erro ao obter URL do arquivo:', error);
