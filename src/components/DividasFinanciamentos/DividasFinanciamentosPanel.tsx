@@ -78,9 +78,9 @@ export default function DividasFinanciamentosPanel() {
     const bucket = 'dividas_financiamentos';
     const ALLOWED_EXT = ['pdf', 'png', 'jpg', 'jpeg'];
     const MAX_BYTES = 10 * 1024 * 1024; // 10MB
-    const uploadedUrls: string[] = [];
+    const uploadedPaths: string[] = [];
 
-    if (!userId) return uploadedUrls;
+    if (!userId) return [];
 
     for (const file of files) {
       try {
@@ -106,23 +106,22 @@ export default function DividasFinanciamentosPanel() {
           continue;
         }
 
-        const { data: urlData, error: urlErr } = await supabase.storage.from(bucket).getPublicUrl(path);
-        if (urlErr) {
-          console.error('Erro public url:', urlErr);
-          continue;
-        }
-        if ((urlData as any)?.publicUrl) uploadedUrls.push((urlData as any).publicUrl);
+        // Armazenamos o caminho do objeto no banco (não a URL pública)
+        uploadedPaths.push(path);
       } catch (err) {
         console.error('Erro no upload de arquivo:', err);
       }
     }
 
-    return uploadedUrls;
+    return uploadedPaths;
   };
 
   const getPathFromPublicUrl = (url: string) => {
     // tenta extrair caminho após bucket `dividas_financiamentos/`
     try {
+      if (!url) return null;
+      // se já for um path relativo, retorna direto
+      if (!url.startsWith('http')) return decodeURIComponent(url.split('?')[0]);
       const m = url.match(/dividas_financiamentos\/(.*)$/);
       if (!m) return null;
       return decodeURIComponent(m[1].split('?')[0]);
@@ -156,7 +155,9 @@ export default function DividasFinanciamentosPanel() {
       const updated = await DividasFinanciamentosService.update(editingDivida.id, formData);
       if (updated) {
         // atualizar lista de anexos existentes (removendo os marcados)
-        let existing: string[] = Array.isArray(editingDivida.anexos) ? editingDivida.anexos : [];
+        // normalizar existing para sempre conter paths (não URLs)
+        let existing: string[] = Array.isArray(editingDivida.anexos) ? (editingDivida.anexos as string[]) : [];
+        existing = existing.map((a) => (a && a.startsWith('http') ? getPathFromPublicUrl(a) || a : a));
         if (removedAnexos && removedAnexos.length) {
           existing = existing.filter((u: string) => !removedAnexos.includes(u));
         }

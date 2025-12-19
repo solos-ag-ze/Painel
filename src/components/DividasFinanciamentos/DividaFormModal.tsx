@@ -63,6 +63,7 @@ export default function DividaFormModal({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [existingAnexos, setExistingAnexos] = useState<string[]>([]);
   const [removedAnexos, setRemovedAnexos] = useState<string[]>([]);
+  const [signedExisting, setSignedExisting] = useState<Record<string, string>>({});
 
   const [showIndexadorOutro, setShowIndexadorOutro] = useState(
     initialData?.indexador === 'Outro'
@@ -77,10 +78,23 @@ export default function DividaFormModal({
       try {
         const raw = (initialData as any).anexos;
         if (!raw) setExistingAnexos([]);
-        else if (Array.isArray(raw)) setExistingAnexos(raw as string[]);
+        else if (Array.isArray(raw)) setExistingAnexos((raw as string[]).map((a: string) => {
+          if (typeof a === 'string' && a.startsWith('http')) {
+            const m = a.match(/dividas_financiamentos\/(.*)$/);
+            return m ? decodeURIComponent(m[1].split('?')[0]) : a;
+          }
+          return a;
+        }));
         else if (typeof raw === 'string') {
           const parsed = JSON.parse(raw);
-          setExistingAnexos(Array.isArray(parsed) ? parsed : []);
+          setExistingAnexos(Array.isArray(parsed) ? parsed.map((a: string) => {
+            // se for URL pública antiga, extrai apenas o path relativo
+            if (typeof a === 'string' && a.startsWith('http')) {
+              const m = a.match(/dividas_financiamentos\/(.*)$/);
+              return m ? decodeURIComponent(m[1].split('?')[0]) : a;
+            }
+            return a;
+          }) : []);
         } else setExistingAnexos([]);
       } catch (err) {
         setExistingAnexos([]);
@@ -92,6 +106,31 @@ export default function DividaFormModal({
     // reset arquivos selecionados quando troca entre editar/novo
     setSelectedFiles([]);
   }, [initialData]);
+
+  useEffect(() => {
+    let mounted = true;
+    const bucket = 'dividas_financiamentos';
+    const load = async () => {
+      const map: Record<string, string> = {};
+      for (const path of existingAnexos) {
+        try {
+          if (!path) continue;
+          // se já for URL pública, usa direto
+          if (path.startsWith('http')) {
+            map[path] = path;
+            continue;
+          }
+          const { data, error } = await (await import('../../lib/supabase')).supabase.storage.from(bucket).createSignedUrl(path, 60);
+          if (!error && data?.signedUrl) map[path] = data.signedUrl;
+        } catch (err) {
+          console.error('Erro gerando signed url para existingAnexos:', err);
+        }
+      }
+      if (mounted) setSignedExisting(map);
+    };
+    load();
+    return () => { mounted = false; };
+  }, [existingAnexos]);
 
   // quando modal fecha, garantir que o state de arquivos seja resetado
   useEffect(() => {
@@ -549,17 +588,22 @@ export default function DividaFormModal({
                 {existingAnexos.length > 0 && (
                   <div className="mb-3 flex items-center gap-4">
                     {existingAnexos.map((url, i) => {
-                      const name = url.split('/').pop()?.split('?')[0] || `anexo-${i}`;
+                      const displayUrl = signedExisting[url] || (url.startsWith('http') ? url : undefined);
+                      const name = (url.split('/').pop()?.split('?')[0]) || `anexo-${i}`;
                       const ext = (name.split('.').pop() || '').toLowerCase();
                       const isImage = ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext);
                       return (
                         <div key={i} className="relative">
-                          <a href={url} target="_blank" rel="noreferrer" className="block">
-                            {isImage ? (
-                              <img src={url} alt={name} className="w-20 h-14 object-cover rounded border border-gray-100" />
-                            ) : (
+                          <a href={displayUrl || '#'} target="_blank" rel="noreferrer" className="block">
+                            {isImage && displayUrl ? (
+                              <img src={displayUrl} alt={name} className="w-20 h-14 object-cover rounded border border-gray-100" />
+                            ) : displayUrl ? (
                               <div className="w-20 h-14 flex items-center justify-center bg-gray-100 rounded border border-gray-100 text-xs text-gray-600 px-1">
                                 {name.length > 18 ? name.slice(0, 15) + '...' : name}
+                              </div>
+                            ) : (
+                              <div className="w-20 h-14 flex items-center justify-center bg-gray-50 rounded border border-gray-100 text-xs text-gray-400 px-1">
+                                Carregando...
                               </div>
                             )}
                           </a>

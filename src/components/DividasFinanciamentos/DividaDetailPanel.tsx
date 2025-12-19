@@ -1,6 +1,8 @@
 import { DividaFinanciamento } from '../../services/dividasFinanciamentosService';
 import { X, Edit2, Trash2, CheckCircle } from 'lucide-react';
 import { formatDateBR } from '../../lib/dateUtils';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
 
 interface DividaDetailPanelProps {
   divida: DividaFinanciamento | null;
@@ -42,7 +44,42 @@ export default function DividaDetailPanel({
   onLiquidar,
   onDelete,
 }: DividaDetailPanelProps) {
+  const [signedAnexos, setSignedAnexos] = useState<string[]>([]);
   if (!isOpen || !divida) return null;
+  useEffect(() => {
+    let mounted = true;
+    const bucket = 'dividas_financiamentos';
+    const loadSigned = async () => {
+      if (!divida?.anexos || divida.anexos.length === 0) {
+        if (mounted) setSignedAnexos([]);
+        return;
+      }
+
+      const results: string[] = [];
+      for (const anexo of divida.anexos) {
+        try {
+          const path = anexo.startsWith('http')
+            ? (anexo.match(/dividas_financiamentos\/(.*)$/) || [])[1]
+            : anexo;
+          if (!path) continue;
+          const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60);
+          if (error) {
+            console.error('Erro criando signedUrl:', error);
+            continue;
+          }
+          if (data?.signedUrl) results.push(data.signedUrl);
+        } catch (err) {
+          console.error('Erro ao gerar signed url anexo:', err);
+        }
+      }
+      if (mounted) setSignedAnexos(results);
+    };
+
+    loadSigned();
+    return () => {
+      mounted = false;
+    };
+  }, [divida]);
 
   return (
     <>
@@ -174,11 +211,11 @@ export default function DividaDetailPanel({
           )}
 
           {/* Anexos */}
-          {divida.anexos && divida.anexos.length > 0 && (
+          {((signedAnexos && signedAnexos.length > 0) || (divida.anexos && divida.anexos.length > 0)) && (
             <div>
               <h3 className="text-[16px] font-bold text-[#004417] mb-3">Anexos</h3>
               <div className="grid grid-cols-3 gap-3">
-                {divida.anexos.map((anexo, idx) => {
+                {(signedAnexos.length > 0 ? signedAnexos : divida.anexos).map((anexo, idx) => {
                   const name = anexo.split('/').pop()?.split('?')[0] || `anexo-${idx}`;
                   const ext = (name.split('.').pop() || '').toLowerCase();
                   const isImage = ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext);

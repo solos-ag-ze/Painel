@@ -1,9 +1,13 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 app.use(bodyParser.json({ limit: '20mb' }));
+// Habilita CORS – por segurança defina ALLOWED_ORIGIN em produção para seu domínio
+const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
+app.use(cors({ origin: allowedOrigin }));
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
