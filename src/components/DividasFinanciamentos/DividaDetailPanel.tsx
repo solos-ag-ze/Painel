@@ -45,7 +45,6 @@ export default function DividaDetailPanel({
   onDelete,
 }: DividaDetailPanelProps) {
   const [signedAnexos, setSignedAnexos] = useState<string[]>([]);
-  if (!isOpen || !divida) return null;
   useEffect(() => {
     let mounted = true;
     const bucket = 'dividas_financiamentos';
@@ -80,6 +79,7 @@ export default function DividaDetailPanel({
       mounted = false;
     };
   }, [divida]);
+  if (!isOpen || !divida) return null;
 
   return (
     <>
