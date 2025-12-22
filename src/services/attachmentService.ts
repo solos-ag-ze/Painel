@@ -671,6 +671,7 @@ export class AttachmentService {
                 const json = await resp.json().catch(() => ({}));
                 if (resp.ok && json?.signedUrl) {
                   console.log('🔐 Obtida signedUrl via servidor:', json.signedUrl);
+                  console.log('🧭 USING_ATTACHMENT_URL_METHOD: signed-server', { transactionId, url: json.signedUrl });
                   return json.signedUrl;
                 }
                 console.warn('⚠️ signed-url server respondeu sem signedUrl:', json, resp.status);
@@ -692,6 +693,7 @@ export class AttachmentService {
                   }
                   if (signedData?.signedUrl) {
                     console.log('🔐 Obtida signedUrl via SDK:', signedData.signedUrl);
+                    console.log('🧭 USING_ATTACHMENT_URL_METHOD: signed-sdk', { transactionId, url: signedData.signedUrl });
                     return signedData.signedUrl;
                   }
                 } catch (err) {
@@ -711,6 +713,7 @@ export class AttachmentService {
               if (!dlError && blobData) {
                 console.log('📦 Blob obtido via SDK para preview, criando object URL');
                 const objectUrl = URL.createObjectURL(blobData as Blob);
+                console.log('🧭 USING_ATTACHMENT_URL_METHOD: blob-object-url', { transactionId, url: objectUrl });
                 return objectUrl;
               }
               if (dlError) console.warn('⚠️ download via SDK retornou erro:', dlError.message || dlError);
@@ -720,7 +723,9 @@ export class AttachmentService {
 
             // último recurso: construir URL pública manualmente (útil em dev publique)
             const publicUrl = this.buildPublicUrl(stored);
-            return `${publicUrl}?v=${timestamp}&r=${random}&nocache=true`;
+            const finalPublic = `${publicUrl}?v=${timestamp}&r=${random}&nocache=true`;
+            console.log('🧭 USING_ATTACHMENT_URL_METHOD: public-url-constructed', { transactionId, url: finalPublic });
+            return finalPublic;
           }
       }
 
@@ -755,6 +760,7 @@ export class AttachmentService {
             }
             if (signedData?.signedUrl) {
               console.log('🔐 Obtida signedUrl via SDK para candidate:', objectPath);
+              console.log('🧭 USING_ATTACHMENT_URL_METHOD: signed-sdk-candidate', { candidate: objectPath, url: signedData.signedUrl });
               return signedData.signedUrl;
             }
           }
@@ -771,6 +777,7 @@ export class AttachmentService {
             if (!dlError && blobData) {
               console.log('📦 Blob obtido via SDK para preview (candidate):', objectPath);
               const objectUrl = URL.createObjectURL(blobData as Blob);
+              console.log('🧭 USING_ATTACHMENT_URL_METHOD: blob-object-url-candidate', { candidate: objectPath, url: objectUrl });
               return objectUrl;
             }
             if (dlError) console.warn('⚠️ download erro para candidate:', objectPath, dlError.message || dlError);
@@ -783,6 +790,7 @@ export class AttachmentService {
         const publicUrlBase = this.buildPublicUrl(candidate);
         const urlWithTimestamp = `${publicUrlBase}?v=${timestamp}&r=${random}&nocache=true`;
         console.log('📎 URL construída com cache-busting (fallback):', urlWithTimestamp);
+        console.log('🧭 USING_ATTACHMENT_URL_METHOD: public-url-candidate', { candidate: objectPath, url: urlWithTimestamp });
         return urlWithTimestamp;
       }
     } catch (error) {
