@@ -255,22 +255,24 @@ export class AttachmentService {
       // Se não, busca no storage usando o ID correto (grupo ou transação)
       const fileId = await this.getStorageFileId(transactionId);
       const fileName = `${fileId}.jpg`;
+      const user = AuthService.getInstance().getCurrentUser();
+      const userPath = user ? `${user.user_id}` : '';
 
-      // Método 1: Tentar buscar o arquivo específico com service role
+      // Método 1: Tentar buscar o arquivo específico com service role - incluindo user_id
       let { data, error } = await supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
-        .list('', {
+        .list(userPath, {
           limit: 1000,
-          search: transactionId
+          search: fileId
         });
 
       if (error) {
         console.log('⚠️ Erro com service role, tentando cliente normal...');
         const result = await supabase.storage
           .from(this.BUCKET_NAME)
-          .list('', {
+          .list(userPath, {
             limit: 1000,
-            search: transactionId
+            search: fileId
           });
         data = result.data;
         error = result.error;
@@ -311,25 +313,28 @@ export class AttachmentService {
       console.log('⬇️ Fazendo download do anexo:', transactionId);
       const fileId = await this.getStorageFileId(transactionId);
       const fileName = `${fileId}.jpg`;
+      const user = AuthService.getInstance().getCurrentUser();
+      const filePath = user ? `${user.user_id}/${fileName}` : fileName;
 
       console.log('📦 Resolvido ID do arquivo:', {
         transactionId,
         fileId,
         fileName,
+        filePath,
         isGroup: fileId !== transactionId
       });
 
       // Tentar primeiro com service role
       let { data, error } = await supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
-        .download(fileName);
+        .download(filePath);
 
       // Fallback para cliente normal
       if (error) {
         console.log('⚠️ Tentando download com cliente normal...');
         const result = await supabase.storage
           .from(this.BUCKET_NAME)
-          .download(fileName);
+          .download(filePath);
         data = result.data;
         error = result.error;
       }
@@ -377,16 +382,19 @@ export class AttachmentService {
       console.log('🔗 Tentando download via URL pública...');
       const fileId = await this.getStorageFileId(transactionId);
       const fileName = `${fileId}.jpg`;
+      const user = AuthService.getInstance().getCurrentUser();
+      const filePath = user ? `${user.user_id}/${fileName}` : fileName;
 
       console.log('📦 Usando fileId para URL pública:', {
         transactionId,
         fileId,
-        fileName
+        fileName,
+        filePath
       });
 
       const { data } = supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
-        .getPublicUrl(fileName);
+        .getPublicUrl(filePath);
 
       if (!data?.publicUrl) {
         throw new Error('Não foi possível obter URL pública');
@@ -674,9 +682,13 @@ export class AttachmentService {
               try {
                 // usar objectPath (sem prefixo de bucket) ao solicitar signed-url
                 const objectPath = this.normalizeStoredPath(stored);
+                const headers: HeadersInit = { 'Content-Type': 'application/json' };
+                if (anonKey) {
+                  headers['Authorization'] = `Bearer ${anonKey}`;
+                }
                 const resp = await fetch(`${signedServer.replace(/\/+$/, '')}/signed-url`, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers,
                   body: JSON.stringify({ bucket: this.BUCKET_NAME, path: objectPath, expires: 120 })
                 });
                 const json = await resp.json().catch(() => ({}));
