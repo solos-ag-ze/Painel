@@ -656,7 +656,18 @@ export class AttachmentService {
             }
             // Caso seja um path armazenado, o bucket pode ser privado.
             // Estratégia: 1) tentar servidor de signed-urls se configurado; 2) tentar createSignedUrl via SDK (service role) se disponível; 3) fazer download do blob via SDK e retornar blob: URL.
-            const signedServer = import.meta.env.VITE_SIGNED_URL_SERVER_URL as string | undefined;
+            const rawSignedServer = import.meta.env.VITE_SIGNED_URL_SERVER_URL as string | undefined;
+            const fallbackServer = (import.meta.env.VITE_API_URL as string | undefined) || (import.meta.env.VITE_BASE_URL as string | undefined) || '';
+            const signedServer = rawSignedServer || (fallbackServer ? fallbackServer : undefined);
+
+            // Log explícito do comportamento quando não configurado
+            if (!rawSignedServer) {
+              if (fallbackServer) {
+                console.warn('⚠️ VITE_SIGNED_URL_SERVER_URL não configurado — usando fallback:', fallbackServer);
+              } else {
+                console.warn('⚠️ VITE_SIGNED_URL_SERVER_URL não configurado e nenhum fallback disponível; continuará tentando via SDK.');
+              }
+            }
 
             // 1) signed-url server
             if (signedServer) {
