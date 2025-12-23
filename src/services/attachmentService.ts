@@ -45,7 +45,7 @@ export interface FileDownloadResult {
                   userId ? `${userId}/imagens/${fileName}` : `imagens/${fileName}`, // 2. userId/imagens/filename
                   `imagens/${fileName}`, // 3. imagens/filename
                   fileName, // 4. filename (raiz)
-}
+                ];
 
 export class AttachmentService {
   private static readonly BUCKET_NAME = 'notas_fiscais';
