@@ -102,7 +102,7 @@ export default function DocumentoDetailPanel({
         {/* Header */}
         <div className="border-b border-gray-200 p-4 md:p-6 flex items-start justify-between">
           <div className="flex-1">
-            <h2 className="text-lg md:text-xl font-bold text-[#092f20] break-words">
+            <h2 className="text-lg md:text-xl font-bold text-[#004417] break-words">
               {documento.nomeArquivo}
             </h2>
             <p className="text-xs md:text-sm text-gray-500 mt-1">

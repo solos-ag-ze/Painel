@@ -49,7 +49,7 @@ export default function DocumentosPanel() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#092f20]">Documentos</h1>
+          <h1 className="text-xl font-bold text-[#004417]">Documentos</h1>
         </div>
         <button
           className="flex items-center justify-center gap-2 px-4 py-2 bg-[#00A651] hover:bg-[#008c44] text-white rounded-lg font-medium transition-colors cursor-not-allowed opacity-50"
