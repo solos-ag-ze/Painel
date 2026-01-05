@@ -26,7 +26,7 @@ const TIPOS: TipoDocumento[] = [
   "Outros",
 ];
 
-const ORIGENS = ["WhatsApp", "Upload painel"];
+const STATUS = ["Novo", "Organizado", "Pendente"];
 
 export default function DocumentosSearchBar({
   documentos,
@@ -34,25 +34,22 @@ export default function DocumentosSearchBar({
 }: DocumentosSearchBarProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<TipoDocumento | "">("");
-  const [selectedOrigin, setSelectedOrigin] = useState<
-    "WhatsApp" | "Upload painel" | ""
-  >("");
-  const [validityFilter, setValidityFilter] = useState<
-    "todos" | "validos" | "vencidos"
-  >("todos");
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [showFilters, setShowFilters] = useState(false);
 
   const applyFilters = () => {
     let filtered = [...documentos];
 
-    // Busca por nome
+    // Busca por título, tipo ou observação
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (doc) =>
-          doc.nomeArquivo.toLowerCase().includes(term) ||
-          doc.tipo.toLowerCase().includes(term) ||
-          (doc.descricao && doc.descricao.toLowerCase().includes(term))
+          (doc.titulo && doc.titulo.toLowerCase().includes(term)) ||
+          (doc.tipo && doc.tipo.toLowerCase().includes(term)) ||
+          (doc.observacao && doc.observacao.toLowerCase().includes(term)) ||
+          (doc.safra && doc.safra.toLowerCase().includes(term)) ||
+          (doc.tema && doc.tema.toLowerCase().includes(term))
       );
     }
 
@@ -61,19 +58,9 @@ export default function DocumentosSearchBar({
       filtered = filtered.filter((doc) => doc.tipo === selectedType);
     }
 
-    // Filtro por origem
-    if (selectedOrigin) {
-      filtered = filtered.filter((doc) => doc.origem === selectedOrigin);
-    }
-
-    // Filtro por validade
-    if (validityFilter !== "todos") {
-      filtered = filtered.filter((doc) => {
-        if (!doc.validade) return validityFilter === "validos";
-        const expireDate = new Date(doc.validade);
-        const isExpired = expireDate < new Date();
-        return validityFilter === "vencidos" ? isExpired : !isExpired;
-      });
+    // Filtro por status
+    if (selectedStatus) {
+      filtered = filtered.filter((doc) => doc.status === selectedStatus);
     }
 
     onFilterChange(filtered);
@@ -91,21 +78,12 @@ export default function DocumentosSearchBar({
     setTimeout(() => applyFilters(), 0);
   };
 
-  const handleOriginChange = (origin: "WhatsApp" | "Upload painel" | "") => {
-    setSelectedOrigin(origin);
+  const handleStatusChange = (status: string) => {
+    setSelectedStatus(status);
     setTimeout(() => applyFilters(), 0);
   };
 
-  const handleValidityChange = (validity: "todos" | "validos" | "vencidos") => {
-    setValidityFilter(validity);
-    setTimeout(() => applyFilters(), 0);
-  };
-
-  const hasActiveFilters =
-    searchTerm.trim() ||
-    selectedType ||
-    selectedOrigin ||
-    validityFilter !== "todos";
+  const hasActiveFilters = searchTerm.trim() || selectedType || selectedStatus;
 
   return (
     <div className="space-y-4">
@@ -174,74 +152,35 @@ export default function DocumentosSearchBar({
             </div>
           </div>
 
-          {/* Origem */}
+          {/* Status */}
           <div>
             <label className="block text-sm font-medium text-[#004417] mb-2">
-              Origem
+              Status
             </label>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => handleOriginChange("")}
+                onClick={() => handleStatusChange("")}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  selectedOrigin === ""
-                    ? "bg-[#00A651] text-white"
-                    : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                Todas
-              </button>
-              {ORIGENS.map((origin) => (
-                <button
-                  key={origin}
-                  onClick={() => handleOriginChange(origin as any)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    selectedOrigin === origin
-                      ? "bg-[#00A651] text-white"
-                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  {origin}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Validade */}
-          <div>
-            <label className="block text-sm font-medium text-[#004417] mb-2">
-              Validade
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => handleValidityChange("todos")}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  validityFilter === "todos"
+                  selectedStatus === ""
                     ? "bg-[#00A651] text-white"
                     : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                 }`}
               >
                 Todos
               </button>
-              <button
-                onClick={() => handleValidityChange("validos")}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  validityFilter === "validos"
-                    ? "bg-[#00A651] text-white"
-                    : "border border-gray-300 bg-white text-[#004417] hover:bg-gray-50"
-                }`}
-              >
-                ✅ Válidos
-              </button>
-              <button
-                onClick={() => handleValidityChange("vencidos")}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  validityFilter === "vencidos"
-                    ? "bg-[#004417] text-white"
-                    : "border border-gray-300 bg-white text-[#004417] hover:bg-gray-50"
-                }`}
-              >
-                🔴 Vencidos
-              </button>
+              {STATUS.map((status) => (
+                <button
+                  key={status}
+                  onClick={() => handleStatusChange(status)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    selectedStatus === status
+                      ? "bg-[#00A651] text-white"
+                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
             </div>
           </div>
         </div>

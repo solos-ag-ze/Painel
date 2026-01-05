@@ -1,25 +1,56 @@
-import { useState } from "react";
-import { mockDocumentos, Documento } from "./mockDocumentos";
+import { useState, useEffect } from "react";
+import { Documento } from "./mockDocumentos";
 import DocumentoCard from "./DocumentoCard";
 import DocumentoDetailPanel from "./DocumentoDetailPanel";
 import DocumentosSearchBar from "./DocumentosSearchBar";
 import UploadDocumentoModal from "./UploadDocumentoModal";
 import { Upload, AlertCircle } from "lucide-react";
+import { DocumentosService } from "../../services/documentosService";
+import { AuthService } from "../../services/authService";
 
 export default function DocumentosPanel() {
-  const [documentos, setDocumentos] = useState<Documento[]>(mockDocumentos);
-  const [filteredDocumentos, setFilteredDocumentos] =
-    useState<Documento[]>(mockDocumentos);
+  const [documentos, setDocumentos] = useState<Documento[]>([]);
+  const [filteredDocumentos, setFilteredDocumentos] = useState<Documento[]>([]);
   const [selectedDocumento, setSelectedDocumento] = useState<Documento | null>(
     null
   );
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
     documentoId: number | null;
     documentoNome: string;
   }>({ isOpen: false, documentoId: null, documentoNome: "" });
+
+  useEffect(() => {
+    loadDocumentos();
+  }, []);
+
+  const loadDocumentos = async () => {
+    try {
+      setIsLoading(true);
+      console.log("[DocumentosPanel] Carregando documentos...");
+
+      const authService = AuthService.getInstance();
+      const currentUser = authService.getCurrentUser();
+
+      if (!currentUser) {
+        console.warn("[DocumentosPanel] Usuário não autenticado");
+        return;
+      }
+
+      const docs = await DocumentosService.getAll(currentUser.user_id);
+      console.log(`[DocumentosPanel] ✓ ${docs.length} documentos carregados`);
+
+      setDocumentos(docs);
+      setFilteredDocumentos(docs);
+    } catch (error) {
+      console.error("[DocumentosPanel] ✗ Erro ao carregar documentos:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleViewDetails = (id: number) => {
     const doc = documentos.find((d) => d.id === id);
@@ -40,21 +71,36 @@ export default function DocumentosPanel() {
     setDeleteConfirm({
       isOpen: true,
       documentoId: id,
-      documentoNome: doc?.nomeArquivo || "documento",
+      documentoNome: doc?.titulo || "documento",
     });
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (deleteConfirm.documentoId === null) return;
-    
+
     const id = deleteConfirm.documentoId;
-    console.log("🗑️ Deletar documento:", id);
-    setDocumentos((prev) => prev.filter((d) => d.id !== id));
-    setFilteredDocumentos((prev) => prev.filter((d) => d.id !== id));
-    if (selectedDocumento?.id === id) {
-      setIsDetailOpen(false);
-      setSelectedDocumento(null);
+    console.log("[DocumentosPanel] Deletando documento:", id);
+
+    try {
+      const documento = documentos.find((d) => d.id === id);
+      const success = await DocumentosService.delete(id, documento?.arquivo_url);
+
+      if (success) {
+        console.log("[DocumentosPanel] ✓ Documento deletado com sucesso");
+        setDocumentos((prev) => prev.filter((d) => d.id !== id));
+        setFilteredDocumentos((prev) => prev.filter((d) => d.id !== id));
+        if (selectedDocumento?.id === id) {
+          setIsDetailOpen(false);
+          setSelectedDocumento(null);
+        }
+      } else {
+        alert("Erro ao excluir documento. Tente novamente.");
+      }
+    } catch (error) {
+      console.error("[DocumentosPanel] ✗ Erro ao deletar documento:", error);
+      alert("Erro ao excluir documento. Tente novamente.");
     }
+
     setDeleteConfirm({ isOpen: false, documentoId: null, documentoNome: "" });
   };
 
@@ -68,9 +114,9 @@ export default function DocumentosPanel() {
   };
 
   const handleUpload = (novoDocumento: Documento) => {
+    console.log("[DocumentosPanel] Adicionando novo documento à lista:", novoDocumento);
     setDocumentos((prev) => [novoDocumento, ...prev]);
     setFilteredDocumentos((prev) => [novoDocumento, ...prev]);
-    console.log("📤 Documento enviado:", novoDocumento);
   };
 
   return (
@@ -127,9 +173,17 @@ export default function DocumentosPanel() {
         onFilterChange={setFilteredDocumentos}
       />
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00A651]"></div>
+        </div>
+      )}
+
       {/* Content Grid - Desktop */}
-      <div className="hidden md:grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredDocumentos.length > 0 ? (
+      {!isLoading && (
+        <div className="hidden md:grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredDocumentos.length > 0 ? (
           filteredDocumentos.map((documento) => (
             <DocumentoCard
               key={documento.id}
@@ -147,10 +201,12 @@ export default function DocumentosPanel() {
             </p>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Content List - Mobile */}
-      <div className="md:hidden space-y-3">
+      {!isLoading && (
+        <div className="md:hidden space-y-3">
         {filteredDocumentos.length > 0 ? (
           filteredDocumentos.map((documento) => (
             <DocumentoCard
@@ -169,7 +225,8 @@ export default function DocumentosPanel() {
             </p>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Detail Panel */}
       <DocumentoDetailPanel

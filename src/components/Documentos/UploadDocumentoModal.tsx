@@ -1,20 +1,23 @@
 import React, { useState, useRef } from "react";
 import { X, Save, Upload, FileText } from "lucide-react";
 import SuccessToast from "../common/SuccessToast";
+import { DocumentosService, Documento } from "../../services/documentosService";
+import { AuthService } from "../../services/authService";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onUploaded: (documento: any) => void;
+  onUploaded: (documento: Documento) => void;
 }
 
 const TIPOS_DOCUMENTO = [
-  "Contrato",
-  "Laudo / Relatório",
-  "Documento oficial",
-  "Certificação / Auditoria",
-  "Trabalhista / Funcionário",
-  "Outro",
+  "Pessoal",
+  "Cadastro da fazenda",
+  "Contratos",
+  "Comprovantes de pagamento",
+  "Ambiental / ESG / EUDR",
+  "Técnico",
+  "Outros",
 ];
 
 const SAFRAS = ["Safra atual", "Safra anterior", "Outro ano"];
@@ -124,31 +127,44 @@ export default function UploadDocumentoModal({
 
     setIsSubmitting(true);
     try {
-      // Mock: Em uma implementação real, faria upload para o Supabase Storage
-      const novoDocumento = {
-        id: Date.now(),
-        nomeArquivo: formData.anexo?.name || "documento",
-        tipo: formData.tipo || "Outros",
-        titulo: formData.titulo || formData.anexo?.name || "Documento",
-        safra: formData.safra || null,
-        area: formData.area || null,
-        observacao: formData.observacao || null,
-        tamanho: formData.anexo
-          ? `${(formData.anexo.size / 1024).toFixed(1)} KB`
-          : "0 KB",
-        formato: formData.anexo?.name.split(".").pop()?.toUpperCase() || "FILE",
-        dataRecebimento: new Date().toISOString().split("T")[0],
-        origem: "Upload painel",
-      };
+      console.log("[UploadDocumentoModal] Iniciando upload...");
 
-      // Simular delay de upload
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const authService = AuthService.getInstance();
+      const currentUser = authService.getCurrentUser();
+
+      if (!currentUser) {
+        throw new Error("Usuário não autenticado");
+      }
+
+      if (!formData.anexo) {
+        throw new Error("Nenhum arquivo selecionado");
+      }
+
+      console.log("[UploadDocumentoModal] Fazendo upload do arquivo:", formData.anexo.name);
+      const arquivoUrl = await DocumentosService.uploadFile(formData.anexo, currentUser.user_id);
+
+      console.log("[UploadDocumentoModal] Arquivo enviado, criando registro no banco...");
+      const novoDocumento = await DocumentosService.create({
+        user_id: currentUser.user_id,
+        arquivo_url: arquivoUrl,
+        tipo: formData.tipo || "Outros",
+        titulo: formData.titulo || formData.anexo.name,
+        safra: formData.safra || undefined,
+        tema: formData.area || undefined,
+        observacao: formData.observacao || undefined,
+        status: "Novo",
+      });
+
+      if (!novoDocumento) {
+        throw new Error("Erro ao criar documento no banco de dados");
+      }
+
+      console.log("[UploadDocumentoModal] ✓ Documento cadastrado com sucesso:", novoDocumento);
 
       onUploaded(novoDocumento);
       setToastMessage("Documento enviado com sucesso!");
       setShowToast(true);
 
-      // Resetar form
       setFormData({
         tipo: "",
         titulo: "",
@@ -162,7 +178,7 @@ export default function UploadDocumentoModal({
         onClose();
       }, 500);
     } catch (error) {
-      console.error("❌ Erro ao enviar documento:", error);
+      console.error("[UploadDocumentoModal] ✗ Erro ao enviar documento:", error);
       alert(
         error instanceof Error ? error.message : "Erro ao enviar documento."
       );

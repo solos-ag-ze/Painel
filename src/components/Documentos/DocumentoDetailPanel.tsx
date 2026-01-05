@@ -10,10 +10,17 @@ interface DocumentoDetailPanelProps {
   onDelete: (id: number) => void;
 }
 
+const getFileExtension = (arquivoUrl?: string): string => {
+  if (!arquivoUrl) return "FILE";
+  const fileName = arquivoUrl.split('/').pop() || "";
+  const extension = fileName.split('.').pop() || "";
+  return extension.toUpperCase();
+};
+
 const getPreviewIcon = (formato: string) => {
   const type = formato.toUpperCase();
   if (type === "PDF") return "📄";
-  if (["JPG", "PNG", "GIF", "WEBP"].includes(type)) return "🖼️";
+  if (["JPG", "JPEG", "PNG", "GIF", "WEBP"].includes(type)) return "🖼️";
   if (["DOC", "DOCX"].includes(type)) return "📝";
   if (["XLS", "XLSX"].includes(type)) return "📊";
   return "📎";
@@ -40,19 +47,17 @@ const getTypeColor = (tipo: string) => {
   }
 };
 
-const isExpired = (validade?: string) => {
-  if (!validade) return false;
-  const expireDate = new Date(validade);
-  return expireDate < new Date();
-};
-
-const daysUntilExpiry = (validade?: string) => {
-  if (!validade) return null;
-  const expireDate = new Date(validade);
-  const today = new Date();
-  const diffTime = expireDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
+const getStatusColor = (status?: string) => {
+  switch (status) {
+    case "Novo":
+      return "bg-blue-100 text-blue-700";
+    case "Organizado":
+      return "bg-green-100 text-green-700";
+    case "Pendente":
+      return "bg-yellow-100 text-yellow-700";
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
 };
 
 const MetadataField = ({
@@ -82,8 +87,14 @@ export default function DocumentoDetailPanel({
 }: DocumentoDetailPanelProps) {
   if (!isOpen || !documento) return null;
 
-  const expired = isExpired(documento.validade);
-  const daysLeft = daysUntilExpiry(documento.validade);
+  const fileExtension = getFileExtension(documento.arquivo_url);
+  const icon = getPreviewIcon(fileExtension);
+
+  const handleDownload = () => {
+    if (documento.arquivo_url) {
+      window.open(documento.arquivo_url, '_blank');
+    }
+  };
 
   return (
     <>
@@ -103,10 +114,10 @@ export default function DocumentoDetailPanel({
         <div className="border-b border-gray-200 p-4 md:p-6 flex items-start justify-between">
           <div className="flex-1">
             <h2 className="text-lg md:text-xl font-bold text-[#004417] break-words">
-              {documento.nomeArquivo}
+              {documento.titulo || 'Documento sem título'}
             </h2>
             <p className="text-xs md:text-sm text-gray-500 mt-1">
-              {documento.tamanho} • {documento.formato}
+              {fileExtension}
             </p>
           </div>
           <button
@@ -122,27 +133,36 @@ export default function DocumentoDetailPanel({
           {/* Preview */}
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 mb-6 flex items-center justify-center min-h-[200px]">
             <div className="text-center">
-              <div className="text-6xl mb-3">
-                {getPreviewIcon(documento.formato)}
-              </div>
+              <div className="text-6xl mb-3">{icon}</div>
               <p className="text-sm text-gray-600">
-                Preview mockado de {documento.formato}
+                Arquivo {fileExtension}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Clique em "Baixar" para fazer download
+                Clique em "Baixar" para abrir/fazer download
               </p>
             </div>
           </div>
 
-          {/* Tipo de documento */}
-          <div className="mb-4">
-            <span
-              className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(
-                documento.tipo
-              )}`}
-            >
-              {documento.tipo}
-            </span>
+          {/* Badges de tipo e status */}
+          <div className="mb-4 flex gap-2 flex-wrap">
+            {documento.tipo && (
+              <span
+                className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(
+                  documento.tipo
+                )}`}
+              >
+                {documento.tipo}
+              </span>
+            )}
+            {documento.status && (
+              <span
+                className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
+                  documento.status
+                )}`}
+              >
+                {documento.status}
+              </span>
+            )}
           </div>
 
           {/* Metadados */}
@@ -151,56 +171,24 @@ export default function DocumentoDetailPanel({
               <h3 className="text-sm font-bold text-[#004417] mb-3 uppercase tracking-wide">
                 Informações
               </h3>
-              <MetadataField label="Origem" value={documento.origem} />
-              <MetadataField
-                label="Data de Recebimento"
-                value={formatDateBR(documento.dataRecebimento)}
-              />
+              {documento.created_at && (
+                <MetadataField
+                  label="Data de Cadastro"
+                  value={formatDateBR(documento.created_at)}
+                />
+              )}
+              <MetadataField label="Safra" value={documento.safra} />
+              <MetadataField label="Tema" value={documento.tema} />
             </div>
 
-            {/* Validade */}
-            {documento.validade && (
+            {/* Observação */}
+            {documento.observacao && (
               <div>
                 <h3 className="text-sm font-bold text-[#004417] mb-3 uppercase tracking-wide">
-                  Validade
-                </h3>
-                <div
-                  className={`p-3 rounded-lg ${
-                    expired
-                      ? "bg-[#004417]/5 border border-[#004417]/20"
-                      : "bg-[#00A651]/10 border border-[#00A651]/30"
-                  }`}
-                >
-                  <p
-                    className={`text-sm font-medium ${
-                      expired ? "text-[#004417]" : "text-[#00A651]"
-                    }`}
-                  >
-                    {expired ? "🔴 Expirado" : "✅ Válido"}
-                  </p>
-                  <p
-                    className={`text-sm ${
-                      expired ? "text-[#004417]/80" : "text-[#397738]"
-                    }`}
-                  >
-                    {expired
-                      ? `Expirou em ${formatDateBR(documento.validade)}`
-                      : `Expira em ${daysLeft} dias (${formatDateBR(
-                          documento.validade
-                        )})`}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Descrição */}
-            {documento.descricao && (
-              <div>
-                <h3 className="text-sm font-bold text-[#004417] mb-3 uppercase tracking-wide">
-                  Descrição
+                  Observação
                 </h3>
                 <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
-                  {documento.descricao}
+                  {documento.observacao}
                 </p>
               </div>
             )}
@@ -210,14 +198,12 @@ export default function DocumentoDetailPanel({
         {/* Footer com botões */}
         <div className="border-t border-gray-200 p-4 md:p-6 space-y-2">
           <button
-            onClick={() => {
-              console.log("📥 Baixar documento:", documento.id);
-              // Mock download
-            }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 rounded-lg font-medium transition-colors text-sm"
+            onClick={handleDownload}
+            disabled={!documento.arquivo_url}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
-            Baixar
+            {documento.arquivo_url ? 'Baixar / Abrir' : 'Arquivo indisponível'}
           </button>
           <button
             onClick={() => {

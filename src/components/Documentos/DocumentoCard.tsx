@@ -16,10 +16,17 @@ interface DocumentoCardProps {
   onDelete: (id: number) => void;
 }
 
+const getFileExtension = (arquivoUrl?: string): string => {
+  if (!arquivoUrl) return "FILE";
+  const fileName = arquivoUrl.split('/').pop() || "";
+  const extension = fileName.split('.').pop() || "";
+  return extension.toUpperCase();
+};
+
 const getIconByFormat = (formato: string) => {
   const type = formato.toUpperCase();
   if (type === "PDF") return "📄";
-  if (["JPG", "PNG", "GIF", "WEBP"].includes(type)) return "🖼️";
+  if (["JPG", "JPEG", "PNG", "GIF", "WEBP"].includes(type)) return "🖼️";
   if (["DOC", "DOCX"].includes(type)) return "📝";
   if (["XLS", "XLSX"].includes(type)) return "📊";
   return "📎";
@@ -46,19 +53,17 @@ const getTypeColor = (tipo: string) => {
   }
 };
 
-const isExpired = (validade?: string) => {
-  if (!validade) return false;
-  const expireDate = new Date(validade);
-  return expireDate < new Date();
-};
-
-const daysUntilExpiry = (validade?: string) => {
-  if (!validade) return null;
-  const expireDate = new Date(validade);
-  const today = new Date();
-  const diffTime = expireDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
+const getStatusColor = (status?: string) => {
+  switch (status) {
+    case "Novo":
+      return "bg-blue-100 text-blue-700";
+    case "Organizado":
+      return "bg-green-100 text-green-700";
+    case "Pendente":
+      return "bg-yellow-100 text-yellow-700";
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
 };
 
 export default function DocumentoCard({
@@ -67,45 +72,73 @@ export default function DocumentoCard({
   onEdit,
   onDelete,
 }: DocumentoCardProps) {
-  const expired = isExpired(documento.validade);
-  const daysLeft = daysUntilExpiry(documento.validade);
+  const fileExtension = getFileExtension(documento.arquivo_url);
+  const icon = getIconByFormat(fileExtension);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow h-full">
       {/* Header com ícone e nome */}
       <div className="flex gap-3 mb-3">
+        <div className="text-2xl">{icon}</div>
         <div className="flex-1 min-w-0">
           <h3
             className="text-sm font-bold text-[#092f20] truncate"
-            title={documento.nomeArquivo}
+            title={documento.titulo || 'Sem título'}
           >
-            {documento.nomeArquivo}
+            {documento.titulo || 'Documento sem título'}
           </h3>
+          <p className="text-xs text-gray-500">{fileExtension}</p>
         </div>
       </div>
 
-      {/* Tipo de documento */}
-      <div className="mb-3">
-        <span
-          className={`inline-block px-2 py-1 rounded text-xs font-medium ${getTypeColor(
-            documento.tipo
-          )}`}
-        >
-          {documento.tipo}
-        </span>
+      {/* Badges de tipo e status */}
+      <div className="mb-3 flex gap-2 flex-wrap">
+        {documento.tipo && (
+          <span
+            className={`inline-block px-2 py-1 rounded text-xs font-medium ${getTypeColor(
+              documento.tipo
+            )}`}
+          >
+            {documento.tipo}
+          </span>
+        )}
+        {documento.status && (
+          <span
+            className={`inline-block px-2 py-1 rounded text-xs font-medium ${getStatusColor(
+              documento.status
+            )}`}
+          >
+            {documento.status}
+          </span>
+        )}
       </div>
 
       {/* Metadados */}
       <div className="space-y-2 mb-3 pb-3 border-b border-gray-100 text-xs">
-        <div className="flex items-center gap-2 text-gray-600">
-          <span className="font-medium">Recebido:</span>
-          <span>{formatDateBR(documento.dataRecebimento)}</span>
-        </div>
+        {documento.created_at && (
+          <div className="flex items-center gap-2 text-gray-600">
+            <span className="font-medium">Cadastrado:</span>
+            <span>{formatDateBR(documento.created_at)}</span>
+          </div>
+        )}
 
-        {/* Descrição curta */}
-        {documento.descricao && (
+        {documento.safra && (
+          <div className="flex items-center gap-2 text-gray-600">
+            <span className="font-medium">Safra:</span>
+            <span>{documento.safra}</span>
+          </div>
+        )}
+
+        {documento.tema && (
+          <div className="flex items-center gap-2 text-gray-600">
+            <span className="font-medium">Tema:</span>
+            <span>{documento.tema}</span>
+          </div>
+        )}
+
+        {documento.observacao && (
           <div className="text-gray-600 line-clamp-2">
-            <span className="font-medium">Desc:</span> {documento.descricao}
+            <span className="font-medium">Obs:</span> {documento.observacao}
           </div>
         )}
       </div>
