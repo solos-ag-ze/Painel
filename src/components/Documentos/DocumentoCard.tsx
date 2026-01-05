@@ -79,7 +79,6 @@ export default function DocumentoCard({
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow h-full">
       {/* Header com ícone e nome */}
       <div className="flex gap-3 mb-3">
-        <div className="text-2xl">{icon}</div>
         <div className="flex-1 min-w-0">
           <h3
             className="text-sm font-bold text-[#092f20] truncate"
