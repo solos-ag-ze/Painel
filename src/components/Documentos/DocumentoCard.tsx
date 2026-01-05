@@ -101,10 +101,6 @@ export default function DocumentoCard({
       {/* Metadados */}
       <div className="space-y-2 mb-3 pb-3 border-b border-gray-100 text-xs">
         <div className="flex items-center gap-2 text-gray-600">
-          <span className="font-medium">Origem:</span>
-          <span>{documento.origem}</span>
-        </div>
-        <div className="flex items-center gap-2 text-gray-600">
           <span className="font-medium">Recebido:</span>
           <span>{formatDateBR(documento.dataRecebimento)}</span>
         </div>
