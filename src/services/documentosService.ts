@@ -28,6 +28,15 @@ export interface DocumentoFormData {
 
 const BUCKET_NAME = 'documentos';
 
+function sanitizeFileName(fileName: string): string {
+  return fileName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
 export class DocumentosService {
   static async getAll(userId: string, propriedadeId?: string): Promise<Documento[]> {
     try {
@@ -159,8 +168,10 @@ export class DocumentosService {
       console.log('[Documentos][Upload] Iniciando upload:', file.name);
 
       const timestamp = Date.now();
-      const fileExtension = file.name.split('.').pop();
-      const fileName = `${userId}/${timestamp}_${file.name}`;
+      const sanitizedFileName = sanitizeFileName(file.name);
+      const fileName = `${userId}/${timestamp}_${sanitizedFileName}`;
+
+      console.log('[Documentos][Upload] Nome sanitizado:', fileName);
 
       const { data, error } = await supabase.storage
         .from(BUCKET_NAME)
