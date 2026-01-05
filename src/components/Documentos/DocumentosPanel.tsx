@@ -149,10 +149,13 @@ export default function DocumentosPanel() {
               Excluir documento?
             </h3>
             <p className="text-sm text-center mb-2 text-[#004417]/80">
-              <span className="font-semibold">{deleteConfirm.documentoNome}</span>
+              <span className="font-semibold">
+                {deleteConfirm.documentoNome}
+              </span>
             </p>
             <p className="text-sm text-center mb-4 text-[#004417]/70">
-              Atenção: ao confirmar, o documento será excluído de forma definitiva do Painel da Fazenda. Deseja continuar?
+              Atenção: ao confirmar, o documento será excluído de forma
+              definitiva do Painel da Fazenda. Deseja continuar?
             </p>
             <div className="flex gap-3 mt-2 w-full">
               <button
