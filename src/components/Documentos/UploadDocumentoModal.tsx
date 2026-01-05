@@ -12,10 +12,10 @@ interface Props {
 }
 
 const TIPOS_DOCUMENTO = [
+  "Cadastro / Registro da Fazenda",
+  "Certificação / Auditoria",
   "Contrato",
   "Laudo / Relatório",
-  "Documento oficial",
-  "Certificação / Auditoria",
   "Trabalhista / Funcionário",
   "Outro",
 ];
@@ -23,12 +23,11 @@ const TIPOS_DOCUMENTO = [
 const SAFRAS = ["Safra atual", "Safra anterior", "Outro ano"];
 
 const AREAS = [
-  "Fazenda inteira",
-  "Talhão",
-  "Funcionários",
+  "Agrícola",
   "Ambiental / ESG",
-  "Produção / Lavoura",
+  "Cadastro da Fazenda",
   "Financeiro",
+  "Trabalhista / Pessoas",
   "Outro",
 ];
 
