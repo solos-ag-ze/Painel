@@ -72,6 +72,7 @@ export default function UploadDocumentoModal({
     tipo: "",
     titulo: "",
     safra: "",
+    anoCustomizado: "",
     area: "",
     observacao: "",
     anexo: null as File | null,
@@ -143,12 +144,14 @@ export default function UploadDocumentoModal({
       const arquivoUrl = await DocumentosService.uploadFile(formData.anexo, currentUser.user_id);
 
       console.log("[UploadDocumentoModal] Arquivo enviado, criando registro no banco...");
+      const safraFinal = formData.safra === "Outro ano" ? formData.anoCustomizado : formData.safra;
+
       const novoDocumento = await DocumentosService.create({
         user_id: currentUser.user_id,
         arquivo_url: arquivoUrl,
         tipo: formData.tipo || "Outros",
         titulo: formData.titulo || formData.anexo.name,
-        safra: formData.safra || undefined,
+        safra: safraFinal || undefined,
         tema: formData.area || undefined,
         observacao: formData.observacao || undefined,
         status: "Novo",
@@ -168,6 +171,7 @@ export default function UploadDocumentoModal({
         tipo: "",
         titulo: "",
         safra: "",
+        anoCustomizado: "",
         area: "",
         observacao: "",
         anexo: null,
@@ -191,6 +195,7 @@ export default function UploadDocumentoModal({
       tipo: "",
       titulo: "",
       safra: "",
+      anoCustomizado: "",
       area: "",
       observacao: "",
       anexo: null,
@@ -333,6 +338,17 @@ export default function UploadDocumentoModal({
                     </option>
                   ))}
                 </select>
+                {formData.safra === "Outro ano" && (
+                  <input
+                    type="number"
+                    value={formData.anoCustomizado}
+                    onChange={(e) => handleInputChange("anoCustomizado", e.target.value)}
+                    className="w-full px-4 py-3 rounded-[12px] bg-white shadow-[0_1px_3px_rgba(0,68,23,0.06)] text-[#004417] placeholder:text-gray-400 border border-[rgba(0,68,23,0.08)] mt-2"
+                    placeholder="Ex.: 2024"
+                    min="1900"
+                    max="2100"
+                  />
+                )}
               </div>
 
               {/* Área Relacionada */}
