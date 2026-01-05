@@ -1,31 +1,45 @@
-import { useState } from 'react';
-import { Search, Filter } from 'lucide-react';
-import { Documento } from './mockDocumentos';
+import { useState } from "react";
+import { Search, Filter } from "lucide-react";
+import { Documento } from "./mockDocumentos";
 
 interface DocumentosSearchBarProps {
   documentos: Documento[];
   onFilterChange: (filtered: Documento[]) => void;
 }
 
-type TipoDocumento = 'Pessoal' | 'Cadastro da fazenda' | 'Contratos' | 'Comprovantes de pagamento' | 'Ambiental / ESG / EUDR' | 'Técnico' | 'Outros';
+type TipoDocumento =
+  | "Pessoal"
+  | "Cadastro da fazenda"
+  | "Contratos"
+  | "Comprovantes de pagamento"
+  | "Ambiental / ESG / EUDR"
+  | "Técnico"
+  | "Outros";
 
 const TIPOS: TipoDocumento[] = [
-  'Pessoal',
-  'Cadastro da fazenda',
-  'Contratos',
-  'Comprovantes de pagamento',
-  'Ambiental / ESG / EUDR',
-  'Técnico',
-  'Outros',
+  "Pessoal",
+  "Cadastro da fazenda",
+  "Contratos",
+  "Comprovantes de pagamento",
+  "Ambiental / ESG / EUDR",
+  "Técnico",
+  "Outros",
 ];
 
-const ORIGENS = ['WhatsApp', 'Upload painel'];
+const ORIGENS = ["WhatsApp", "Upload painel"];
 
-export default function DocumentosSearchBar({ documentos, onFilterChange }: DocumentosSearchBarProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<TipoDocumento | ''>('');
-  const [selectedOrigin, setSelectedOrigin] = useState<'WhatsApp' | 'Upload painel' | ''>('');
-  const [validityFilter, setValidityFilter] = useState<'todos' | 'validos' | 'vencidos'>('todos');
+export default function DocumentosSearchBar({
+  documentos,
+  onFilterChange,
+}: DocumentosSearchBarProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedType, setSelectedType] = useState<TipoDocumento | "">("");
+  const [selectedOrigin, setSelectedOrigin] = useState<
+    "WhatsApp" | "Upload painel" | ""
+  >("");
+  const [validityFilter, setValidityFilter] = useState<
+    "todos" | "validos" | "vencidos"
+  >("todos");
   const [showFilters, setShowFilters] = useState(false);
 
   const applyFilters = () => {
@@ -53,12 +67,12 @@ export default function DocumentosSearchBar({ documentos, onFilterChange }: Docu
     }
 
     // Filtro por validade
-    if (validityFilter !== 'todos') {
+    if (validityFilter !== "todos") {
       filtered = filtered.filter((doc) => {
-        if (!doc.validade) return validityFilter === 'validos';
+        if (!doc.validade) return validityFilter === "validos";
         const expireDate = new Date(doc.validade);
         const isExpired = expireDate < new Date();
-        return validityFilter === 'vencidos' ? isExpired : !isExpired;
+        return validityFilter === "vencidos" ? isExpired : !isExpired;
       });
     }
 
@@ -72,23 +86,26 @@ export default function DocumentosSearchBar({ documentos, onFilterChange }: Docu
     setTimeout(() => applyFilters(), 0);
   };
 
-  const handleTypeChange = (type: TipoDocumento | '') => {
+  const handleTypeChange = (type: TipoDocumento | "") => {
     setSelectedType(type);
     setTimeout(() => applyFilters(), 0);
   };
 
-  const handleOriginChange = (origin: 'WhatsApp' | 'Upload painel' | '') => {
+  const handleOriginChange = (origin: "WhatsApp" | "Upload painel" | "") => {
     setSelectedOrigin(origin);
     setTimeout(() => applyFilters(), 0);
   };
 
-  const handleValidityChange = (validity: 'todos' | 'validos' | 'vencidos') => {
+  const handleValidityChange = (validity: "todos" | "validos" | "vencidos") => {
     setValidityFilter(validity);
     setTimeout(() => applyFilters(), 0);
   };
 
   const hasActiveFilters =
-    searchTerm.trim() || selectedType || selectedOrigin || validityFilter !== 'todos';
+    searchTerm.trim() ||
+    selectedType ||
+    selectedOrigin ||
+    validityFilter !== "todos";
 
   return (
     <div className="space-y-4">
@@ -108,13 +125,17 @@ export default function DocumentosSearchBar({ documentos, onFilterChange }: Docu
           onClick={() => setShowFilters(!showFilters)}
           className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 ${
             hasActiveFilters
-              ? 'bg-[#00A651] text-white hover:bg-[#008c44]'
-              : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+              ? "bg-[#00A651] text-white hover:bg-[#008c44]"
+              : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
           }`}
         >
           <Filter className="w-4 h-4" />
           Filtros
-          {hasActiveFilters && <span className="ml-1 text-xs bg-white text-[#00A651] rounded-full px-2 py-0.5">ativo</span>}
+          {hasActiveFilters && (
+            <span className="ml-1 text-xs bg-white text-[#00A651] rounded-full px-2 py-0.5">
+              ativo
+            </span>
+          )}
         </button>
       </div>
 
@@ -123,14 +144,16 @@ export default function DocumentosSearchBar({ documentos, onFilterChange }: Docu
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
           {/* Tipo de Documento */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Documento</label>
+            <label className="block text-sm font-medium text-[#004417] mb-2">
+              Tipo de Documento
+            </label>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => handleTypeChange('')}
+                onClick={() => handleTypeChange("")}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  selectedType === ''
-                    ? 'bg-[#00A651] text-white'
-                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  selectedType === ""
+                    ? "bg-[#00A651] text-white"
+                    : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                 }`}
               >
                 Todos
@@ -141,8 +164,8 @@ export default function DocumentosSearchBar({ documentos, onFilterChange }: Docu
                   onClick={() => handleTypeChange(tipo)}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                     selectedType === tipo
-                      ? 'bg-[#00A651] text-white'
-                      : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      ? "bg-[#00A651] text-white"
+                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                   }`}
                 >
                   {tipo}
@@ -153,14 +176,16 @@ export default function DocumentosSearchBar({ documentos, onFilterChange }: Docu
 
           {/* Origem */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Origem</label>
+            <label className="block text-sm font-medium text-[#004417] mb-2">
+              Origem
+            </label>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => handleOriginChange('')}
+                onClick={() => handleOriginChange("")}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  selectedOrigin === ''
-                    ? 'bg-[#00A651] text-white'
-                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  selectedOrigin === ""
+                    ? "bg-[#00A651] text-white"
+                    : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                 }`}
               >
                 Todas
@@ -171,8 +196,8 @@ export default function DocumentosSearchBar({ documentos, onFilterChange }: Docu
                   onClick={() => handleOriginChange(origin as any)}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                     selectedOrigin === origin
-                      ? 'bg-[#00A651] text-white'
-                      : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      ? "bg-[#00A651] text-white"
+                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                   }`}
                 >
                   {origin}
@@ -183,34 +208,36 @@ export default function DocumentosSearchBar({ documentos, onFilterChange }: Docu
 
           {/* Validade */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Validade</label>
+            <label className="block text-sm font-medium text-[#004417] mb-2">
+              Validade
+            </label>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => handleValidityChange('todos')}
+                onClick={() => handleValidityChange("todos")}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  validityFilter === 'todos'
-                    ? 'bg-[#00A651] text-white'
-                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  validityFilter === "todos"
+                    ? "bg-[#00A651] text-white"
+                    : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                 }`}
               >
                 Todos
               </button>
               <button
-                onClick={() => handleValidityChange('validos')}
+                onClick={() => handleValidityChange("validos")}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  validityFilter === 'validos'
-                    ? 'bg-green-600 text-white'
-                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  validityFilter === "validos"
+                    ? "bg-[#00A651] text-white"
+                    : "border border-gray-300 bg-white text-[#004417] hover:bg-gray-50"
                 }`}
               >
                 ✅ Válidos
               </button>
               <button
-                onClick={() => handleValidityChange('vencidos')}
+                onClick={() => handleValidityChange("vencidos")}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  validityFilter === 'vencidos'
-                    ? 'bg-red-600 text-white'
-                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  validityFilter === "vencidos"
+                    ? "bg-[#004417] text-white"
+                    : "border border-gray-300 bg-white text-[#004417] hover:bg-gray-50"
                 }`}
               >
                 🔴 Vencidos

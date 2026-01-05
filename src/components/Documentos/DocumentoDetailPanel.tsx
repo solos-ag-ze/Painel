@@ -1,6 +1,6 @@
-import { Documento } from './mockDocumentos';
-import { X, Download, Edit2, Trash2 } from 'lucide-react';
-import { formatDateBR } from '../../lib/dateUtils';
+import { Documento } from "./mockDocumentos";
+import { X, Download, Edit2, Trash2 } from "lucide-react";
+import { formatDateBR } from "../../lib/dateUtils";
 
 interface DocumentoDetailPanelProps {
   documento: Documento | null;
@@ -12,31 +12,31 @@ interface DocumentoDetailPanelProps {
 
 const getPreviewIcon = (formato: string) => {
   const type = formato.toUpperCase();
-  if (type === 'PDF') return '📄';
-  if (['JPG', 'PNG', 'GIF', 'WEBP'].includes(type)) return '🖼️';
-  if (['DOC', 'DOCX'].includes(type)) return '📝';
-  if (['XLS', 'XLSX'].includes(type)) return '📊';
-  return '📎';
+  if (type === "PDF") return "📄";
+  if (["JPG", "PNG", "GIF", "WEBP"].includes(type)) return "🖼️";
+  if (["DOC", "DOCX"].includes(type)) return "📝";
+  if (["XLS", "XLSX"].includes(type)) return "📊";
+  return "📎";
 };
 
 const getTypeColor = (tipo: string) => {
   switch (tipo) {
-    case 'Pessoal':
-      return 'bg-purple-100 text-purple-800';
-    case 'Cadastro da fazenda':
-      return 'bg-green-100 text-green-800';
-    case 'Contratos':
-      return 'bg-blue-100 text-blue-800';
-    case 'Comprovantes de pagamento':
-      return 'bg-amber-100 text-amber-800';
-    case 'Ambiental / ESG / EUDR':
-      return 'bg-teal-100 text-teal-800';
-    case 'Técnico':
-      return 'bg-orange-100 text-orange-800';
-    case 'Outros':
-      return 'bg-gray-100 text-gray-800';
+    case "Pessoal":
+      return "bg-[#004417]/10 text-[#004417]";
+    case "Cadastro da fazenda":
+      return "bg-[#00A651]/10 text-[#004417]";
+    case "Contratos":
+      return "bg-[#397738]/10 text-[#397738]";
+    case "Comprovantes de pagamento":
+      return "bg-[#86b646]/15 text-[#004417]";
+    case "Ambiental / ESG / EUDR":
+      return "bg-[#00A651]/15 text-[#003015]";
+    case "Técnico":
+      return "bg-[#092f20]/10 text-[#092f20]";
+    case "Outros":
+      return "bg-gray-100 text-[#004417]";
     default:
-      return 'bg-gray-100 text-gray-800';
+      return "bg-gray-100 text-[#004417]";
   }
 };
 
@@ -55,11 +55,19 @@ const daysUntilExpiry = (validade?: string) => {
   return diffDays;
 };
 
-const MetadataField = ({ label, value }: { label: string; value?: string | null }) => {
+const MetadataField = ({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) => {
   if (!value) return null;
   return (
     <div className="mb-3">
-      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-1">{label}</p>
+      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-1">
+        {label}
+      </p>
       <p className="text-sm text-gray-900">{value}</p>
     </div>
   );
@@ -88,13 +96,13 @@ export default function DocumentoDetailPanel({
       {/* Panel */}
       <div
         className={`fixed right-0 top-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 flex flex-col overflow-hidden transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
+          isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* Header */}
         <div className="border-b border-gray-200 p-4 md:p-6 flex items-start justify-between">
           <div className="flex-1">
-            <h2 className="text-lg md:text-xl font-bold text-gray-900 break-words">
+            <h2 className="text-lg md:text-xl font-bold text-[#092f20] break-words">
               {documento.nomeArquivo}
             </h2>
             <p className="text-xs md:text-sm text-gray-500 mt-1">
@@ -114,7 +122,9 @@ export default function DocumentoDetailPanel({
           {/* Preview */}
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 mb-6 flex items-center justify-center min-h-[200px]">
             <div className="text-center">
-              <div className="text-6xl mb-3">{getPreviewIcon(documento.formato)}</div>
+              <div className="text-6xl mb-3">
+                {getPreviewIcon(documento.formato)}
+              </div>
               <p className="text-sm text-gray-600">
                 Preview mockado de {documento.formato}
               </p>
@@ -126,7 +136,11 @@ export default function DocumentoDetailPanel({
 
           {/* Tipo de documento */}
           <div className="mb-4">
-            <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(documento.tipo)}`}>
+            <span
+              className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(
+                documento.tipo
+              )}`}
+            >
               {documento.tipo}
             </span>
           </div>
@@ -134,33 +148,46 @@ export default function DocumentoDetailPanel({
           {/* Metadados */}
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
+              <h3 className="text-sm font-bold text-[#004417] mb-3 uppercase tracking-wide">
                 Informações
               </h3>
               <MetadataField label="Origem" value={documento.origem} />
-              <MetadataField label="Data de Recebimento" value={formatDateBR(documento.dataRecebimento)} />
+              <MetadataField
+                label="Data de Recebimento"
+                value={formatDateBR(documento.dataRecebimento)}
+              />
             </div>
 
             {/* Validade */}
             {documento.validade && (
               <div>
-                <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-[#004417] mb-3 uppercase tracking-wide">
                   Validade
                 </h3>
                 <div
                   className={`p-3 rounded-lg ${
                     expired
-                      ? 'bg-red-50 border border-red-200'
-                      : 'bg-green-50 border border-green-200'
+                      ? "bg-[#004417]/5 border border-[#004417]/20"
+                      : "bg-[#00A651]/10 border border-[#00A651]/30"
                   }`}
                 >
-                  <p className={`text-sm font-medium ${expired ? 'text-red-700' : 'text-green-700'}`}>
-                    {expired ? '🔴 Expirado' : '✅ Válido'}
+                  <p
+                    className={`text-sm font-medium ${
+                      expired ? "text-[#004417]" : "text-[#00A651]"
+                    }`}
+                  >
+                    {expired ? "🔴 Expirado" : "✅ Válido"}
                   </p>
-                  <p className={`text-sm ${expired ? 'text-red-600' : 'text-green-600'}`}>
+                  <p
+                    className={`text-sm ${
+                      expired ? "text-[#004417]/80" : "text-[#397738]"
+                    }`}
+                  >
                     {expired
                       ? `Expirou em ${formatDateBR(documento.validade)}`
-                      : `Expira em ${daysLeft} dias (${formatDateBR(documento.validade)})`}
+                      : `Expira em ${daysLeft} dias (${formatDateBR(
+                          documento.validade
+                        )})`}
                   </p>
                 </div>
               </div>
@@ -169,7 +196,7 @@ export default function DocumentoDetailPanel({
             {/* Descrição */}
             {documento.descricao && (
               <div>
-                <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-[#004417] mb-3 uppercase tracking-wide">
                   Descrição
                 </h3>
                 <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
@@ -184,7 +211,7 @@ export default function DocumentoDetailPanel({
         <div className="border-t border-gray-200 p-4 md:p-6 space-y-2">
           <button
             onClick={() => {
-              console.log('📥 Baixar documento:', documento.id);
+              console.log("📥 Baixar documento:", documento.id);
               // Mock download
             }}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 rounded-lg font-medium transition-colors text-sm"
@@ -207,7 +234,7 @@ export default function DocumentoDetailPanel({
               onDelete(documento.id);
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-red-200 hover:bg-red-50 text-red-700 rounded-lg font-medium transition-colors text-sm"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-[#F7941F]/30 hover:bg-[#F7941F]/10 text-[#F7941F] rounded-lg font-medium transition-colors text-sm"
           >
             <Trash2 className="w-4 h-4" />
             Excluir
