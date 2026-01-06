@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Documento } from "./mockDocumentos";
-import { X, Download, Edit2, Trash2, Loader2 } from "lucide-react";
+import { X, Download, Edit2, Trash2, Loader2, ZoomIn, Copy, Check } from "lucide-react";
 import { formatDateBR } from "../../lib/dateUtils";
 import { DocumentosService } from "../../services/documentosService";
 
@@ -16,24 +16,6 @@ interface DocumentoDetailPanelProps {
 const isMobileDevice = (): boolean => {
   if (typeof navigator === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
-
-// Tipos MIME por extensão
-const getMimeType = (extension: string): string => {
-  const mimeTypes: Record<string, string> = {
-    'PDF': 'application/pdf',
-    'JPG': 'image/jpeg',
-    'JPEG': 'image/jpeg',
-    'PNG': 'image/png',
-    'GIF': 'image/gif',
-    'WEBP': 'image/webp',
-    'BMP': 'image/bmp',
-    'DOC': 'application/msword',
-    'DOCX': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'XLS': 'application/vnd.ms-excel',
-    'XLSX': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  };
-  return mimeTypes[extension] || 'application/octet-stream';
 };
 
 const getFileExtension = (arquivoUrl?: string): string => {
@@ -73,19 +55,6 @@ const getTypeColor = (tipo: string) => {
   }
 };
 
-const getStatusColor = (status?: string) => {
-  switch (status) {
-    case "Novo":
-      return "bg-blue-100 text-blue-700";
-    case "Organizado":
-      return "bg-green-100 text-green-700";
-    case "Pendente":
-      return "bg-yellow-100 text-yellow-700";
-    default:
-      return "bg-gray-100 text-gray-700";
-  }
-};
-
 const MetadataField = ({
   label,
   value,
@@ -118,57 +87,132 @@ export default function DocumentoDetailPanel({
   const isImage = ["JPG", "JPEG", "PNG", "GIF", "WEBP", "BMP"].includes(fileExtension);
 
   const [isDownloading, setIsDownloading] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
-  const handleDownload = async () => {
+  // Para IMAGENS no mobile: abre em tela cheia para "pressionar e segurar"
+  const handleOpenImage = async () => {
     if (!documento.arquivo_url) return;
-
+    
     setIsDownloading(true);
-
     try {
-      // 1. Obtém URL assinada (temporária, segura)
-      const signedUrl = await DocumentosService.getSignedUrl(documento.arquivo_url, 300); // 5 minutos
-      
-      if (!signedUrl) {
-        console.error('Falha ao obter URL assinada');
-        alert('Não foi possível preparar o download. Tente novamente.');
-        setIsDownloading(false);
-        return;
-      }
-
-      // 2. Faz fetch do conteúdo via signed URL
-      const response = await fetch(signedUrl);
-      if (!response.ok) throw new Error('Falha ao baixar arquivo');
-
-      const blob = await response.blob();
-      const mimeType = getMimeType(fileExtension);
-      const typedBlob = new Blob([blob], { type: mimeType });
-
-      // 3. Cria URL local (blob:// - não expõe bucket)
-      const blobUrl = URL.createObjectURL(typedBlob);
-
-      // 4. Estratégia de download por tipo de arquivo
-      if (isMobileDevice()) {
-        // Mobile: abre em nova aba (blob URL é seguro)
-        window.open(blobUrl, '_blank');
-        // Limpa após delay para dar tempo de carregar
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      const signedUrl = await DocumentosService.getSignedUrl(documento.arquivo_url, 600);
+      if (signedUrl) {
+        setFullscreenImage(signedUrl);
       } else {
-        // Desktop: força download
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = documento.titulo || `documento.${fileExtension.toLowerCase()}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+        alert('Não foi possível carregar a imagem.');
       }
     } catch (error) {
-      console.error('Erro ao baixar arquivo:', error);
-      alert('Erro ao baixar o arquivo. Verifique sua conexão e tente novamente.');
+      console.error('Erro:', error);
+      alert('Erro ao carregar imagem.');
     } finally {
       setIsDownloading(false);
     }
   };
+
+  // Para OUTROS ARQUIVOS: redireciona para signed URL
+  const handleDownloadFile = async () => {
+    if (!documento.arquivo_url) return;
+
+    setIsDownloading(true);
+    try {
+      const signedUrl = await DocumentosService.getSignedUrl(documento.arquivo_url, 600);
+      
+      if (!signedUrl) {
+        alert('Não foi possível preparar o download.');
+        return;
+      }
+
+      // Desktop: tenta download via fetch + blob
+      if (!isMobileDevice()) {
+        try {
+          const response = await fetch(signedUrl);
+          if (response.ok) {
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = documento.titulo || `documento.${fileExtension.toLowerCase()}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+            return;
+          }
+        } catch (e) {
+          console.log('Blob download falhou, usando redirect');
+        }
+      }
+
+      // Mobile/Fallback: redireciona para a signed URL
+      // O navegador/WebView vai tentar abrir ou baixar nativamente
+      window.location.href = signedUrl;
+      
+    } catch (error) {
+      console.error('Erro ao baixar:', error);
+      alert('Erro ao baixar o arquivo.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Copia link para área de transferência
+  const handleCopyLink = async () => {
+    if (!documento.arquivo_url) return;
+    
+    try {
+      const signedUrl = await DocumentosService.getSignedUrl(documento.arquivo_url, 600);
+      if (signedUrl && navigator.clipboard) {
+        await navigator.clipboard.writeText(signedUrl);
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 3000);
+      }
+    } catch (error) {
+      console.error('Erro ao copiar:', error);
+    }
+  };
+
+  // Modal de imagem fullscreen
+  if (fullscreenImage) {
+    return (
+      <div className="fixed inset-0 bg-black z-[100] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 bg-black/80">
+          <p className="text-white text-sm font-medium truncate flex-1 mr-4">
+            {documento.titulo || 'Imagem'}
+          </p>
+          <button
+            onClick={() => setFullscreenImage(null)}
+            className="p-2 bg-white/20 rounded-full"
+          >
+            <X className="w-5 h-5 text-white" />
+          </button>
+        </div>
+
+        {/* Imagem */}
+        <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
+          <img
+            src={fullscreenImage}
+            alt={documento.titulo || 'Documento'}
+            className="max-w-full max-h-full object-contain"
+            style={{ touchAction: 'manipulation' }}
+          />
+        </div>
+
+        {/* Instrução */}
+        <div className="p-4 bg-black/80">
+          <div className="bg-white/10 rounded-lg p-3 text-center">
+            <p className="text-white text-sm font-medium">
+              📲 Pressione e segure a imagem para salvar
+            </p>
+            <p className="text-white/70 text-xs mt-1">
+              Ou use o menu do navegador (⋮) → "Salvar imagem"
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -206,41 +250,18 @@ export default function DocumentoDetailPanel({
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {/* Preview */}
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 mb-6 flex items-center justify-center min-h-[200px]">
-            {isImage && documento.arquivo_url ? (
-              <div className="w-full max-w-sm">
-                <img
-                  src={documento.arquivo_url}
-                  alt={documento.titulo || 'Preview do documento'}
-                  className="w-full h-auto rounded-lg shadow-sm"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentElement!.innerHTML = `
-                      <div class="text-center">
-                        <div class="text-6xl mb-3">${icon}</div>
-                        <p class="text-sm text-gray-600">Arquivo ${fileExtension}</p>
-                        <p class="text-xs text-gray-500 mt-1">Clique em "Baixar" para abrir/fazer download</p>
-                      </div>
-                    `;
-                  }}
-                />
-                <p className="text-xs text-gray-500 mt-3 text-center">
-                  Clique em "Baixar" para abrir em tamanho original
-                </p>
-              </div>
-            ) : (
-              <div className="text-center">
-                <div className="text-6xl mb-3">{icon}</div>
-                <p className="text-sm text-gray-600">
-                  Arquivo {fileExtension}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Clique em "Baixar" para abrir/fazer download
-                </p>
-              </div>
-            )}
+            <div className="text-center">
+              <div className="text-6xl mb-3">{icon}</div>
+              <p className="text-sm text-gray-600">
+                Arquivo {fileExtension}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {isImage ? 'Toque em "Ver Imagem" para visualizar' : 'Toque em "Baixar" para abrir'}
+              </p>
+            </div>
           </div>
 
-          {/* Badges de tipo e status */}
+          {/* Badges de tipo */}
           <div className="mb-4 flex gap-2 flex-wrap">
             {documento.tipo && (
               <span
@@ -269,7 +290,6 @@ export default function DocumentoDetailPanel({
               <MetadataField label="Categoria" value={documento.tema} />
             </div>
 
-            {/* Observação */}
             {documento.observacao && (
               <div>
                 <h3 className="text-sm font-bold text-[#004417] mb-3 uppercase tracking-wide">
@@ -285,23 +305,64 @@ export default function DocumentoDetailPanel({
 
         {/* Footer com botões */}
         <div className="border-t border-gray-200 p-4 md:p-6 space-y-2">
+          {/* Botão principal - diferente para imagem vs outros */}
+          {isImage ? (
+            <button
+              onClick={handleOpenImage}
+              disabled={!documento.arquivo_url || isDownloading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#004417] hover:bg-[#003015] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Carregando...
+                </>
+              ) : (
+                <>
+                  <ZoomIn className="w-4 h-4" />
+                  Ver Imagem (para salvar)
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={handleDownloadFile}
+              disabled={!documento.arquivo_url || isDownloading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#004417] hover:bg-[#003015] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Preparando...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  {documento.arquivo_url ? 'Baixar Arquivo' : 'Arquivo indisponível'}
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Botão copiar link - alternativa */}
           <button
-            onClick={handleDownload}
-            disabled={!documento.arquivo_url || isDownloading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleCopyLink}
+            disabled={!documento.arquivo_url}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 rounded-lg font-medium transition-colors text-xs disabled:opacity-50"
           >
-            {isDownloading ? (
+            {linkCopied ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Preparando...
+                <Check className="w-4 h-4 text-green-600" />
+                Link copiado! Cole no navegador.
               </>
             ) : (
               <>
-                <Download className="w-4 h-4" />
-                {documento.arquivo_url ? 'Baixar' : 'Arquivo indisponível'}
+                <Copy className="w-4 h-4" />
+                Copiar link (alternativa)
               </>
             )}
           </button>
+
           <button
             onClick={() => {
               onEdit(documento.id);
