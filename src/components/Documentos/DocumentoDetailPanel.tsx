@@ -460,12 +460,6 @@ export default function DocumentoDetailPanel({
               <h3 className="text-sm font-bold text-[#004417] mb-3 uppercase tracking-wide">
                 Informações
               </h3>
-              {documento.created_at && (
-                <MetadataField
-                  label="Data de Cadastro"
-                  value={formatDateBR(documento.created_at)}
-                />
-              )}
               <MetadataField label="Safra" value={documento.safra} />
               <MetadataField label="Categoria" value={documento.tema} />
             </div>
@@ -480,17 +474,34 @@ export default function DocumentoDetailPanel({
                 </p>
               </div>
             )}
+
+            {documento.created_at && (
+              <div className="pt-2">
+                <p className="text-xs text-[#004417]/65">
+                  Cadastrado em {new Date(documento.created_at).toLocaleString('pt-BR', {
+                    timeZone: 'America/Sao_Paulo',
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Footer com botões */}
         <div className="border-t border-gray-200 p-4 md:p-6 space-y-2">
-          {/* Botão baixar apenas para arquivos não-imagem */}
-          {!isImage && documento.arquivo_url && (
+          {/* Botão baixar: sempre para arquivos, apenas desktop para imagens */}
+          {documento.arquivo_url && (
             <button
               onClick={handleDownload}
               disabled={isDownloading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#004417] hover:bg-[#003015] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`w-full items-center justify-center gap-2 px-4 py-3 bg-[#004417] hover:bg-[#003015] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+                isImage ? 'hidden md:flex' : 'flex'
+              }`}
             >
               {isDownloading ? (
                 <>

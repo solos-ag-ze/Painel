@@ -104,13 +104,6 @@ export default function DocumentoCard({
 
       {/* Metadados */}
       <div className="space-y-2 mb-3 pb-3 border-b border-gray-100 text-xs">
-        {documento.created_at && (
-          <div className="flex items-center gap-2 text-gray-600">
-            <span className="font-medium">Cadastrado:</span>
-            <span>{formatDateBR(documento.created_at)}</span>
-          </div>
-        )}
-
         {documento.safra && (
           <div className="flex items-center gap-2 text-gray-600">
             <span className="font-medium">Safra:</span>
@@ -128,6 +121,19 @@ export default function DocumentoCard({
         {documento.observacao && (
           <div className="text-gray-600 line-clamp-2">
             <span className="font-medium">Obs:</span> {documento.observacao}
+          </div>
+        )}
+        
+        {documento.created_at && (
+          <div className="text-xs text-[#004417]/65 mt-2">
+            Cadastrado em {new Date(documento.created_at).toLocaleString('pt-BR', {
+              timeZone: 'America/Sao_Paulo',
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
           </div>
         )}
       </div>
