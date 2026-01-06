@@ -343,8 +343,8 @@ export default function DocumentoDetailPanel({
           />
         </div>
 
-        {/* Footer com instrução */}
-        <div className="p-4 bg-gradient-to-t from-black/80 to-transparent">
+        {/* Footer com instrução - apenas mobile */}
+        <div className="p-4 bg-gradient-to-t from-black/80 to-transparent md:hidden">
           <div className="bg-white/10 rounded-lg p-3 text-center">
             <p className="text-white text-sm font-medium">
               📲 Pressione e segure a imagem para salvar
