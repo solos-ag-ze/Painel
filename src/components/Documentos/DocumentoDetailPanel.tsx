@@ -84,11 +84,11 @@ export default function DocumentoDetailPanel({
   const icon = getPreviewIcon(fileExtension);
   const isImage = isImageFile(fileExtension);
 
-  const [isDownloading, setIsDownloading] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Carrega preview da imagem quando o painel abre
   useEffect(() => {
@@ -120,12 +120,12 @@ export default function DocumentoDetailPanel({
     };
   }, [isOpen, documento.arquivo_url, isImage]);
 
+  // Download de arquivos não-imagem via signed URL
   const handleDownload = async () => {
     if (!documento.arquivo_url) return;
 
     setIsDownloading(true);
     try {
-      // Sempre busca uma nova signed URL para o download
       const signedUrl = await DocumentosService.getSignedUrl(documento.arquivo_url, 600);
       
       if (!signedUrl) {
@@ -133,7 +133,7 @@ export default function DocumentoDetailPanel({
         return;
       }
 
-      // Abre a signed URL em nova aba
+      // Abre a signed URL em nova aba (URL temporária, não expõe bucket)
       window.open(signedUrl, '_blank');
       
     } catch (error) {
@@ -177,28 +177,16 @@ export default function DocumentoDetailPanel({
           />
         </div>
 
-        {/* Footer com botão de download */}
+        {/* Footer com instrução */}
         <div className="p-4 bg-gradient-to-t from-black/80 to-transparent">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDownload();
-            }}
-            disabled={isDownloading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#004417] hover:bg-[#003015] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50"
-          >
-            {isDownloading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Preparando...
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" />
-                Baixar Imagem
-              </>
-            )}
-          </button>
+          <div className="bg-white/10 rounded-lg p-3 text-center">
+            <p className="text-white text-sm font-medium">
+              📲 Pressione e segure a imagem para salvar
+            </p>
+            <p className="text-white/70 text-xs mt-1">
+              Ou faça captura de tela
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -332,30 +320,33 @@ export default function DocumentoDetailPanel({
 
         {/* Footer com botões */}
         <div className="border-t border-gray-200 p-4 md:p-6 space-y-2">
-          <button
-            onClick={handleDownload}
-            disabled={!documento.arquivo_url || isDownloading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#004417] hover:bg-[#003015] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isDownloading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Preparando...
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" />
-                {documento.arquivo_url ? 'Baixar' : 'Arquivo indisponível'}
-              </>
-            )}
-          </button>
+          {/* Botão baixar apenas para arquivos não-imagem */}
+          {!isImage && documento.arquivo_url && (
+            <button
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#004417] hover:bg-[#003015] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Preparando...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Baixar
+                </>
+              )}
+            </button>
+          )}
 
           <button
             onClick={() => {
               onEdit(documento.id);
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#00A651] hover:bg-[#008c44] text-white rounded-lg font-medium transition-colors text-sm"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#00A651] hover:bg-[#008c44] text-white rounded-lg font-medium transition-colors text-sm"
           >
             <Edit2 className="w-4 h-4" />
             Editar
