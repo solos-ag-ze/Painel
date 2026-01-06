@@ -29,9 +29,9 @@ const getStatusColor = (status: string) => {
 const renderField = (label: string, value?: string | null) => {
   if (!value) return null;
   return (
-    <div className="flex gap-2 text-xs text-gray-600">
-      <span className="font-medium">{label}:</span>
-      <span>{value}</span>
+    <div className="flex gap-2 text-[13px] text-[rgba(0,68,23,0.75)]">
+      <span className="font-semibold">{label}:</span>
+      <span className="font-medium text-[#004417]">{value}</span>
     </div>
   );
 };
@@ -161,10 +161,10 @@ export default function OcorrenciaCard({
 
         {/* Título e Subtítulo */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold text-gray-900 truncate">
+          <h3 className="text-sm font-bold text-[#004417] truncate">
             {ocorrencia.nomePraga || 'Ocorrência sem identificação'}
           </h3>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-[rgba(0,68,23,0.75)] font-medium mt-0.5">
             {ocorrencia.talhao} – {formatDateBR(ocorrencia.dataOcorrencia)}
           </p>
 
@@ -178,21 +178,21 @@ export default function OcorrenciaCard({
       </div>
 
       {/* Corpo: Campos principais */}
-      <div className="space-y-1.5 mb-3 pb-3 border-b border-gray-100 text-xs">
+      <div className="space-y-1.5 mb-3 pb-3 border-b border-[rgba(0,68,23,0.08)]">
         {renderField('Tipo', ocorrencia.tipoOcorrencia)}
         {renderField('Fase', ocorrencia.faseLavoura)}
         {renderField('Severidade', ocorrencia.severidade)}
         {renderField('Área afetada', ocorrencia.areaAfetada)}
         {ocorrencia.sintomas && (
-          <div className="flex gap-2">
-            <span className="font-medium text-gray-600">Sintomas:</span>
-            <span className="text-gray-600 line-clamp-1">{ocorrencia.sintomas}</span>
+          <div className="flex gap-2 text-[13px]">
+            <span className="font-semibold text-[rgba(0,68,23,0.75)]">Sintomas:</span>
+            <span className="font-medium text-[#004417] line-clamp-1">{ocorrencia.sintomas}</span>
           </div>
         )}
         {ocorrencia.acaoTomada && (
-          <div className="flex gap-2">
-            <span className="font-medium text-gray-600">Ação:</span>
-            <span className="text-gray-600 line-clamp-1">{ocorrencia.acaoTomada}</span>
+          <div className="flex gap-2 text-[13px]">
+            <span className="font-semibold text-[rgba(0,68,23,0.75)]">Ação:</span>
+            <span className="font-medium text-[#004417] line-clamp-1">{ocorrencia.acaoTomada}</span>
           </div>
         )}
       </div>
