@@ -76,12 +76,12 @@ export default function DocumentoCard({
   const icon = getIconByFormat(fileExtension);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow h-full">
+    <div className="p-5 rounded-xl bg-white shadow-[0_2px_8px_rgba(0,68,23,0.06)] transition-all duration-200">
       {/* Header com ícone e nome */}
       <div className="flex gap-3 mb-3">
         <div className="flex-1 min-w-0">
           <h3
-            className="text-sm font-bold text-[#092f20] truncate"
+            className="font-semibold text-[#004417] truncate"
             title={documento.titulo || 'Sem título'}
           >
             {documento.titulo || 'Documento sem título'}
@@ -93,7 +93,7 @@ export default function DocumentoCard({
       <div className="mb-3 flex gap-2 flex-wrap">
         {documento.tipo && (
           <span
-            className={`inline-block px-2 py-1 rounded text-xs font-medium ${getTypeColor(
+            className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getTypeColor(
               documento.tipo
             )}`}
           >
@@ -103,27 +103,27 @@ export default function DocumentoCard({
       </div>
 
       {/* Metadados */}
-      <div className="space-y-2 mb-3 pb-3 border-b border-gray-100 text-xs">
+      <div className="space-y-2 mb-3 pb-3 border-b border-[rgba(0,68,23,0.08)] text-[13px]">
         {documento.safra && (
-          <div className="flex items-center gap-2 text-gray-600">
-            <span className="font-medium">Safra:</span>
-            <span>{documento.safra}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[rgba(0,68,23,0.75)] font-medium">Safra:</span>
+            <span className="font-semibold text-[#004417]">{documento.safra}</span>
           </div>
         )}
 
         {documento.tema && (
-          <div className="flex items-center gap-2 text-gray-600">
-            <span className="font-medium">Categoria:</span>
-            <span>{documento.tema}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[rgba(0,68,23,0.75)] font-medium">Categoria:</span>
+            <span className="font-semibold text-[#004417]">{documento.tema}</span>
           </div>
         )}
 
         {documento.observacao && (
-          <div className="text-gray-600 line-clamp-2">
-            <span className="font-medium">Obs:</span> {documento.observacao}
+          <div className="text-[rgba(0,68,23,0.75)] font-medium line-clamp-2">
+            <span className="text-[rgba(0,68,23,0.75)] font-medium">Obs:</span> {documento.observacao}
           </div>
         )}
-        
+
         {documento.created_at && (
           <div className="text-xs text-[#004417]/65 mt-2">
             Cadastrado em {new Date(documento.created_at).toLocaleString('pt-BR', {
