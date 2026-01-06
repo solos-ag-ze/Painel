@@ -224,47 +224,27 @@ export default function DocumentoDetailPanel({
         return;
       }
 
-      // Tenta buscar o arquivo e compartilhar como File
-      try {
-        const response = await fetch(signedUrl);
-        if (!response.ok) throw new Error('Fetch failed');
-        
-        const blob = await response.blob();
-        const fileName = documento.titulo || `documento.${fileExtension.toLowerCase()}`;
-        const file = new File([blob], fileName, { type: blob.type });
-
-        // Verifica se Web Share API com arquivos é suportada
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: documento.titulo || 'Documento',
-          });
-        } else if (navigator.share) {
-          // Fallback: compartilha apenas a URL
+      // Compartilha a URL do documento
+      if (navigator.share) {
+        try {
           await navigator.share({
             title: documento.titulo || 'Documento',
-            text: `Documento: ${documento.titulo || 'Sem título'}`,
+            text: documento.titulo || 'Documento do Solos.ag',
             url: signedUrl,
           });
-        } else {
-          // Navegador não suporta Web Share API
-          alert('Seu navegador não suporta compartilhamento. Tente copiar o link.');
-        }
-      } catch (err: any) {
-        // Usuário cancelou ou erro no share
-        if (err.name !== 'AbortError') {
-          console.error('Erro ao compartilhar:', err);
-          // Fallback: tenta compartilhar só a URL
-          if (navigator.share) {
-            try {
-              await navigator.share({
-                title: documento.titulo || 'Documento',
-                url: signedUrl,
-              });
-            } catch {
-              // Silenciosamente ignora se usuário cancelou
-            }
+        } catch (err: any) {
+          // Ignora se usuário cancelou
+          if (err.name !== 'AbortError') {
+            console.error('Erro ao compartilhar:', err);
           }
+        }
+      } else {
+        // Navegador não suporta Web Share API - copia o link
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(signedUrl);
+          alert('Link copiado! Cole onde desejar.');
+        } else {
+          alert('Seu navegador não suporta compartilhamento.');
         }
       }
     } catch (error) {
