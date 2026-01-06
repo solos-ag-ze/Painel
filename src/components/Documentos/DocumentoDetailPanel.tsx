@@ -30,14 +30,18 @@ const getFileExtension = (arquivoUrl?: string): string => {
   return extension.toUpperCase();
 };
 
-const getPreviewIcon = (formato: string) => {
-  const type = formato.toUpperCase();
-  if (type === "PDF") return "📄";
-  if (["JPG", "JPEG", "PNG", "GIF", "WEBP"].includes(type)) return "🖼️";
-  if (["DOC", "DOCX"].includes(type)) return "📝";
-  if (["XLS", "XLSX"].includes(type)) return "📊";
-  return "📎";
+const getFileTypeName = (extension: string): string => {
+  const ext = extension.toUpperCase();
+  if (ext === "PDF") return "Documento";
+  if (["JPG", "JPEG", "PNG", "GIF", "WEBP", "BMP"].includes(ext)) return "Imagem";
+  if (["DOC", "DOCX", "TXT", "RTF", "ODT"].includes(ext)) return "Documento";
+  if (["XLS", "XLSX", "CSV", "ODS"].includes(ext)) return "Planilha";
+  if (["PPT", "PPTX", "ODP"].includes(ext)) return "Apresentação";
+  if (["ZIP", "RAR", "7Z"].includes(ext)) return "Arquivo compactado";
+  return "Arquivo";
 };
+
+
 
 const getTypeColor = (tipo: string) => {
   switch (tipo) {
@@ -88,7 +92,6 @@ export default function DocumentoDetailPanel({
   if (!isOpen || !documento) return null;
 
   const fileExtension = getFileExtension(documento.arquivo_url);
-  const icon = getPreviewIcon(fileExtension);
   const isImage = isImageFile(fileExtension);
 
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -426,11 +429,10 @@ export default function DocumentoDetailPanel({
               )}
             </div>
           ) : (
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 mb-6 flex items-center justify-center min-h-[200px]">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6 mb-6 flex items-center justify-center">
               <div className="text-center">
-                <div className="text-6xl mb-3">{icon}</div>
-                <p className="text-sm text-gray-600">
-                  Arquivo {fileExtension}
+                <p className="text-lg font-semibold text-[#004417]">
+                  {getFileTypeName(fileExtension)}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Toque em "Baixar" para abrir

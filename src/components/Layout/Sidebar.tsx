@@ -34,10 +34,10 @@ const menuItems = [
   { id: 'manejo-agricola', icon: Sprout, label: 'Manejo Agrícola', description: 'Atividades técnicas' },
   { id: 'pragas-doencas', icon: Bug, label: 'Pragas e Doenças', description: 'Ocorrências de pragas' },
   { id: 'minha-fazenda', icon: LandPlot, label: 'Minha Fazenda', description: 'Detalhes dos talhões'},
+  { id: 'documentos', icon: Folder, label: 'Documentos', description: 'Gestão de arquivos' },
   { id: 'estoque', icon: Package, label: 'Estoque', description: 'Controle de insumos' },
   { id: 'maquinas', icon: Settings, label: 'Máquinas e Equipamentos', description: 'Controle de máquinas' },
   // abas com funcionalidades ainda não implementadas — deixamos por último
-  { id: 'documentos', icon: Folder, label: 'Documentos', description: 'Gestão de arquivos' },
   { id: 'dre', icon: TrendingDown, label: 'Resultados da Operação', description: 'DRE da Fazenda' },
   // { id: 'estoque-cafe', icon: Coffee, label: 'Estoque de Café', description: 'Armazenamento' },
   // { id: 'vendas', icon: TrendingUp, label: 'Vendas', description: 'Simulador e histórico' },
@@ -87,7 +87,7 @@ export default function Sidebar({ activeTab, setActiveTab, onClose }: SidebarPro
                 <div className="text-left">
                   <div className={`font-medium text-[15px] ${active ? 'text-white' : 'text-[rgba(255,255,255,0.85)]'}`}> 
                     <span>{item.label}</span>
-                    {(item.id === 'documentos' || item.id === 'dre') && (
+                    {item.id === 'dre' && (
                       <span className="ml-2 text-[11px] font-semibold bg-white text-[#00A651] px-2 py-0.5 rounded-full border border-[rgba(0,166,81,0.08)]">
                         Em breve
                       </span>
