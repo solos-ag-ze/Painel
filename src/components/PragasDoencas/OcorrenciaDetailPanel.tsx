@@ -30,13 +30,13 @@ const getStatusColor = (status: string) => {
 
 const DetailField = ({ label, value }: { label: string; value?: string | string[] | null }) => {
   if (!value) return null;
-  
+
   const displayValue = Array.isArray(value) ? value.join(', ') : value;
 
   return (
     <div className="mb-4">
-      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-1">{label}</p>
-      <p className="text-sm text-gray-900">{displayValue}</p>
+      <p className="text-[13px] text-[rgba(0,68,23,0.75)] font-medium uppercase tracking-wide mb-1">{label}</p>
+      <p className="text-[13px] font-semibold text-[#004417]">{displayValue}</p>
     </div>
   );
 };
@@ -150,7 +150,7 @@ export default function OcorrenciaDetailPanel({
       {/* Panel */}
       <div className="fixed right-0 top-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="border-b border-gray-100 p-4 md:p-6 flex items-start justify-between">
+        <div className="border-b border-[rgba(0,68,23,0.08)] p-4 md:p-6 flex items-start justify-between">
           <div className="flex-1">
             <h2 className="text-xl font-bold text-[#004417] mb-4">
               {ocorrencia.nomePraga || 'Ocorrência sem identificação'}
@@ -163,9 +163,9 @@ export default function OcorrenciaDetailPanel({
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-[rgba(0,68,23,0.08)] rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5 text-[#004417]" />
           </button>
         </div>
 
@@ -174,7 +174,7 @@ export default function OcorrenciaDetailPanel({
           {/* Foto Principal */}
           {ocorrencia.fotoPrincipal && (
             <div>
-              <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Foto Principal</p>
+              <p className="text-[13px] text-[rgba(0,68,23,0.75)] font-medium uppercase tracking-wide mb-2">Foto Principal</p>
               <div className="w-full h-40 bg-gray-100 rounded-lg flex items-center justify-center text-5xl overflow-hidden">
                 {imageSrc ? (
                         <img
@@ -246,7 +246,7 @@ export default function OcorrenciaDetailPanel({
                 {ocorrencia.anexos.map((anexo, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-sm text-gray-700 hover:bg-gray-100 cursor-pointer transition-colors"
+                    className="flex items-center gap-2 p-2 bg-[rgba(0,68,23,0.02)] rounded-lg text-[13px] text-[#004417] font-medium hover:bg-[rgba(0,68,23,0.08)] cursor-pointer transition-colors border border-[rgba(0,68,23,0.08)]"
                   >
                     <div className="text-lg">
                       {anexo.endsWith('.pdf') ? '📄' : '🖼️'}
@@ -259,7 +259,7 @@ export default function OcorrenciaDetailPanel({
           )}
         </div>
 
-        <div className="border-t border-gray-100 p-4 md:p-6 space-y-2">
+        <div className="border-t border-[rgba(0,68,23,0.08)] p-4 md:p-6 space-y-2">
           <button
             onClick={() => {
               onEdit(ocorrencia);
