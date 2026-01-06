@@ -26,15 +26,12 @@ const TIPOS: TipoDocumento[] = [
   "Outros",
 ];
 
-const STATUS = ["Novo", "Organizado", "Pendente"];
-
 export default function DocumentosSearchBar({
   documentos,
   onFilterChange,
 }: DocumentosSearchBarProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<TipoDocumento | "">("");
-  const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [showFilters, setShowFilters] = useState(false);
 
   const applyFilters = () => {
@@ -58,11 +55,6 @@ export default function DocumentosSearchBar({
       filtered = filtered.filter((doc) => doc.tipo === selectedType);
     }
 
-    // Filtro por status
-    if (selectedStatus) {
-      filtered = filtered.filter((doc) => doc.status === selectedStatus);
-    }
-
     onFilterChange(filtered);
   };
 
@@ -78,12 +70,7 @@ export default function DocumentosSearchBar({
     setTimeout(() => applyFilters(), 0);
   };
 
-  const handleStatusChange = (status: string) => {
-    setSelectedStatus(status);
-    setTimeout(() => applyFilters(), 0);
-  };
-
-  const hasActiveFilters = searchTerm.trim() || selectedType || selectedStatus;
+  const hasActiveFilters = searchTerm.trim() || selectedType;
 
   return (
     <div className="space-y-4">
@@ -147,38 +134,6 @@ export default function DocumentosSearchBar({
                   }`}
                 >
                   {tipo}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-[#004417] mb-2">
-              Status
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => handleStatusChange("")}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  selectedStatus === ""
-                    ? "bg-[#00A651] text-white"
-                    : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                Todos
-              </button>
-              {STATUS.map((status) => (
-                <button
-                  key={status}
-                  onClick={() => handleStatusChange(status)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    selectedStatus === status
-                      ? "bg-[#00A651] text-white"
-                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  {status}
                 </button>
               ))}
             </div>
