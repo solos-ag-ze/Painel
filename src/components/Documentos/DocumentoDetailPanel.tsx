@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Documento } from "./mockDocumentos";
-import { X, Download, Edit2, Trash2, Loader2, ImageIcon, ZoomIn, FileText } from "lucide-react";
+import { X, Download, Edit2, Trash2, Loader2, ImageIcon, ZoomIn, FileText, Share2 } from "lucide-react";
 import { formatDateBR } from "../../lib/dateUtils";
 import { DocumentosService } from "../../services/documentosService";
 
@@ -103,6 +103,7 @@ export default function DocumentoDetailPanel({
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [showBrowserWarning, setShowBrowserWarning] = useState(false);
   const [pendingDownloadUrl, setPendingDownloadUrl] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Carrega preview da imagem quando o painel abre
   useEffect(() => {
@@ -208,6 +209,70 @@ export default function DocumentoDetailPanel({
       setShowBrowserWarning(false);
       setPendingDownloadUrl(null);
     }, 1000);
+  };
+
+  // Compartilhar arquivo via Web Share API (mobile)
+  const handleShare = async () => {
+    if (!documento.arquivo_url) return;
+
+    setIsSharing(true);
+    try {
+      const signedUrl = await DocumentosService.getSignedUrl(documento.arquivo_url, 600);
+      
+      if (!signedUrl) {
+        alert('Não foi possível preparar o compartilhamento.');
+        return;
+      }
+
+      // Tenta buscar o arquivo e compartilhar como File
+      try {
+        const response = await fetch(signedUrl);
+        if (!response.ok) throw new Error('Fetch failed');
+        
+        const blob = await response.blob();
+        const fileName = documento.titulo || `documento.${fileExtension.toLowerCase()}`;
+        const file = new File([blob], fileName, { type: blob.type });
+
+        // Verifica se Web Share API com arquivos é suportada
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: documento.titulo || 'Documento',
+          });
+        } else if (navigator.share) {
+          // Fallback: compartilha apenas a URL
+          await navigator.share({
+            title: documento.titulo || 'Documento',
+            text: `Documento: ${documento.titulo || 'Sem título'}`,
+            url: signedUrl,
+          });
+        } else {
+          // Navegador não suporta Web Share API
+          alert('Seu navegador não suporta compartilhamento. Tente copiar o link.');
+        }
+      } catch (err: any) {
+        // Usuário cancelou ou erro no share
+        if (err.name !== 'AbortError') {
+          console.error('Erro ao compartilhar:', err);
+          // Fallback: tenta compartilhar só a URL
+          if (navigator.share) {
+            try {
+              await navigator.share({
+                title: documento.titulo || 'Documento',
+                url: signedUrl,
+              });
+            } catch {
+              // Silenciosamente ignora se usuário cancelou
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao preparar compartilhamento:', error);
+      alert('Erro ao compartilhar. Tente novamente.');
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   // Modal de aviso para abrir no navegador
@@ -494,14 +559,33 @@ export default function DocumentoDetailPanel({
 
         {/* Footer com botões */}
         <div className="border-t border-gray-200 p-4 md:p-6 space-y-2">
-          {/* Botão baixar: sempre para arquivos, apenas desktop para imagens */}
+          {/* Mobile: Botão Compartilhar */}
+          {documento.arquivo_url && (
+            <button
+              onClick={handleShare}
+              disabled={isSharing}
+              className="w-full flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-[#004417] hover:bg-[#003015] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSharing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Preparando...
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-4 h-4" />
+                  Compartilhar
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Desktop: Botão Baixar */}
           {documento.arquivo_url && (
             <button
               onClick={handleDownload}
               disabled={isDownloading}
-              className={`w-full items-center justify-center gap-2 px-4 py-3 bg-[#004417] hover:bg-[#003015] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
-                isImage ? 'hidden md:flex' : 'flex'
-              }`}
+              className="w-full hidden md:flex items-center justify-center gap-2 px-4 py-3 bg-[#004417] hover:bg-[#003015] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isDownloading ? (
                 <>
