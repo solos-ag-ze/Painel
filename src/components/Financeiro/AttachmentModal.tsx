@@ -597,7 +597,7 @@ export default function AttachmentModal({
                   {isSendingWhatsApp ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
                   ) : (
-                    <><WhatsAppIcon /> Enviar WhatsApp</>
+                    <><WhatsAppIcon /> Enviar Imagem</>
                   )}
                 </button>
               </div>
@@ -664,7 +664,7 @@ export default function AttachmentModal({
                   {isSendingWhatsApp ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
                   ) : (
-                    <><WhatsAppIcon /> Enviar WhatsApp</>
+                    <><WhatsAppIcon /> Enviar Arquivo</>
                   )}
                 </button>
               </div>
