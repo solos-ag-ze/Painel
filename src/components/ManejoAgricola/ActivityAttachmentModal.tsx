@@ -131,8 +131,8 @@ export default function ActivityAttachmentModal({
         return;
       }
 
-      // Determina tipo do arquivo pela URL
-      const extension = attachmentUrl.split('.').pop()?.toLowerCase() || '';
+      const urlWithoutQuery = attachmentUrl.split('?')[0];
+      const extension = (urlWithoutQuery.split('.').pop() || '').toLowerCase();
       const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension);
 
       const payload = {
@@ -144,26 +144,34 @@ export default function ActivityAttachmentModal({
         nome_arquivo: fileName
       };
 
-      const isDev = import.meta.env.MODE === 'development' || 
-                    (typeof window !== 'undefined' && 
+      console.log('[ManejoAgricola][WhatsApp] Enviando:', { telefone: payload.telefone, tipo: payload.tipo_arquivo, extension });
+
+      const isDev = import.meta.env.MODE === 'development' ||
+                    (typeof window !== 'undefined' &&
                      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
-      
-      const webhookUrl = isDev 
+
+      const webhookUrl = isDev
         ? '/api/whatsapp/enviar-documento-whatsapp'
         : import.meta.env.VITE_WHATSAPP_WEBHOOK_URL;
 
       if (!webhookUrl) {
-        console.error('[Anexo][WhatsApp] Webhook URL não configurada');
+        console.error('[ManejoAgricola][WhatsApp] Webhook URL não configurada');
         return;
       }
 
-      await fetch(webhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+
+      if (!response.ok) {
+        console.error('[ManejoAgricola][WhatsApp] Erro na resposta:', response.status);
+      } else {
+        console.log('[ManejoAgricola][WhatsApp] Enviado com sucesso');
+      }
     } catch (error) {
-      console.error('Erro ao enviar WhatsApp:', error);
+      console.error('[ManejoAgricola][WhatsApp] Erro ao enviar:', error);
     } finally {
       setIsSendingWhatsApp(false);
     }
