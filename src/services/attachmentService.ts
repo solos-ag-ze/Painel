@@ -441,21 +441,21 @@ export class AttachmentService {
    */
   static async uploadAttachment(transactionId: string, file: File): Promise<boolean> {
     try {
-      console.log('⬆️ Fazendo upload do anexo:', transactionId);
-      console.log('📁 Arquivo original:', file.name, file.size, file.type);
+      console.log('⬆️ [Upload] Iniciando upload do anexo:', transactionId);
+      console.log('📁 [Upload] Arquivo original:', file.name, file.size, file.type);
 
       const fileId = await this.getStorageFileId(transactionId);
       const fileName = `${fileId}.jpg`;
-      // Prefixar com user_id para obedecer as policies (ex.: <user_id>/file.jpg)
       const user = AuthService.getInstance().getCurrentUser();
       const filePath = user ? `${user.user_id}/${fileName}` : fileName;
-      console.log('📦 Usando ID de arquivo:', fileId);
-      
-      // Converter arquivo para JPG se necessário
+
+      console.log('📦 [Upload] fileId:', fileId);
+      console.log('👤 [Upload] userId:', user?.user_id || 'N/A');
+      console.log('📍 [Upload] filePath completo:', filePath);
+
       const processedFile = await this.processImageFile(file, fileName);
-      console.log('📷 Arquivo processado:', processedFile.name, processedFile.size);
-      
-      // Tentar primeiro com service role para contornar RLS
+      console.log('📷 [Upload] Arquivo processado:', processedFile.name, processedFile.size);
+
       let { data, error } = await supabaseServiceRole.storage
         .from(this.BUCKET_NAME)
         .upload(filePath, processedFile, {
@@ -464,9 +464,9 @@ export class AttachmentService {
           contentType: 'image/jpeg'
         });
 
-      // Se falhar com service role, tentar com cliente normal
       if (error) {
-        console.log('⚠️ Tentativa com service role falhou, tentando com cliente normal...');
+        console.log('⚠️ [Upload] Service role falhou:', error.message);
+        console.log('⚠️ [Upload] Tentando com cliente normal...');
         const result = await supabase.storage
           .from(this.BUCKET_NAME)
           .upload(filePath, processedFile, {
@@ -479,25 +479,23 @@ export class AttachmentService {
       }
 
       if (error) {
-        console.error('❌ Erro no upload:', error);
-        
-        // Se for erro de RLS, dar uma mensagem mais clara
+        console.error('❌ [Upload] Erro final:', error);
+
         if (error.message.includes('row-level security') || error.message.includes('RLS')) {
           throw new Error('Erro de permissão: Configure as políticas RLS do bucket ou use a chave de serviço');
         }
-        
+
         throw new Error(`Erro ao fazer upload: ${error.message}`);
       }
 
-      console.log('✅ Upload concluído:', data);
+      console.log('✅ [Upload] Upload concluído com sucesso!');
+      console.log('📍 [Upload] Path salvo no storage:', filePath);
 
-      // armazenar apenas o fileName no banco (sem user_id)
-      // A URL será resolvida dinamicamente ao renderizar, tentando com user_id primeiro
-      await this.updateSharedAttachmentUrl(transactionId, fileName);
+      await this.updateSharedAttachmentUrl(transactionId, filePath);
 
       return true;
     } catch (error) {
-      console.error('💥 Erro no upload:', error);
+      console.error('💥 [Upload] Erro no upload:', error);
       throw error;
     }
   }
@@ -2252,37 +2250,68 @@ export class AttachmentService {
 }
   /**
    * Obtém a URL de anexo financeiro (imagem) com fallback robusto (padrão Manejo)
-   * Tenta: pública → signed-url → blob
+   * Tenta: pública -> signed-url -> blob
    */
-  static async getAttachmentUrlFinanceiro(transactionId: string): Promise<string | null> {
+  static async getAttachmentUrlFinanceiro(transactionId: string, forceRefresh = false): Promise<string | null> {
     try {
+      console.log('🔍 [Financeiro] Buscando URL para transação:', transactionId, forceRefresh ? '(refresh forçado)' : '');
+
+      const groupInfo = await this.getTransactionAttachmentGroup(transactionId);
+      const storedPath = groupInfo?.anexo_compartilhado_url;
+
+      console.log('📊 [Financeiro] Path salvo no banco:', storedPath || 'N/A');
+
       const fileId = await this.getStorageFileId(transactionId);
       const user = AuthService.getInstance().getCurrentUser();
-      const userPath = user ? `${user.user_id}` : '';
+      const userId = user?.user_id || '';
       const fileName = `${fileId}.jpg`;
-      // Tenta com user_id no path (padrão atual)
-      // Tenta todos os caminhos possíveis para imagens
-      const pathsToTry = [];
-      if (userPath) {
-        pathsToTry.push(
-          `${userPath}/${fileName}`,
-          `${userPath}/imagens/${fileName}`,
-          `imagens/${fileName}`
-        );
+
+      console.log('📦 [Financeiro] fileId:', fileId, '| userId:', userId);
+
+      const pathsToTry: string[] = [];
+
+      if (storedPath) {
+        const normalizedPath = this.normalizeStoredPath(storedPath);
+        pathsToTry.push(normalizedPath);
+        console.log('📍 [Financeiro] Path normalizado do banco:', normalizedPath);
+      }
+
+      if (userId) {
+        pathsToTry.push(`${userId}/${fileName}`);
       }
       pathsToTry.push(fileName);
-      for (const objectPath of pathsToTry) {
-        // 1. Tenta URL pública
+      pathsToTry.push(`imagens/${fileName}`);
+      if (userId) {
+        pathsToTry.push(`${userId}/imagens/${fileName}`);
+      }
+
+      const uniquePaths = [...new Set(pathsToTry)];
+      console.log('🔄 [Financeiro] Paths a tentar:', uniquePaths);
+
+      for (const objectPath of uniquePaths) {
+        console.log(`📍 [Financeiro] Tentando path: ${objectPath}`);
+
         const publicUrl = this.buildPublicUrl(objectPath, this.BUCKET_NAME);
-        const res = await fetch(publicUrl, { method: 'HEAD' });
-        if (res.ok) {
-          return publicUrl;
+
+        try {
+          const headRes = await fetch(publicUrl, { method: 'HEAD', cache: 'no-cache' });
+          console.log(`   HEAD ${objectPath}: ${headRes.status}`);
+
+          if (headRes.ok) {
+            const timestamp = Date.now();
+            const urlWithCache = `${publicUrl}?v=${timestamp}`;
+            console.log('✅ [Financeiro] Encontrado via URL pública:', urlWithCache);
+            return urlWithCache;
+          }
+        } catch (headErr) {
+          console.log(`   HEAD ${objectPath} falhou:`, headErr);
         }
-        // 2. Tenta signed-url (backend Express)
-        const signedUrlServer = import.meta.env.VITE_SIGNED_URL_SERVER_URL;
+
+        const signedUrlServer = import.meta.env.VITE_SIGNED_URL_SERVER_URL || import.meta.env.VITE_API_URL;
         if (signedUrlServer) {
           try {
-            const response = await fetch(`${signedUrlServer}/signed-url`, {
+            console.log(`   Tentando signed-url para: ${objectPath}`);
+            const response = await fetch(`${signedUrlServer.replace(/\/$/, '')}/signed-url`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -2291,32 +2320,44 @@ export class AttachmentService {
                 expires: 120
               })
             });
-            const data = await response.json();
-            if (data?.url) {
-              const test = await fetch(data.url, { method: 'HEAD' });
-              if (test.ok) {
-                return data.url;
+            const payload = await response.json().catch(() => ({}));
+            if (payload?.url || payload?.signedUrl) {
+              const signedUrl = payload.url || payload.signedUrl;
+              const testRes = await fetch(signedUrl, { method: 'HEAD', cache: 'no-cache' });
+              console.log(`   Signed-url HEAD: ${testRes.status}`);
+              if (testRes.ok) {
+                console.log('✅ [Financeiro] Encontrado via signed-url');
+                return signedUrl;
               }
             }
-          } catch (err) {
-            console.warn('Erro ao tentar signed-url:', err);
+          } catch (signedErr) {
+            console.log(`   Signed-url falhou:`, signedErr);
           }
         }
-        // 3. Fallback: tenta baixar o blob e criar URL local
+
         try {
-          const { data, error } = await supabaseServiceRole.storage
+          console.log(`   Tentando download blob: ${objectPath}`);
+          const { data: blobData, error: dlErr } = await supabaseServiceRole.storage
             .from(this.BUCKET_NAME)
             .download(objectPath);
-          if (data && !error) {
-            return URL.createObjectURL(data);
+
+          if (blobData && !dlErr) {
+            const blobUrl = URL.createObjectURL(blobData);
+            console.log('✅ [Financeiro] Encontrado via blob download');
+            return blobUrl;
           }
-        } catch (err) {
-          console.warn('Erro no fallback blob:', err);
+          if (dlErr) {
+            console.log(`   Blob download falhou:`, dlErr.message);
+          }
+        } catch (blobErr) {
+          console.log(`   Blob download exception:`, blobErr);
         }
       }
+
+      console.log('❌ [Financeiro] Nenhum anexo encontrado para:', transactionId);
       return null;
     } catch (error) {
-      console.error('Erro getAttachmentUrlFinanceiro:', error);
+      console.error('💥 [Financeiro] Erro getAttachmentUrlFinanceiro:', error);
       return null;
     }
   }
