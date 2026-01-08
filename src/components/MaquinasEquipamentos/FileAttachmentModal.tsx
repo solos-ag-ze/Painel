@@ -16,6 +16,7 @@ import {
 import { AttachmentService } from '../../services/attachmentService';
 import { AuthService } from '../../services/authService';
 import { UserService } from '../../services/userService';
+import { supabase } from '../../lib/supabase';
 
 const attachmentService = new AttachmentService();
 
@@ -34,7 +35,7 @@ interface FileAttachmentModalProps {
 
 type AttachmentFile = {
   url: string;
-  storageUrl?: string;
+  publicUrl?: string;
   type: 'image' | 'pdf' | 'xml' | 'file';
   name: string;
   slotId: 'primeiro_envio' | 'segundo_envio';
@@ -74,38 +75,87 @@ export default function FileAttachmentModal({
       setLoading(true);
       console.log('🔄 [Maquinas] Verificando anexos para máquina:', maquinaId);
 
-      const attachmentInfo = await attachmentService.getAttachmentInfo(maquinaId);
-      const files: AttachmentFile[] = [];
+      // Buscar informações da tabela
+      const { data: maquinaData, error } = await supabase
+        .from('maquinas_equipamentos_anexos')
+        .select('url_primeiro_envio, url_segundo_envio')
+        .eq('id_maquina', maquinaId)
+        .single();
 
-      if (attachmentInfo) {
-        if (attachmentInfo.hasPrimeiroEnvio) {
-          const url = await attachmentService.getFileUrl(maquinaId, 'primeiro_envio');
-          if (url) {
-            const fileName = getFileNameFromUrl(url);
-            const fileType = getFileTypeFromUrl(url, attachmentInfo.primeiroEnvioType);
-            files.push({
-              url,
-              storageUrl: url.startsWith('blob:') ? undefined : url,
-              type: fileType,
-              name: fileName || 'primeiro_anexo',
-              slotId: 'primeiro_envio'
-            });
+      if (error || !maquinaData) {
+        console.log('ℹ️ [Maquinas] Nenhum anexo encontrado');
+        setAttachments([]);
+        return;
+      }
+
+      const files: AttachmentFile[] = [];
+      const BUCKET_NAME = 'maquinas_equipamentos';
+
+      // Processar primeiro anexo
+      if (maquinaData.url_primeiro_envio) {
+        const storedPath = maquinaData.url_primeiro_envio;
+        const fileName = getFileNameFromPath(storedPath);
+        const fileType = getFileTypeFromPath(storedPath);
+
+        console.log('📎 [Maquinas] Primeiro anexo:', { storedPath, fileName, fileType });
+
+        // Tentar obter URL pública
+        const { data: publicData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(storedPath);
+        const publicUrl = publicData?.publicUrl || null;
+
+        // Tentar obter URL assinada para preview
+        let displayUrl = publicUrl;
+        try {
+          const { data: signedData } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(storedPath, 3600);
+          if (signedData?.signedUrl) {
+            displayUrl = signedData.signedUrl;
           }
+        } catch (err) {
+          console.log('⚠️ [Maquinas] Erro ao criar signed URL, usando public URL');
         }
 
-        if (attachmentInfo.hasSegundoEnvio) {
-          const url = await attachmentService.getFileUrl(maquinaId, 'segundo_envio');
-          if (url) {
-            const fileName = getFileNameFromUrl(url);
-            const fileType = getFileTypeFromUrl(url, attachmentInfo.segundoEnvioType);
-            files.push({
-              url,
-              storageUrl: url.startsWith('blob:') ? undefined : url,
-              type: fileType,
-              name: fileName || 'segundo_anexo',
-              slotId: 'segundo_envio'
-            });
+        if (displayUrl) {
+          files.push({
+            url: displayUrl,
+            publicUrl: publicUrl || displayUrl,
+            type: fileType,
+            name: fileName || 'primeiro_anexo',
+            slotId: 'primeiro_envio'
+          });
+        }
+      }
+
+      // Processar segundo anexo
+      if (maquinaData.url_segundo_envio) {
+        const storedPath = maquinaData.url_segundo_envio;
+        const fileName = getFileNameFromPath(storedPath);
+        const fileType = getFileTypeFromPath(storedPath);
+
+        console.log('📎 [Maquinas] Segundo anexo:', { storedPath, fileName, fileType });
+
+        // Tentar obter URL pública
+        const { data: publicData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(storedPath);
+        const publicUrl = publicData?.publicUrl || null;
+
+        // Tentar obter URL assinada para preview
+        let displayUrl = publicUrl;
+        try {
+          const { data: signedData } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(storedPath, 3600);
+          if (signedData?.signedUrl) {
+            displayUrl = signedData.signedUrl;
           }
+        } catch (err) {
+          console.log('⚠️ [Maquinas] Erro ao criar signed URL, usando public URL');
+        }
+
+        if (displayUrl) {
+          files.push({
+            url: displayUrl,
+            publicUrl: publicUrl || displayUrl,
+            type: fileType,
+            name: fileName || 'segundo_anexo',
+            slotId: 'segundo_envio'
+          });
         }
       }
 
@@ -123,20 +173,21 @@ export default function FileAttachmentModal({
     }
   };
 
-  const getFileNameFromUrl = (url: string | null): string | null => {
-    if (!url) return null;
+  const getFileNameFromPath = (path: string | null): string | null => {
+    if (!path) return null;
     try {
-      const urlWithoutParams = url.split('?')[0];
-      const parts = urlWithoutParams.split('/');
+      const parts = path.split('/');
       return parts[parts.length - 1] || null;
     } catch {
       return null;
     }
   };
 
-  const getFileTypeFromUrl = (url: string, mimeType: string | null): 'image' | 'pdf' | 'xml' | 'file' => {
-    const ext = url.split('.').pop()?.toLowerCase();
-    if (mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif'].includes(ext || '')) {
+  const getFileTypeFromPath = (path: string): 'image' | 'pdf' | 'xml' | 'file' => {
+    const ext = path.split('.').pop()?.toLowerCase();
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif'];
+
+    if (imageExts.includes(ext || '')) {
       return 'image';
     }
     if (ext === 'pdf') return 'pdf';
@@ -229,15 +280,22 @@ export default function FileAttachmentModal({
   };
 
   const handleEnviarWhatsApp = async (attachment: AttachmentFile) => {
-    console.log('[Maquinas] Iniciando envio WhatsApp:', { slotId: attachment.slotId, fileName: attachment.name, url: attachment.url, storageUrl: attachment.storageUrl });
+    console.log('[Maquinas] Iniciando envio WhatsApp:', {
+      slotId: attachment.slotId,
+      fileName: attachment.name,
+      url: attachment.url,
+      publicUrl: attachment.publicUrl
+    });
+
     const setLoadingState = attachment.slotId === 'primeiro_envio' ? setIsSendingPrimeiro : setIsSendingSegundo;
     setLoadingState(true);
+
     try {
-      const urlToSend = attachment.storageUrl || attachment.url;
+      const urlToSend = attachment.publicUrl || attachment.url;
       console.log('[Maquinas] URL a ser enviada:', urlToSend);
 
-      if (urlToSend.startsWith('blob:')) {
-        console.error('[Maquinas][WhatsApp] URL blob detectada! Não é possível enviar URL local via WhatsApp');
+      if (!urlToSend || urlToSend.startsWith('blob:')) {
+        console.error('[Maquinas][WhatsApp] URL inválida ou local detectada!');
         setMessage({ type: 'error', text: 'Erro ao obter URL externa do anexo. Por favor, tente novamente.' });
         setLoadingState(false);
         return;
@@ -250,6 +308,7 @@ export default function FileAttachmentModal({
 
       if (!userId) {
         console.error('[Maquinas][WhatsApp] userId não encontrado:', { currentUser });
+        setMessage({ type: 'error', text: 'Usuário não autenticado' });
         setLoadingState(false);
         return;
       }
@@ -260,6 +319,7 @@ export default function FileAttachmentModal({
 
       if (!usuario?.telefone) {
         console.error('[Maquinas][WhatsApp] Telefone do usuário não encontrado:', { usuario });
+        setMessage({ type: 'error', text: 'Telefone não cadastrado' });
         setLoadingState(false);
         return;
       }
@@ -293,6 +353,8 @@ export default function FileAttachmentModal({
 
       if (!webhookUrl) {
         console.error('[Maquinas][WhatsApp] Webhook URL não configurada');
+        setMessage({ type: 'error', text: 'Webhook não configurado' });
+        setLoadingState(false);
         return;
       }
 
@@ -308,11 +370,14 @@ export default function FileAttachmentModal({
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[Maquinas] Erro na resposta do webhook:', { status: response.status, error: errorText });
+        setMessage({ type: 'error', text: 'Erro ao enviar para WhatsApp' });
       } else {
         console.log('[Maquinas] Envio WhatsApp concluído com sucesso!');
+        setMessage({ type: 'success', text: 'Enviado para WhatsApp com sucesso!' });
       }
     } catch (error) {
       console.error('[Maquinas] Erro ao enviar WhatsApp:', error);
+      setMessage({ type: 'error', text: 'Erro ao enviar para WhatsApp' });
     } finally {
       setLoadingState(false);
     }
