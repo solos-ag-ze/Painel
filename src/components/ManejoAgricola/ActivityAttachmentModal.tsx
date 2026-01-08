@@ -121,17 +121,22 @@ export default function ActivityAttachmentModal({
   };
 
   const handleEnviarWhatsApp = async (attachmentUrl: string, fileName: string, type: 'image' | 'file') => {
+    console.log('📤 [ManejoAgricola] handleEnviarWhatsApp iniciado', { attachmentUrl, fileName, type });
     const setLoading = type === 'image' ? setIsSendingImage : setIsSendingFile;
     setLoading(true);
     try {
       const userId = AuthService.getInstance().getCurrentUser()?.user_id;
+      console.log('👤 [ManejoAgricola] userId:', userId);
       if (!userId) {
+        console.error('❌ [ManejoAgricola] userId não encontrado');
         setLoading(false);
         return;
       }
 
       const usuario = await UserService.getUserById(userId);
+      console.log('📱 [ManejoAgricola] Telefone do usuário:', usuario?.telefone);
       if (!usuario?.telefone) {
+        console.error('❌ [ManejoAgricola] Telefone não encontrado');
         setLoading(false);
         return;
       }
@@ -149,6 +154,8 @@ export default function ActivityAttachmentModal({
         nome_arquivo: fileName
       };
 
+      console.log('📦 [ManejoAgricola] Payload preparado:', payload);
+
       const isDev = import.meta.env.MODE === 'development' ||
                     (typeof window !== 'undefined' &&
                      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
@@ -157,20 +164,26 @@ export default function ActivityAttachmentModal({
         ? '/api/whatsapp/enviar-documento-whatsapp'
         : import.meta.env.VITE_WHATSAPP_WEBHOOK_URL;
 
+      console.log('🔗 [ManejoAgricola] Webhook URL:', webhookUrl, '(isDev:', isDev, ')');
+
       if (!webhookUrl) {
-        console.error('[Anexo][WhatsApp] Webhook URL não configurada');
+        console.error('❌ [ManejoAgricola] Webhook URL não configurada');
         return;
       }
 
-      await fetch(webhookUrl, {
+      console.log('🚀 [ManejoAgricola] Enviando requisição para webhook...');
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+
+      console.log('✅ [ManejoAgricola] Resposta recebida:', response.status, response.statusText);
     } catch (error) {
-      console.error('Erro ao enviar WhatsApp:', error);
+      console.error('💥 [ManejoAgricola] Erro ao enviar WhatsApp:', error);
     } finally {
       setLoading(false);
+      console.log('🏁 [ManejoAgricola] handleEnviarWhatsApp finalizado');
     }
   };
 
@@ -382,6 +395,10 @@ export default function ActivityAttachmentModal({
   const imageAttachment = attachments.find(a => a.type === 'image') || null;
   const fileAttachment = attachments.find(a => a.type === 'pdf' || a.type === 'xml' || a.type === 'file') || null;
 
+  console.log('🔍 [ManejoAgricola] Attachments atuais:', attachments);
+  console.log('🖼️ [ManejoAgricola] imageAttachment:', imageAttachment);
+  console.log('📄 [ManejoAgricola] fileAttachment:', fileAttachment);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       {confirmState.type && (
@@ -487,7 +504,15 @@ export default function ActivityAttachmentModal({
                 <button
                   className="bg-[#25D366] hover:bg-[#128C7E] text-white px-2 py-1 rounded flex items-center gap-1 transition-colors disabled:opacity-50"
                   onClick={() => {
-                    if (imageAttachment) handleEnviarWhatsApp(imageAttachment.url, `${activityId}.jpg`, 'image');
+                    console.log('🔘 [ManejoAgricola] Botão Enviar Imagem clicado');
+                    console.log('📸 [ManejoAgricola] imageAttachment:', imageAttachment);
+                    console.log('🔗 [ManejoAgricola] URL da imagem:', imageAttachment?.url);
+                    if (imageAttachment) {
+                      console.log('✅ [ManejoAgricola] Chamando handleEnviarWhatsApp...');
+                      handleEnviarWhatsApp(imageAttachment.url, `${activityId}.jpg`, 'image');
+                    } else {
+                      console.error('❌ [ManejoAgricola] imageAttachment não encontrado!');
+                    }
                   }}
                   disabled={isSendingImage || loading}
                 >
