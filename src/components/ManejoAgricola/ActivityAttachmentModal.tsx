@@ -231,11 +231,11 @@ export default function ActivityAttachmentModal({
       if (response.ok && json?.success) {
         console.log('✅ [ManejoAgricola] Enviado com sucesso!');
         setMessage({ type: 'success', text: 'Arquivo enviado para seu WhatsApp!' });
-      } else {
+      } else if (!response.ok) {
         console.error('❌ [ManejoAgricola] Falha no envio:', json);
         setMessage({
           type: 'error',
-          text: json?.error || json?.message || `Erro ${response.status}: ${response.statusText}`
+          text: json?.error || json?.message || `Erro ao enviar. Tente novamente.`
         });
       }
     } catch (error) {
