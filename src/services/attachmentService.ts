@@ -2009,57 +2009,93 @@ export class AttachmentService {
     uploadType: 'primeiro_envio' | 'segundo_envio'
   ): Promise<{ success: boolean; error?: string }> {
   try {
-    // tentar extrair o path da URL fornecida
-    let filePath = '';
-    if (url) {
-      filePath = this.extractFilePathFromUrl(url);
-    }
+    console.log('🗑️ [Maquinas] Excluindo arquivo:', uploadType, 'maquinaId:', maquinaId);
 
-    // se não conseguir extrair, buscar o valor cru no DB (onde armazenamos o path)
-    if (!filePath) {
-      const columnName = uploadType === 'primeiro_envio' ? 'url_primeiro_envio' : 'url_segundo_envio';
-      try {
-        const { data, error } = await supabase
-          .from(this.tableName)
-          .select(columnName)
-          .eq('id_maquina', maquinaId)
-          .single();
-        if (!error && data) {
-          const raw = (data as any)[columnName];
-          if (raw) {
-            if (raw.startsWith('http')) {
-              filePath = this.extractFilePathFromUrl(raw);
-            } else {
-              filePath = raw;
-            }
+    // Buscar o path salvo no banco
+    const columnName = uploadType === 'primeiro_envio' ? 'url_primeiro_envio' : 'url_segundo_envio';
+    let storedPath = '';
+
+    try {
+      const { data, error } = await supabase
+        .from(this.tableName)
+        .select(columnName)
+        .eq('id_maquina', maquinaId)
+        .maybeSingle();
+
+      if (!error && data) {
+        const raw = (data as any)[columnName];
+        if (raw) {
+          if (raw.startsWith('http')) {
+            storedPath = this.extractFilePathFromUrl(raw);
+          } else {
+            storedPath = raw;
           }
         }
-      } catch (err) {
-        // ignore and continue
+      }
+    } catch (err) {
+      console.warn('⚠️ Erro ao buscar path do banco:', err);
+    }
+
+    console.log('📊 [Maquinas] Path salvo no banco:', storedPath || 'N/A');
+
+    // Obter user_id
+    const user = AuthService.getInstance().getCurrentUser();
+    const pathsToTry: string[] = [];
+
+    // 1. Path do banco (se existir e for válido)
+    if (storedPath) {
+      pathsToTry.push(storedPath);
+    }
+
+    // 2. Tentar com user_id (formato novo)
+    if (user?.user_id && storedPath) {
+      // Se o path do banco não tem user_id, tentar adicionar
+      if (!storedPath.startsWith(user.user_id)) {
+        pathsToTry.push(`${user.user_id}/${storedPath}`);
       }
     }
 
-    if (!filePath) {
-      return { success: false, error: 'File path is empty or invalid for deletion' };
+    // 3. Extrair path da URL fornecida (se diferente)
+    if (url) {
+      const extractedPath = this.extractFilePathFromUrl(url);
+      if (extractedPath && !pathsToTry.includes(extractedPath)) {
+        pathsToTry.push(extractedPath);
+      }
     }
 
+    console.log('🔍 [Maquinas] Tentando excluir paths:', pathsToTry);
+
+    if (pathsToTry.length === 0) {
+      return { success: false, error: 'Nenhum path válido encontrado para exclusão' };
+    }
+
+    // Tentar excluir cada path até conseguir
     const storageClient = getStorageClient();
-    const { error: deleteError } = await storageClient.storage
-      .from(this.bucketName)
-      .remove([filePath]);
+    for (const path of pathsToTry) {
+      console.log(`🗑️ [Maquinas] Tentando excluir: ${path}`);
 
-    if (deleteError) {
-      return { success: false, error: deleteError.message };
+      const { data, error } = await storageClient.storage
+        .from(this.bucketName)
+        .remove([path]);
+
+      if (!error && data && data.length > 0) {
+        console.log('✅ [Maquinas] Exclusão concluída:', path);
+
+        // Limpar o campo no banco
+        const clearResult = await this.clearFileUrl(maquinaId, uploadType);
+        if (!clearResult.success) {
+          console.warn('⚠️ [Maquinas] Falha ao limpar URL no banco:', clearResult.error);
+        }
+
+        return { success: true };
+      } else {
+        console.log(`⚠️ [Maquinas] Falha ao excluir ${path}:`, error?.message || 'Nenhum arquivo removido');
+      }
     }
 
-    const clearResult = await this.clearFileUrl(maquinaId, uploadType);
-    if (!clearResult.success) {
-      return { success: false, error: clearResult.error };
-    }
-
-    return { success: true };
+    return { success: false, error: 'Arquivo não encontrado em nenhum dos caminhos tentados' };
   } catch (error) {
-    console.error('Error deleting file:', error);
+    console.error('💥 [Maquinas] Erro ao excluir arquivo:', error);
     return { success: false, error: (error as Error).message };
   }
 }
