@@ -386,43 +386,34 @@ export class ActivityAttachmentService {
     }
   }
 
-  static async deleteAttachment(activityId: string): Promise<boolean> {
+  /**
+   * Exclui uma imagem anexada a uma atividade agrícola
+   * @param activityId - ID da atividade
+   * @param storageUrl - URL completa do storage (opcional, mas recomendado para precisão)
+   */
+  static async deleteAttachment(activityId: string, storageUrl?: string): Promise<boolean> {
     try {
       console.log('🗑️ [Manejo] Excluindo imagem:', activityId);
+      if (storageUrl) console.log('🔗 [Manejo] StorageUrl fornecida:', storageUrl);
       
-      // 🔍 DIAGNÓSTICO: Verificar estado atual do banco
-      const { data: dbState } = await supabase
-        .from('lancamentos_agricolas')
-        .select('esperando_por_anexo')
-        .eq('atividade_id', activityId)
-        .single();
-      console.log('📊 [Diagnóstico] Estado atual no banco:', dbState);
-      
-      // 🔍 DIAGNÓSTICO: Listar arquivos no bucket
-      try {
-        const { data: allFiles } = await supabase.storage
-          .from(this.BUCKET_NAME)
-          .list(this.IMAGE_FOLDER, { limit: 1000 });
-        console.log('📁 [Diagnóstico] Total de arquivos na pasta imagens:', allFiles?.length || 0);
-        const matchingFiles = allFiles?.filter(f => f.name.includes(activityId)) || [];
-        console.log('🎯 [Diagnóstico] Arquivos que contêm o activityId:', matchingFiles.map(f => f.name));
-      } catch (listErr) {
-        console.log('⚠️ [Diagnóstico] Erro ao listar arquivos:', listErr);
-      }
-
       const user = AuthService.getInstance().getCurrentUser();
       const pathsToTry: string[] = [];
 
-      // 1. Path padrão (formato atual)
-      pathsToTry.push(`${this.IMAGE_FOLDER}/${activityId}.jpg`);
+      // 🎯 PRIORIDADE #1: Se storageUrl foi fornecida, extrair o path correto dela
+      if (storageUrl) {
+        const normalizedPath = this.normalizeStoragePath(storageUrl);
+        console.log('📍 [Manejo] Path normalizado da URL:', normalizedPath);
+        pathsToTry.push(normalizedPath);
+      }
 
-      // 2. Path com user_id (caso exista)
+      // Fallbacks caso storageUrl não exista ou falhe
+      pathsToTry.push(`${this.IMAGE_FOLDER}/${activityId}.jpg`);
+      
       if (user?.user_id) {
         pathsToTry.push(`${user.user_id}/${this.IMAGE_FOLDER}/${activityId}.jpg`);
         pathsToTry.push(`${user.user_id}/${activityId}.jpg`);
       }
-
-      // 3. Path direto (sem pasta)
+      
       pathsToTry.push(`${activityId}.jpg`);
 
       console.log('🔍 [Manejo] Tentando excluir paths:', pathsToTry);
@@ -557,33 +548,26 @@ export class ActivityAttachmentService {
     }
   }
 
-  static async deleteFileAttachment(activityId: string): Promise<boolean> {
+  /**
+   * Exclui um arquivo anexado a uma atividade agrícola
+   * @param activityId - ID da atividade
+   * @param storageUrl - URL completa do storage (opcional, mas recomendado para precisão)
+   */
+  static async deleteFileAttachment(activityId: string, storageUrl?: string): Promise<boolean> {
     try {
       console.log('🗑️ [Manejo] Excluindo arquivo:', activityId);
-      
-      // 🔍 DIAGNÓSTICO: Verificar estado atual do banco
-      const { data: dbState } = await supabase
-        .from('lancamentos_agricolas')
-        .select('esperando_por_anexo')
-        .eq('atividade_id', activityId)
-        .single();
-      console.log('📊 [Diagnóstico] Estado atual no banco:', dbState);
-      
-      // 🔍 DIAGNÓSTICO: Listar arquivos no bucket
-      try {
-        const { data: allFiles } = await supabase.storage
-          .from(this.BUCKET_NAME)
-          .list(this.FILE_FOLDER, { limit: 1000 });
-        console.log('📁 [Diagnóstico] Total de arquivos na pasta arquivos:', allFiles?.length || 0);
-        const matchingFiles = allFiles?.filter(f => f.name.includes(activityId)) || [];
-        console.log('🎯 [Diagnóstico] Arquivos que contêm o activityId:', matchingFiles.map(f => f.name));
-      } catch (listErr) {
-        console.log('⚠️ [Diagnóstico] Erro ao listar arquivos:', listErr);
-      }
+      if (storageUrl) console.log('🔗 [Manejo] StorageUrl fornecida:', storageUrl);
 
       const user = AuthService.getInstance().getCurrentUser();
       const extensions = ['pdf','xml','xls','xlsx','doc','docx','csv','txt'];
       const pathsToTry: string[] = [];
+      
+      // 🎯 PRIORIDADE #1: Se storageUrl foi fornecida, extrair o path correto dela
+      if (storageUrl) {
+        const normalizedPath = this.normalizeStoragePath(storageUrl);
+        console.log('📍 [Manejo] Path normalizado da URL:', normalizedPath);
+        pathsToTry.push(normalizedPath);
+      }
 
       // 1. Paths padrão (formato atual) - todas as extensões possíveis
       for (const ext of extensions) {

@@ -104,12 +104,17 @@ export default function ActivityAttachmentModal({
         const ext = cleanUrl.includes('.') ? cleanUrl.split('.').pop()?.toLowerCase() : undefined;
         const fileType = ext === 'pdf' ? 'pdf' : ext === 'xml' ? 'xml' : 'file';
         const extension = ext || 'file';
+        
+        // Se a URL for do storage (não blob), guardar como storageUrl também
+        const isBlobUrl = fileUrl.startsWith('blob:');
+        
         files.push({
           url: fileUrl,
+          storageUrl: isBlobUrl ? undefined : fileUrl,  // ⭐ Guardar storageUrl se não for blob
           type: fileType as 'pdf' | 'xml' | 'file',
           name: `${activityId}.${extension}`
         });
-        console.log('✅ Arquivo adicionado à lista de anexos');
+        console.log('✅ Arquivo adicionado à lista de anexos', isBlobUrl ? '(blob URL)' : '(storage URL)');
       }
 
       console.log('📋 Total de anexos encontrados:', files.length);
@@ -397,7 +402,9 @@ export default function ActivityAttachmentModal({
           setMessage(null);
           
           console.log('📞 [Modal] Chamando ActivityAttachmentService.deleteAttachment...');
-          const result = await ActivityAttachmentService.deleteAttachment(activityId);
+          const storageUrl = imageAttachment?.storageUrl;
+          console.log('🔗 [Modal] Passando storageUrl:', storageUrl);
+          const result = await ActivityAttachmentService.deleteAttachment(activityId, storageUrl);
           console.log('✅ [Modal] deleteAttachment retornou:', result);
           
           setMessage({ type: 'success', text: 'Imagem excluída!' });
@@ -430,7 +437,9 @@ export default function ActivityAttachmentModal({
           setMessage(null);
           
           console.log('📞 [Modal] Chamando ActivityAttachmentService.deleteFileAttachment...');
-          const result = await ActivityAttachmentService.deleteFileAttachment(activityId);
+          const storageUrl = fileAttachment?.storageUrl || fileAttachment?.url; // Preferir storageUrl, fallback para url
+          console.log('🔗 [Modal] Passando storageUrl:', storageUrl);
+          const result = await ActivityAttachmentService.deleteFileAttachment(activityId, storageUrl);
           console.log('✅ [Modal] deleteFileAttachment retornou:', result);
           
           setMessage({ type: 'success', text: 'Arquivo excluído!' });
