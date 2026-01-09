@@ -6,18 +6,25 @@ import { createClient } from '@supabase/supabase-js';
 import { AuthService } from './authService';
 
 // Cliente com service role para operações de storage (contorna RLS)
-// Em produção, usa anon key (requer políticas RLS corretas no Storage)
+// Em produção, usa o cliente principal com sessão do usuário
 const url = import.meta.env.VITE_SUPABASE_URL;
 const serviceRole = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const storageKey = serviceRole || anonKey;
-
-if (!url || !storageKey) {
-  throw new Error('Supabase configuration missing for attachmentService');
+// Criar cliente service role apenas se a chave existir
+let supabaseServiceRole: any = null;
+if (serviceRole) {
+  supabaseServiceRole = createClient(url, serviceRole);
 }
 
-const supabaseServiceRole = createClient(url, storageKey);
+/**
+ * Retorna o cliente de storage apropriado:
+ * - Se houver service role key, usa cliente com bypass de RLS
+ * - Caso contrário, usa cliente principal com sessão do usuário
+ */
+function getStorageClient() {
+  return supabaseServiceRole || supabase;
+}
 
 function logAuthStatus(context: string) {
   supabase.auth.getSession().then(({ data: { session } }) => {
@@ -272,7 +279,7 @@ export class AttachmentService {
       const userPath = user ? `${user.user_id}` : '';
 
       // Método 1: Tentar buscar o arquivo específico com service role - incluindo user_id
-      let { data, error } = await supabaseServiceRole.storage
+      let { data, error } = await getStorageClient().storage
         .from(this.BUCKET_NAME)
         .list(userPath, {
           limit: 1000,
@@ -338,7 +345,7 @@ export class AttachmentService {
       });
 
       // Tentar primeiro com service role
-      let { data, error } = await supabaseServiceRole.storage
+      let { data, error } = await getStorageClient().storage
         .from(this.BUCKET_NAME)
         .download(filePath);
 
@@ -405,7 +412,7 @@ export class AttachmentService {
         filePath
       });
 
-      const { data } = supabaseServiceRole.storage
+      const { data } = getStorageClient().storage
         .from(this.BUCKET_NAME)
         .getPublicUrl(filePath);
 
@@ -704,7 +711,7 @@ export class AttachmentService {
                 }
 
                 for (const tryPath of pathsToTry) {
-                  const { data: signedData, error: signedError } = await supabaseServiceRole.storage
+                  const { data: signedData, error: signedError } = await getStorageClient().storage
                     .from(this.BUCKET_NAME)
                     .createSignedUrl(tryPath, 120);
                     if (!signedError && signedData?.signedUrl) {
@@ -732,7 +739,7 @@ export class AttachmentService {
               }
 
               for (const tryPath of pathsToTry) {
-                const { data: blobData, error: dlError } = await supabaseServiceRole.storage
+                const { data: blobData, error: dlError } = await getStorageClient().storage
                     .from(this.BUCKET_NAME)
                     .download(tryPath);
                 if (!dlError && blobData) {
@@ -777,7 +784,7 @@ export class AttachmentService {
         // 1) tentar obter signedUrl via SDK/service role
         try {
           if (serviceRole && serviceRole.length) {
-            const { data: signedData, error: signedError } = await supabaseServiceRole.storage
+            const { data: signedData, error: signedError } = await getStorageClient().storage
               .from(this.BUCKET_NAME)
               .createSignedUrl(objectPath, 120);
 
@@ -797,7 +804,7 @@ export class AttachmentService {
         // 2) tentar baixar blob via service role e retornar object URL (preview local)
         try {
           if (serviceRole && serviceRole.length) {
-            const { data: blobData, error: dlError } = await supabaseServiceRole.storage
+            const { data: blobData, error: dlError } = await getStorageClient().storage
               .from(this.BUCKET_NAME)
               .download(objectPath);
             if (!dlError && blobData) {
@@ -837,7 +844,7 @@ export class AttachmentService {
         .from(this.BUCKET_NAME)
         .list('', { limit: 1 });
 
-      const { error: serviceError } = await supabaseServiceRole.storage
+      const { error: serviceError } = await getStorageClient().storage
         .from(this.BUCKET_NAME)
         .list('', { limit: 1 });
 
@@ -871,7 +878,7 @@ export class AttachmentService {
       console.log('📋 Listando todos os anexos no bucket...');
       
       // Tentar com service role primeiro
-      let { data, error } = await supabaseServiceRole.storage
+      let { data, error } = await getStorageClient().storage
         .from(this.BUCKET_NAME)
         .list('');
 
@@ -1173,7 +1180,7 @@ export class AttachmentService {
           // Primeiro tentar obter a URL pública via SDK (pode respeitar as configurações do projeto)
           let publicUrl: string;
           try {
-            const { data: pubData, error: pubErr } = await supabaseServiceRole.storage
+            const { data: pubData, error: pubErr } = await getStorageClient().storage
               .from(this.BUCKET_NAME)
               .getPublicUrl(fileName);
 
@@ -1206,7 +1213,7 @@ export class AttachmentService {
               try {
                 const objectPath = this.normalizeStoredPath(fileName);
                 if (serviceRole && serviceRole.length) {
-                  const { data: signedData, error: signedError } = await supabaseServiceRole.storage
+                  const { data: signedData, error: signedError } = await getStorageClient().storage
                     .from(this.BUCKET_NAME)
                     .createSignedUrl(objectPath, 120);
                   if (!signedError && signedData?.signedUrl) {
@@ -1572,7 +1579,7 @@ export class AttachmentService {
       candidateNames.push(...extensions.map(ext => `${fileId}.${ext}`));
 
       for (const fileName of candidateNames) {
-        const { data } = supabaseServiceRole.storage
+        const { data } = getStorageClient().storage
           .from(this.BUCKET_NAME)
           .getPublicUrl(fileName);
 
@@ -1849,7 +1856,7 @@ export class AttachmentService {
     console.log('📋 Content type:', contentType);
 
     console.log('⬆️ Uploading to storage...');
-    const storageClient = serviceRole ? supabaseServiceRole : supabase;
+    const storageClient = getStorageClient();
     const { error: uploadError } = await storageClient.storage
       .from(this.bucketName)
       .upload(filePath, file, {
@@ -2028,7 +2035,7 @@ export class AttachmentService {
       return { success: false, error: 'File path is empty or invalid for deletion' };
     }
 
-    const storageClient = serviceRole ? supabaseServiceRole : supabase;
+    const storageClient = getStorageClient();
     const { error: deleteError } = await storageClient.storage
       .from(this.bucketName)
       .remove([filePath]);
@@ -2213,7 +2220,7 @@ export class AttachmentService {
       if (!path) return null;
 
       // tentar public URL
-      const storageClient = serviceRole ? supabaseServiceRole : supabase;
+      const storageClient = getStorageClient();
       try {
         const { data } = storageClient.storage.from(this.bucketName).getPublicUrl(path);
         if (data?.publicUrl) {
@@ -2254,7 +2261,7 @@ export class AttachmentService {
 
       // fallback: download blob e retornar URL.createObjectURL
       try {
-        const dlClient = serviceRole ? supabaseServiceRole : supabase;
+        const dlClient = getStorageClient();
         const { data: blobData, error: dlErr } = await dlClient.storage.from(this.bucketName).download(path);
         if (!dlErr && blobData) {
           return URL.createObjectURL(blobData);
