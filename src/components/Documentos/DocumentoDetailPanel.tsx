@@ -546,7 +546,7 @@ export default function DocumentoDetailPanel({
               ) : (
                 <>
                   <WhatsAppIcon />
-                  Enviar no WhatsApp
+                  {isImage ? 'Enviar Imagem' : 'Enviar Arquivo'}
                 </>
               )}
             </button>
