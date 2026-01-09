@@ -436,17 +436,6 @@ export default function DocumentoDetailPanel({
           />
         </div>
 
-        {/* Footer com instrução - apenas mobile */}
-        <div className="p-4 bg-gradient-to-t from-black/80 to-transparent md:hidden">
-          <div className="bg-white/10 rounded-lg p-3 text-center">
-            <p className="text-white text-sm font-medium">
-              📲 Pressione e segure a imagem para salvar
-            </p>
-            <p className="text-white/70 text-xs mt-1">
-              Ou faça captura de tela
-            </p>
-          </div>
-        </div>
       </div>
     );
   }
@@ -532,14 +521,34 @@ export default function DocumentoDetailPanel({
                   </div>
                 )}
               </div>
-              {/* Botão de substituir arquivo */}
-              <label
-                htmlFor="replace-file-input"
-                className="mt-2 flex items-center justify-center gap-2 px-3 py-2 text-sm text-[#00A651] hover:text-[#008a44] hover:bg-[#00A651]/5 rounded-lg cursor-pointer transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Substituir arquivo
-              </label>
+              {/* Botões de substituir e remover arquivo */}
+              <div className="mt-2 flex items-center justify-center gap-4">
+                <label
+                  htmlFor="replace-file-input"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-[#00A651] hover:text-[#008a44] hover:bg-[#00A651]/5 rounded-lg cursor-pointer transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Substituir
+                </label>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm('Remover anexo deste documento?')) return;
+                    try {
+                      const updated = await DocumentosService.update(documento.id, { arquivo_url: '' });
+                      if (updated && onFileUpdated) {
+                        onFileUpdated(updated);
+                      }
+                    } catch (err) {
+                      console.error('Erro ao remover anexo:', err);
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Remover
+                </button>
+              </div>
             </div>
           ) : (
             <div className="mb-6">
@@ -550,14 +559,34 @@ export default function DocumentoDetailPanel({
                   </p>
                 </div>
               </div>
-              {/* Botão de substituir arquivo */}
-              <label
-                htmlFor="replace-file-input"
-                className="mt-2 flex items-center justify-center gap-2 px-3 py-2 text-sm text-[#00A651] hover:text-[#008a44] hover:bg-[#00A651]/5 rounded-lg cursor-pointer transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Substituir arquivo
-              </label>
+              {/* Botões de substituir e remover arquivo */}
+              <div className="mt-2 flex items-center justify-center gap-4">
+                <label
+                  htmlFor="replace-file-input"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-[#00A651] hover:text-[#008a44] hover:bg-[#00A651]/5 rounded-lg cursor-pointer transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Substituir
+                </label>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm('Remover anexo deste documento?')) return;
+                    try {
+                      const updated = await DocumentosService.update(documento.id, { arquivo_url: '' });
+                      if (updated && onFileUpdated) {
+                        onFileUpdated(updated);
+                      }
+                    } catch (err) {
+                      console.error('Erro ao remover anexo:', err);
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Remover
+                </button>
+              </div>
             </div>
           )}
 
