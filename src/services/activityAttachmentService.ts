@@ -861,6 +861,47 @@ export class ActivityAttachmentService {
     return true;
   }
 
+  /**
+   * Normaliza path do storage, extraindo o path real de uma URL completa
+   * Exemplo: https://...supabase.co/storage/v1/object/public/atividades_agricolas/imagens/abc.jpg
+   * Retorna: imagens/abc.jpg
+   */
+  private static normalizeStoragePath(urlOrPath: string): string {
+    if (!urlOrPath) return urlOrPath;
+    const s = urlOrPath.split('?')[0]; // Remove query params
+    
+    try {
+      if (s.startsWith('http://') || s.startsWith('https://')) {
+        // Extrair tudo após /storage/v1/object/public/{bucket}/
+        const markerPublic = `/storage/v1/object/public/${this.BUCKET_NAME}/`;
+        const markerPrivate = `/storage/v1/object/${this.BUCKET_NAME}/`;
+        
+        let idx = s.indexOf(markerPublic);
+        if (idx >= 0) return s.substring(idx + markerPublic.length);
+        
+        idx = s.indexOf(markerPrivate);
+        if (idx >= 0) return s.substring(idx + markerPrivate.length);
+        
+        // Fallback: encontrar o bucket name e retornar o resto
+        const parts = s.split('/');
+        const bucketIndex = parts.findIndex(p => p === this.BUCKET_NAME);
+        if (bucketIndex >= 0 && parts.length > bucketIndex + 1) {
+          return parts.slice(bucketIndex + 1).join('/');
+        }
+      }
+      
+      // Se começar com nome do bucket, remover prefixo
+      if (s.startsWith(`${this.BUCKET_NAME}/`)) {
+        return s.substring(this.BUCKET_NAME.length + 1);
+      }
+      
+      return s.replace(/^\/+/, '');
+    } catch (err) {
+      console.warn('⚠️ normalizeStoragePath falhou para:', urlOrPath, err);
+      return urlOrPath;
+    }
+  }
+
   private static getFileExtension(file: File): string {
     const mimeToExt: Record<string, string> = {
       'application/pdf': 'pdf',
