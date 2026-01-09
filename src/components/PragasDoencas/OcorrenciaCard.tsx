@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AuthService } from '../../services/authService';
 import { Ocorrencia } from './mockOcorrencias';
-import { ChevronRight, Edit2, CheckCircle } from 'lucide-react';
+import { ChevronRight, Edit2, CheckCircle, Upload, Loader2 } from 'lucide-react';
 import { formatDateBR } from '../../lib/dateUtils';
 import ImageViewerModal from './ImageViewerModal';
 import { supabase } from '../../lib/supabase';
+import { PragasDoencasService } from '../../services/pragasDoencasService';
 
 interface OcorrenciaCardProps {
   ocorrencia: Ocorrencia;
@@ -46,6 +47,55 @@ export default function OcorrenciaCard({
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imagePath, setImagePath] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+
+  // Função para fazer upload de imagem quando não há foto
+  const handleUploadImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const userId = AuthService.getInstance().getCurrentUser()?.user_id;
+    if (!userId) {
+      console.error('[OcorrenciaCard] Usuário não autenticado');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      console.log('[OcorrenciaCard] Fazendo upload de imagem...', file.name);
+      const newPath = await PragasDoencasService.uploadImage(file, ocorrencia.id, userId);
+      
+      if (!newPath) {
+        console.error('[OcorrenciaCard] Erro no upload - path é null');
+        return;
+      }
+
+      // Atualizar banco com novo path
+      const { error: dbError } = await supabase
+        .from('pragas_e_doencas')
+        .update({ foto_principal: newPath })
+        .eq('id', ocorrencia.id);
+
+      if (dbError) {
+        console.error('[OcorrenciaCard] Erro ao atualizar banco:', dbError);
+        return;
+      }
+
+      // Gerar signed URL para mostrar imagem
+      const signedUrl = await PragasDoencasService.getSignedUrl(newPath, 3600, userId);
+      if (signedUrl) {
+        console.log('[OcorrenciaCard] Upload concluído, exibindo imagem');
+        setImagePath(newPath);
+        setImageSrc(signedUrl);
+      }
+    } catch (err) {
+      console.error('[OcorrenciaCard] Erro ao fazer upload:', err);
+    } finally {
+      setIsUploading(false);
+      if (uploadInputRef.current) uploadInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -193,7 +243,7 @@ export default function OcorrenciaCard({
       {/* Topo: Foto + Título + Tags */}
       <div className="flex gap-3 mb-3">
         {/* Foto Miniatura */}
-        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 text-3xl overflow-hidden">
+        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
           {imageSrc ? (
             <img
               src={imageSrc}
@@ -205,7 +255,33 @@ export default function OcorrenciaCard({
               }}
             />
           ) : (
-            <span>{ocorrencia.fotoPrincipal || '📋'}</span>
+            <>
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleUploadImage}
+                className="hidden"
+              />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  uploadInputRef.current?.click();
+                }}
+                disabled={isUploading}
+                className="w-full h-full flex flex-col items-center justify-center text-gray-400 hover:text-[#00A651] hover:bg-gray-50 transition-colors cursor-pointer"
+                title="Adicionar foto"
+              >
+                {isUploading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5" />
+                    <span className="text-[10px] mt-0.5">Foto</span>
+                  </>
+                )}
+              </button>
+            </>
           )}
         </div>
 

@@ -200,7 +200,6 @@ export default function ImageViewerModal({
       console.log('[ImageViewerModal] Sucesso! Chamando callbacks...');
       onImageDeleted?.();
       onClose();
-      window.location.reload();
     } catch (error) {
       console.error('[ImageViewerModal] Erro ao excluir:', error);
     }
