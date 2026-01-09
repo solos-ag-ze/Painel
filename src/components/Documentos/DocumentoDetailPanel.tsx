@@ -536,17 +536,17 @@ export default function DocumentoDetailPanel({
             <button
               onClick={handleEnviarWhatsApp}
               disabled={isSendingWhatsApp}
-              className="w-full flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {isSendingWhatsApp ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Enviando...
+                  <span className="whitespace-nowrap">Enviando...</span>
                 </>
               ) : (
                 <>
                   <WhatsAppIcon />
-                  {isImage ? 'Enviar Imagem' : 'Enviar Arquivo'}
+                  <span className="whitespace-nowrap">{isImage ? 'Enviar Imagem' : 'Enviar Arquivo'}</span>
                 </>
               )}
             </button>
