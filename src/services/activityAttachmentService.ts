@@ -389,6 +389,26 @@ export class ActivityAttachmentService {
   static async deleteAttachment(activityId: string): Promise<boolean> {
     try {
       console.log('🗑️ [Manejo] Excluindo imagem:', activityId);
+      
+      // 🔍 DIAGNÓSTICO: Verificar estado atual do banco
+      const { data: dbState } = await supabase
+        .from('lancamentos_agricolas')
+        .select('esperando_por_anexo')
+        .eq('atividade_id', activityId)
+        .single();
+      console.log('📊 [Diagnóstico] Estado atual no banco:', dbState);
+      
+      // 🔍 DIAGNÓSTICO: Listar arquivos no bucket
+      try {
+        const { data: allFiles } = await supabase.storage
+          .from(this.BUCKET_NAME)
+          .list(this.IMAGE_FOLDER, { limit: 1000 });
+        console.log('📁 [Diagnóstico] Total de arquivos na pasta imagens:', allFiles?.length || 0);
+        const matchingFiles = allFiles?.filter(f => f.name.includes(activityId)) || [];
+        console.log('🎯 [Diagnóstico] Arquivos que contêm o activityId:', matchingFiles.map(f => f.name));
+      } catch (listErr) {
+        console.log('⚠️ [Diagnóstico] Erro ao listar arquivos:', listErr);
+      }
 
       const user = AuthService.getInstance().getCurrentUser();
       const pathsToTry: string[] = [];
@@ -423,19 +443,30 @@ export class ActivityAttachmentService {
         }
 
         if (!error && data && data.length > 0) {
-          console.log('✅ [Manejo] Exclusão concluída:', path);
+          console.log('✅ [Manejo] Exclusão do storage concluída:', path);
+          console.log('📦 [Diagnóstico] Dados retornados pelo storage.remove():', data);
           
           // ⭐ Atualizar flag no banco de dados
-          await supabase
+          const { data: updateData, error: updateError } = await supabase
             .from('lancamentos_agricolas')
             .update({ esperando_por_anexo: false })
-            .eq('atividade_id', activityId);
+            .eq('atividade_id', activityId)
+            .select();
           
-          console.log('📝 [Manejo] Flag esperando_por_anexo resetada no banco');
+          if (updateError) {
+            console.error('❌ [Manejo] Erro ao atualizar banco:', updateError);
+          } else {
+            console.log('✅ [Manejo] Flag esperando_por_anexo resetada no banco:', updateData);
+          }
+          
+          // 🔍 DIAGNÓSTICO: Verificar se arquivo ainda existe
+          const stillExists = await this.hasAttachment(activityId);
+          console.log('🔍 [Diagnóstico] Arquivo ainda existe após exclusão?', stillExists);
           
           return true;
         } else {
           console.log(`⚠️ [Manejo] Falha ao excluir ${path}:`, error?.message || 'Nenhum arquivo removido');
+          console.log('📦 [Diagnóstico] Dados retornados (falha):', { data, error });
         }
       }
 
@@ -529,6 +560,26 @@ export class ActivityAttachmentService {
   static async deleteFileAttachment(activityId: string): Promise<boolean> {
     try {
       console.log('🗑️ [Manejo] Excluindo arquivo:', activityId);
+      
+      // 🔍 DIAGNÓSTICO: Verificar estado atual do banco
+      const { data: dbState } = await supabase
+        .from('lancamentos_agricolas')
+        .select('esperando_por_anexo')
+        .eq('atividade_id', activityId)
+        .single();
+      console.log('📊 [Diagnóstico] Estado atual no banco:', dbState);
+      
+      // 🔍 DIAGNÓSTICO: Listar arquivos no bucket
+      try {
+        const { data: allFiles } = await supabase.storage
+          .from(this.BUCKET_NAME)
+          .list(this.FILE_FOLDER, { limit: 1000 });
+        console.log('📁 [Diagnóstico] Total de arquivos na pasta arquivos:', allFiles?.length || 0);
+        const matchingFiles = allFiles?.filter(f => f.name.includes(activityId)) || [];
+        console.log('🎯 [Diagnóstico] Arquivos que contêm o activityId:', matchingFiles.map(f => f.name));
+      } catch (listErr) {
+        console.log('⚠️ [Diagnóstico] Erro ao listar arquivos:', listErr);
+      }
 
       const user = AuthService.getInstance().getCurrentUser();
       const extensions = ['pdf','xml','xls','xlsx','doc','docx','csv','txt'];
@@ -567,15 +618,25 @@ export class ActivityAttachmentService {
       }
 
       if (!error && data && data.length > 0) {
-        console.log('✅ [Manejo] Exclusão concluída. Arquivos removidos:', data.length);
+        console.log('✅ [Manejo] Exclusão em massa concluída. Arquivos removidos:', data.length);
+        console.log('📦 [Diagnóstico] Dados retornados:', data);
         
         // ⭐ Atualizar flag no banco de dados
-        await supabase
+        const { data: updateData, error: updateError } = await supabase
           .from('lancamentos_agricolas')
           .update({ esperando_por_anexo: false })
-          .eq('atividade_id', activityId);
+          .eq('atividade_id', activityId)
+          .select();
         
-        console.log('📝 [Manejo] Flag esperando_por_anexo resetada no banco');
+        if (updateError) {
+          console.error('❌ [Manejo] Erro ao atualizar banco:', updateError);
+        } else {
+          console.log('✅ [Manejo] Flag esperando_por_anexo resetada no banco:', updateData);
+        }
+        
+        // 🔍 DIAGNÓSTICO: Verificar se arquivo ainda existe
+        const stillExists = await this.hasFileAttachment(activityId);
+        console.log('🔍 [Diagnóstico] Arquivo ainda existe após exclusão?', stillExists);
         
         return true;
       }
@@ -602,15 +663,24 @@ export class ActivityAttachmentService {
       }
 
       if (removedCount > 0) {
-        console.log(`✅ [Manejo] Total de arquivos removidos: ${removedCount}`);
+        console.log(`✅ [Manejo] Total de arquivos removidos (individual): ${removedCount}`);
         
         // ⭐ Atualizar flag no banco de dados
-        await supabase
+        const { data: updateData, error: updateError } = await supabase
           .from('lancamentos_agricolas')
           .update({ esperando_por_anexo: false })
-          .eq('atividade_id', activityId);
+          .eq('atividade_id', activityId)
+          .select();
         
-        console.log('📝 [Manejo] Flag esperando_por_anexo resetada no banco');
+        if (updateError) {
+          console.error('❌ [Manejo] Erro ao atualizar banco:', updateError);
+        } else {
+          console.log('✅ [Manejo] Flag esperando_por_anexo resetada no banco:', updateData);
+        }
+        
+        // 🔍 DIAGNÓSTICO: Verificar se arquivo ainda existe
+        const stillExists = await this.hasFileAttachment(activityId);
+        console.log('🔍 [Diagnóstico] Arquivo ainda existe após exclusão?', stillExists);
         
         return true;
       }

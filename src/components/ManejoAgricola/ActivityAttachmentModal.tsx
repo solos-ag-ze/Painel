@@ -390,22 +390,30 @@ export default function ActivityAttachmentModal({
     setConfirmState({
       type: 'delete-image',
       onConfirm: async () => {
+        console.log('🔴 [Modal] Iniciando exclusão de imagem:', activityId);
         setConfirmState({ type: null });
         try {
           setLoading(true);
           setMessage(null);
-          await ActivityAttachmentService.deleteAttachment(activityId);
+          
+          console.log('📞 [Modal] Chamando ActivityAttachmentService.deleteAttachment...');
+          const result = await ActivityAttachmentService.deleteAttachment(activityId);
+          console.log('✅ [Modal] deleteAttachment retornou:', result);
+          
           setMessage({ type: 'success', text: 'Imagem excluída!' });
           
-          // Aguardar propagação da exclusão
+          console.log('⏳ [Modal] Aguardando propagação (500ms)...');
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          // Forçar refresh da lista de anexos
+          console.log('🔄 [Modal] Forçando refresh da lista de anexos...');
           await checkAttachments(true);
+          console.log('✅ [Modal] Refresh concluído');
         } catch (error) {
+          console.error('❌ [Modal] Erro ao excluir imagem:', error);
           setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Erro ao excluir imagem' });
         } finally {
           setLoading(false);
+          console.log('🏁 [Modal] Processo de exclusão finalizado');
         }
       }
     });
@@ -415,22 +423,30 @@ export default function ActivityAttachmentModal({
     setConfirmState({
       type: 'delete-file',
       onConfirm: async () => {
+        console.log('🔴 [Modal] Iniciando exclusão de arquivo:', activityId);
         setConfirmState({ type: null });
         try {
           setLoading(true);
           setMessage(null);
-          await ActivityAttachmentService.deleteFileAttachment(activityId);
+          
+          console.log('📞 [Modal] Chamando ActivityAttachmentService.deleteFileAttachment...');
+          const result = await ActivityAttachmentService.deleteFileAttachment(activityId);
+          console.log('✅ [Modal] deleteFileAttachment retornou:', result);
+          
           setMessage({ type: 'success', text: 'Arquivo excluído!' });
           
-          // Aguardar propagação da exclusão
+          console.log('⏳ [Modal] Aguardando propagação (500ms)...');
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          // Forçar refresh da lista de anexos
+          console.log('🔄 [Modal] Forçando refresh da lista de anexos...');
           await checkAttachments(true);
+          console.log('✅ [Modal] Refresh concluído');
         } catch (error) {
+          console.error('❌ [Modal] Erro ao excluir arquivo:', error);
           setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Erro ao excluir arquivo' });
         } finally {
           setLoading(false);
+          console.log('🏁 [Modal] Processo de exclusão finalizado');
         }
       }
     });
