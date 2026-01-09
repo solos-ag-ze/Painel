@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Documento } from "./mockDocumentos";
-import { X, Download, Edit2, Trash2, Loader2, ImageIcon, ZoomIn, FileText } from "lucide-react";
-import { formatDateBR } from "../../lib/dateUtils";
+import { X, Download, Edit2, Trash2, Loader2, ImageIcon, ZoomIn, FileText, RefreshCw } from "lucide-react";
 import { DocumentosService } from "../../services/documentosService";
 import { AuthService } from "../../services/authService";
 import { UserService } from "../../services/userService";
@@ -19,6 +18,7 @@ interface DocumentoDetailPanelProps {
   onClose: () => void;
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
+  onFileUpdated?: (documento: Documento) => void;
 }
 
 const isImageFile = (extension: string): boolean => {
@@ -97,8 +97,10 @@ export default function DocumentoDetailPanel({
   onClose,
   onEdit,
   onDelete,
+  onFileUpdated,
 }: DocumentoDetailPanelProps) {
   // IMPORTANTE: Todos os hooks devem vir ANTES de qualquer return condicional
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -109,6 +111,7 @@ export default function DocumentoDetailPanel({
   const [showBrowserWarning, setShowBrowserWarning] = useState(false);
   const [pendingDownloadUrl, setPendingDownloadUrl] = useState<string | null>(null);
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   const fileExtension = documento ? getFileExtension(documento.arquivo_url) : 'FILE';
   const isImage = isImageFile(fileExtension);
@@ -247,6 +250,56 @@ export default function DocumentoDetailPanel({
       // Não exibe alertas
     } finally {
       setIsSendingWhatsApp(false);
+    }
+  };
+
+  // Substituir arquivo do documento
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !documento) return;
+
+    // Validar tamanho (10MB max)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('Arquivo muito grande. Máximo: 10MB');
+      return;
+    }
+
+    setIsUploadingFile(true);
+    try {
+      const userId = AuthService.getInstance().getCurrentUser()?.user_id;
+      if (!userId) {
+        alert('Usuário não autenticado');
+        return;
+      }
+
+      // Upload do novo arquivo
+      const arquivoUrl = await DocumentosService.uploadFile(file, userId);
+      
+      // Atualizar documento no banco
+      const documentoAtualizado = await DocumentosService.update(documento.id, {
+        arquivo_url: arquivoUrl,
+        titulo: documento.titulo || file.name,
+      });
+
+      if (documentoAtualizado && onFileUpdated) {
+        onFileUpdated(documentoAtualizado);
+        // Recarrega preview se for imagem
+        if (isImageFile(getFileExtension(arquivoUrl))) {
+          setImageLoading(true);
+          const url = await DocumentosService.getSignedUrl(arquivoUrl, 600);
+          setImagePreviewUrl(url);
+          setImageLoading(false);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao substituir arquivo:', error);
+      alert('Erro ao substituir arquivo. Tente novamente.');
+    } finally {
+      setIsUploadingFile(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -432,49 +485,79 @@ export default function DocumentoDetailPanel({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          {/* Input oculto para upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.ods,.odp,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.csv,.zip,.rar"
+            onChange={handleFileChange}
+            className="hidden"
+            id="replace-file-input"
+          />
+
           {/* Preview */}
           {isImage ? (
-            <div
-              className="bg-gray-100 rounded-lg mb-6 overflow-hidden cursor-pointer relative group"
-              onClick={() => imagePreviewUrl && setShowFullscreenModal(true)}
-            >
-              {imageLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="w-8 h-8 text-[#004417] animate-spin" />
-                </div>
-              ) : imageError ? (
-                <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-                  <ImageIcon className="w-12 h-12 mb-2" />
-                  <p className="text-sm">Não foi possível carregar a imagem</p>
-                </div>
-              ) : imagePreviewUrl ? (
-                <>
-                  <img
-                    src={imagePreviewUrl}
-                    alt={documento.titulo || 'Imagem do documento'}
-                    className="w-full h-auto max-h-[300px] object-contain bg-gray-50"
-                    onError={() => setImageError(true)}
-                  />
-                  {/* Overlay com ícone de zoom */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-3 shadow-lg">
-                      <ZoomIn className="w-6 h-6 text-[#004417]" />
-                    </div>
+            <div className="mb-6">
+              <div
+                className="bg-gray-100 rounded-lg overflow-hidden cursor-pointer relative group"
+                onClick={() => imagePreviewUrl && setShowFullscreenModal(true)}
+              >
+                {imageLoading || isUploadingFile ? (
+                  <div className="flex items-center justify-center h-64">
+                    <Loader2 className="w-8 h-8 text-[#004417] animate-spin" />
                   </div>
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-64">
-                  <ImageIcon className="w-12 h-12 text-gray-400" />
-                </div>
-              )}
+                ) : imageError ? (
+                  <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                    <ImageIcon className="w-12 h-12 mb-2" />
+                    <p className="text-sm">Não foi possível carregar a imagem</p>
+                  </div>
+                ) : imagePreviewUrl ? (
+                  <>
+                    <img
+                      src={imagePreviewUrl}
+                      alt={documento.titulo || 'Imagem do documento'}
+                      className="w-full h-auto max-h-[300px] object-contain bg-gray-50"
+                      onError={() => setImageError(true)}
+                    />
+                    {/* Overlay com ícone de zoom */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-3 shadow-lg">
+                        <ZoomIn className="w-6 h-6 text-[#004417]" />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-64">
+                    <ImageIcon className="w-12 h-12 text-gray-400" />
+                  </div>
+                )}
+              </div>
+              {/* Botão de substituir arquivo */}
+              <label
+                htmlFor="replace-file-input"
+                className="mt-2 flex items-center justify-center gap-2 px-3 py-2 text-sm text-[#00A651] hover:text-[#008a44] hover:bg-[#00A651]/5 rounded-lg cursor-pointer transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Substituir arquivo
+              </label>
             </div>
           ) : (
-            <div className="bg-gray-50 rounded-lg p-6 mb-6 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-lg font-semibold text-[#004417]">
-                  {getFileTypeName(fileExtension)}
-                </p>
+            <div className="mb-6">
+              <div className="bg-gray-50 rounded-lg p-6 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-[#004417]">
+                    {getFileTypeName(fileExtension)}
+                  </p>
+                </div>
               </div>
+              {/* Botão de substituir arquivo */}
+              <label
+                htmlFor="replace-file-input"
+                className="mt-2 flex items-center justify-center gap-2 px-3 py-2 text-sm text-[#00A651] hover:text-[#008a44] hover:bg-[#00A651]/5 rounded-lg cursor-pointer transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Substituir arquivo
+              </label>
             </div>
           )}
 

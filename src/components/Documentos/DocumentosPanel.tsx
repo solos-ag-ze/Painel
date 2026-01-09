@@ -269,6 +269,11 @@ export default function DocumentosPanel() {
         }}
         onEdit={handleEdit}
         onDelete={handleDeleteRequest}
+        onFileUpdated={(doc) => {
+          // Atualiza o documento na lista local
+          setDocumentos(prev => prev.map(d => d.id === doc.id ? doc : d));
+          setSelectedDocumento(doc);
+        }}
       />
 
       {/* Upload Modal */}
