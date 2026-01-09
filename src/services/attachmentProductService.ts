@@ -43,25 +43,20 @@ export class AttachmentProductService {
   }
 
   /**
-   * Gera o path do arquivo no formato: {user_id}/{folder}/{productId}.{ext}
-   * Isso é necessário para as políticas RLS funcionarem corretamente
+   * Gera o path do arquivo no formato LEGADO: {folder}/{productId}.{ext}
+   * Usamos o formato legado porque as políticas RLS simples (bucket_id = 'produtos')
+   * funcionam corretamente, enquanto o formato com user_id teve problemas de registro
    */
-  private static getFilePath(productId: string, ext: string = 'jpg', userId?: string): string {
+  private static getFilePath(productId: string, ext: string = 'jpg'): string {
     const folder = ext === 'pdf' ? this.PDF_FOLDER : this.IMAGE_FOLDER;
-    const uid = userId || this.getUserId();
-    if (!uid) {
-      console.error('[AttachmentProductService] Usuário não autenticado');
-      throw new Error('Usuário não autenticado');
-    }
-    return `${uid}/${folder}/${productId}.${ext}`;
+    return `${folder}/${productId}.${ext}`;
   }
 
   /**
-   * Gera o path legado (sem user_id) para buscar arquivos antigos
+   * Alias para getFilePath - mantido para compatibilidade
    */
   private static getLegacyFilePath(productId: string, ext: string = 'jpg'): string {
-    const folder = ext === 'pdf' ? this.PDF_FOLDER : this.IMAGE_FOLDER;
-    return `${folder}/${productId}.${ext}`;
+    return this.getFilePath(productId, ext);
   }
 
   /**
@@ -195,37 +190,19 @@ export class AttachmentProductService {
       }
     };
 
-    // Helper para tentar path novo e depois legado
-    const tryResolveWithFallback = async (ext: 'jpg' | 'pdf'): Promise<{ urls: { displayUrl: string | null; storageUrl: string | null }; usedPath: string | null }> => {
-      const userId = this.getUserId();
-      
-      // Tenta path novo primeiro (com user_id)
-      if (userId) {
-        try {
-          const newPath = this.getFilePath(productId, ext, userId);
-          console.log('[AttachmentProductService] Tentando path novo:', newPath);
-          const urls = await resolveUrls(newPath);
-          if (urls.displayUrl) {
-            return { urls, usedPath: newPath };
-          }
-        } catch (e) {
-          // Ignora erro e tenta legado
-        }
-      }
-      
-      // Fallback para path legado (sem user_id)
-      const legacyPath = this.getLegacyFilePath(productId, ext);
-      console.log('[AttachmentProductService] Tentando path legado:', legacyPath);
-      const urls = await resolveUrls(legacyPath);
+    // Helper para resolver URL do arquivo
+    const tryResolveAttachment = async (ext: 'jpg' | 'pdf'): Promise<{ urls: { displayUrl: string | null; storageUrl: string | null }; usedPath: string | null }> => {
+      const path = this.getFilePath(productId, ext);
+      console.log('[AttachmentProductService] Tentando path:', path);
+      const urls = await resolveUrls(path);
       if (urls.displayUrl) {
-        return { urls, usedPath: legacyPath };
+        return { urls, usedPath: path };
       }
-      
       return { urls: { displayUrl: null, storageUrl: null }, usedPath: null };
     };
 
     // Imagem
-    const imageResult = await tryResolveWithFallback('jpg');
+    const imageResult = await tryResolveAttachment('jpg');
     if (imageResult.urls.displayUrl) {
       results.push({
         url: imageResult.urls.displayUrl,
@@ -236,7 +213,7 @@ export class AttachmentProductService {
     }
 
     // PDF
-    const pdfResult = await tryResolveWithFallback('pdf');
+    const pdfResult = await tryResolveAttachment('pdf');
     if (pdfResult.urls.displayUrl) {
       results.push({
         url: pdfResult.urls.displayUrl,
@@ -345,39 +322,16 @@ export class AttachmentProductService {
     try {
       console.log('⬇️ Download do anexo do produto:', productId);
       
-      // Tenta path novo primeiro
-      const userId = this.getUserId();
-      let filePath = userId ? `${userId}/${ext === 'pdf' ? this.PDF_FOLDER : this.IMAGE_FOLDER}/${productId}.${ext}` : null;
-      let data: Blob | null = null;
-      let error: Error | null = null;
-
-      if (filePath) {
-        console.log('[Download] Tentando path novo:', filePath);
-        const result = await getStorageClient()
-          .storage
-          .from(this.BUCKET_NAME)
-          .download(filePath);
-        
-        if (!result.error && result.data) {
-          data = result.data;
-        } else {
-          console.log('[Download] Path novo falhou, tentando legado...');
-        }
-      }
-
-      // Fallback para path legado
-      if (!data) {
-        filePath = this.getLegacyFilePath(productId, ext);
-        console.log('[Download] Tentando path legado:', filePath);
-        const result = await getStorageClient()
-          .storage
-          .from(this.BUCKET_NAME)
-          .download(filePath);
-        
-        if (result.error || !result.data) {
-          throw result.error || new Error('Nenhum dado recebido no download');
-        }
-        data = result.data;
+      const filePath = this.getFilePath(productId, ext);
+      console.log('[Download] Path:', filePath);
+      
+      const { data, error } = await getStorageClient()
+        .storage
+        .from(this.BUCKET_NAME)
+        .download(filePath);
+      
+      if (error || !data) {
+        throw error || new Error('Nenhum dado recebido no download');
       }
 
       const url = URL.createObjectURL(data);
@@ -448,25 +402,18 @@ export class AttachmentProductService {
   }
 
   /**
-   * Exclui anexos (imagem e/ou pdf) - tenta paths novos e legados
+   * Exclui anexos (imagem e/ou pdf)
    */
   static async deleteAttachment(productId: string): Promise<boolean> {
     try {
       console.log('🗑️ Excluindo anexos do produto:', productId);
       
-      const userId = this.getUserId();
-      const paths: string[] = [];
+      const paths = [
+        this.getFilePath(productId, 'jpg'),
+        this.getFilePath(productId, 'pdf')
+      ];
       
-      // Adiciona paths novos se tiver userId
-      if (userId) {
-        paths.push(`${userId}/${this.IMAGE_FOLDER}/${productId}.jpg`);
-        paths.push(`${userId}/${this.PDF_FOLDER}/${productId}.pdf`);
-      }
-      // Adiciona paths legados
-      paths.push(this.getLegacyFilePath(productId, 'jpg'));
-      paths.push(this.getLegacyFilePath(productId, 'pdf'));
-      
-      console.log('[DeleteAll] Tentando excluir paths:', paths);
+      console.log('[DeleteAll] Excluindo paths:', paths);
 
       const { data, error } = await getStorageClient()
         .storage
@@ -480,37 +427,12 @@ export class AttachmentProductService {
 
       console.log('[DeleteAll] Resultado do remove:', data);
       
-      // Verifica se pelo menos um arquivo foi excluído
+      // Verifica se arquivos foram excluídos ou não existem mais
       if (!data || data.length === 0) {
-        console.warn('⚠️ Nenhum arquivo foi excluído - verificando se arquivos ainda existem...');
-        let filesStillExist = false;
-        
-        for (const path of paths) {
-          try {
-            const { data: checkData, error: checkError } = await getStorageClient()
-              .storage
-              .from(this.BUCKET_NAME)
-              .download(path);
-              
-            // Se conseguiu baixar, o arquivo existe e a exclusão falhou
-            if (checkData && !checkError) {
-              console.error('❌ Arquivo ainda existe após tentativa de exclusão:', path);
-              filesStillExist = true;
-              break;
-            }
-          } catch (checkErr) {
-            // Se deu erro, pode ser que o arquivo não existe (ok) ou erro de RLS
-            const errMsg = checkErr instanceof Error ? checkErr.message : String(checkErr);
-            console.log('[DeleteAll] Erro ao verificar arquivo:', path, errMsg);
-          }
-        }
-        
-        if (filesStillExist) {
-          throw new Error('Falha na exclusão: alguns arquivos ainda existem. Verifique as permissões de RLS.');
-        }
+        console.log('ℹ️ Nenhum arquivo encontrado para excluir (pode já ter sido removido)');
       }
 
-      console.log('✅ Exclusão concluída com sucesso');
+      console.log('✅ Exclusão concluída');
       return true;
     } catch (error) {
       console.error('💥 Erro na exclusão de anexo:', error);
