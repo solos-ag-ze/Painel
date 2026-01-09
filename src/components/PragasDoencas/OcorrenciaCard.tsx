@@ -296,9 +296,10 @@ export default function OcorrenciaCard({
             setImageSrc(null);
             setImagePath(null);
           }}
-          onImageReplaced={() => {
-            // Força reload para buscar nova imagem
-            window.location.reload();
+          onImageReplaced={(newPath, newUrl) => {
+            console.log('[OcorrenciaCard] Imagem substituída:', { newPath, newUrl });
+            setImagePath(newPath);
+            setImageSrc(newUrl);
           }}
           altText={`Foto: ${ocorrencia.nomePraga || 'Ocorrência'}`}
         />

@@ -18,7 +18,7 @@ interface ImageViewerModalProps {
   ocorrenciaNome?: string;
   onClose: () => void;
   onImageDeleted?: () => void;
-  onImageReplaced?: () => void;
+  onImageReplaced?: (newPath: string, newUrl: string) => void;
   altText?: string;
 }
 
@@ -158,10 +158,21 @@ export default function ImageViewerModal({
         console.error('[ImageViewerModal] Erro ao substituir imagem - newPath é null');
         return;
       }
-      console.log('[ImageViewerModal] Sucesso! Chamando callbacks...');
-      onImageReplaced?.();
+      
+      // Gerar signed URL para a nova imagem
+      console.log('[ImageViewerModal] Gerando signed URL para nova imagem...');
+      const newSignedUrl = await PragasDoencasService.getSignedUrl(newPath, 3600, userId);
+      console.log('[ImageViewerModal] Nova signed URL:', newSignedUrl);
+      
+      if (!newSignedUrl) {
+        console.error('[ImageViewerModal] Erro ao gerar signed URL - forçando reload');
+        window.location.reload();
+        return;
+      }
+      
+      console.log('[ImageViewerModal] Sucesso! Chamando callback com novo path e URL...');
+      onImageReplaced?.(newPath, newSignedUrl);
       onClose();
-      window.location.reload();
     } catch (error) {
       console.error('[ImageViewerModal] Erro ao substituir:', error);
     } finally {
