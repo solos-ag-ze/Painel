@@ -3,6 +3,7 @@ export interface Ocorrencia {
   origem: 'WhatsApp' | 'Painel';
   talhao: string;
   dataOcorrencia: string;
+  created_at?: string;
   faseLavoura: 'Vegetativo' | 'Floração' | 'Granação' | 'Pré-colheita' | 'Colheita' | 'Pós-colheita';
   tipoOcorrencia: 'Praga' | 'Doença' | 'Deficiência' | 'Planta daninha' | 'Não sei / Outra';
   severidade: 'Baixa' | 'Média' | 'Alta';
@@ -27,6 +28,7 @@ export const mockOcorrencias: Ocorrencia[] = [
     origem: 'WhatsApp',
     talhao: 'Talhão 3',
     dataOcorrencia: '2025-09-15',
+    created_at: '2025-09-15T08:30:00',
     faseLavoura: 'Pré-colheita',
     tipoOcorrencia: 'Doença',
     severidade: 'Alta',
@@ -49,6 +51,7 @@ export const mockOcorrencias: Ocorrencia[] = [
     origem: 'Painel',
     talhao: 'Talhão 1',
     dataOcorrencia: '2025-10-05',
+    created_at: '2025-10-05T14:45:00',
     faseLavoura: 'Floração',
     tipoOcorrencia: 'Praga',
     severidade: 'Média',

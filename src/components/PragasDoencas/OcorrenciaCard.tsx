@@ -1,18 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { AuthService } from '../../services/authService';
 import { Ocorrencia } from './mockOcorrencias';
+import type { PragaDoenca } from '../../services/pragasDoencasService';
 import { ChevronRight, Edit2, CheckCircle, Upload, Loader2 } from 'lucide-react';
-import { formatDateBR } from '../../lib/dateUtils';
+import { formatDateBR, formatDateTimeBR } from '../../lib/dateUtils';
 import ImageViewerModal from './ImageViewerModal';
 import { supabase } from '../../lib/supabase';
 import { PragasDoencasService } from '../../services/pragasDoencasService';
 
-interface OcorrenciaCardProps {
-  ocorrencia: Ocorrencia;
-  onViewDetails: (ocorrencia: Ocorrencia) => void;
-  onEdit: (ocorrencia: Ocorrencia) => void;
-  onMarkResolved: (ocorrencia: Ocorrencia) => void;
-}
+type OcorrenciaCardProps = {
+  ocorrencia: Ocorrencia | PragaDoenca;
+  onViewDetails: (ocorrencia: any) => void;
+  onEdit: (ocorrencia: any) => void;
+  onMarkResolved: (ocorrencia: any) => void;
+};
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -238,6 +239,7 @@ export default function OcorrenciaCard({
     return () => { mounted = false; };
   }, [ocorrencia.fotoPrincipal]);
 
+
   return (
     <div className="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow">
       {/* Topo: Foto + Título + Tags */}
@@ -291,7 +293,7 @@ export default function OcorrenciaCard({
             {ocorrencia.nomePraga || 'Ocorrência sem identificação'}
           </h3>
           <p className="text-xs text-[rgba(0,68,23,0.75)] font-medium mt-0.5">
-            {ocorrencia.talhao} – {formatDateBR(ocorrencia.dataOcorrencia)}
+            {ocorrencia.talhao}
           </p>
 
           {/* Tags */}
@@ -321,6 +323,23 @@ export default function OcorrenciaCard({
             <span className="font-medium text-[#004417] line-clamp-1">{ocorrencia.acaoTomada}</span>
           </div>
         )}
+        {/* Data da ocorrência - estilo igual ao 'Lançado em...' do Manejo, agora com hora */}
+        <div className="mt-2">
+          {(() => {
+            // DEBUG: logar todas as chaves do objeto para inspecionar o que chega
+            // eslint-disable-next-line no-console
+            console.log('[OcorrenciaCard] keys:', Object.keys(ocorrencia), 'obj:', ocorrencia);
+            // Tenta pegar created_at (snake_case), createdAt (camelCase), ou qualquer variação
+            const createdAt = (ocorrencia as any).created_at || (ocorrencia as any).createdAt || (ocorrencia as any)['created_at'] || (ocorrencia as any)['createdAt'];
+            // eslint-disable-next-line no-console
+            console.log('[OcorrenciaCard] created_at:', createdAt, 'formatado:', formatDateTimeBR(createdAt));
+            return (
+              <span className="text-xs text-[#004417]/65">
+                {createdAt ? `Registrada em ${formatDateTimeBR(createdAt)}` : ''}
+              </span>
+            );
+          })()}
+        </div>
       </div>
 
       {/* Rodapé: Botões */}

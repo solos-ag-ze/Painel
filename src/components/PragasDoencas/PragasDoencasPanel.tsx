@@ -41,6 +41,9 @@ function adaptarParaOcorrencia(praga: PragaDoencaComTalhoes): OcorrenciaComTalha
     anexos: praga.anexos,
     fotoPrincipal: praga.foto_principal || PragasDoencasService.getOcorrenciaIcon(praga.tipo_de_ocorrencia),
     talhaoIds,
+    // Propagar created_at do banco para o componente (usar createdAt camelCase)
+    created_at: praga.created_at,
+    createdAt: praga.created_at,
   };
 }
 

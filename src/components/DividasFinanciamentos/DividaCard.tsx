@@ -1,6 +1,7 @@
 import { DividaFinanciamento } from '../../services/dividasFinanciamentosService';
 import { ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { formatDateTimeBR } from '../../lib/dateUtils';
 
 interface DividaCardProps {
   divida: DividaFinanciamento;
@@ -61,6 +62,15 @@ export default function DividaCard({
         {renderField('Garantia', divida.garantia)}
         {renderField('Responsável', divida.responsavel)}
         {renderField('Observações', divida.observacoes)}
+        {/* Última informação: created_at como 'Registrada em' (estilo ManejoAgrícola) */}
+        {(() => {
+          const created = (divida as any).created_at || (divida as any).createdAt;
+          return created ? (
+            <div className="mt-2">
+              <div className="text-xs text-[#004417]/65">Registrada em {formatDateTimeBR(created)}</div>
+            </div>
+          ) : null;
+        })()}
       </div>
 
       {/* Forma de pagamento */}
