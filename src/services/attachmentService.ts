@@ -1832,16 +1832,15 @@ export class AttachmentService {
       };
     }
 
-    // Obter user_id para estrutura de pastas (igual ao bucket notas_fiscais)
+    // Obter user_id para estrutura de pastas
     const user = AuthService.getInstance().getCurrentUser();
     if (!user?.user_id) {
       console.error('❌ User not authenticated');
       return { success: false, error: 'Usuário não autenticado.' };
     }
 
-    const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    const fileName = `${timestamp}_${randomSuffix}.${fileExt}`;
+    // Caminho padrão: {user_id}/{tipo_envio}/{extensao}/{maquinaId}.{ext}
+    const fileName = `${maquinaId}.${fileExt}`;
     const filePath = `${user.user_id}/${uploadType}/${fileExt}/${fileName}`;
 
     console.log('👤 User ID:', user.user_id);
@@ -1913,7 +1912,9 @@ export class AttachmentService {
   /**
    * Faz download de arquivo/documento de máquina
    */
-  async downloadFile(url: string): Promise<FileDownloadResult> {
+  async downloadFile(
+    url: string,
+  ): Promise<FileDownloadResult> {
     try {
       if (!url) {
         console.error('❌ No URL provided for download');
@@ -2230,7 +2231,7 @@ export class AttachmentService {
    * Busca a URL do arquivo/documento de máquina
    */
   private async getFileUrl(maquinaId: string, uploadType: 'primeiro_envio' | 'segundo_envio'): Promise<string | null> {
-  try {
+    try {
       const result = await supabase
         .from(this.tableName)
         .select(uploadType === 'primeiro_envio' ? 'url_primeiro_envio' : 'url_segundo_envio')
@@ -2241,85 +2242,104 @@ export class AttachmentService {
 
       const data = result.data as { url_primeiro_envio?: string; url_segundo_envio?: string };
       const stored = uploadType === 'primeiro_envio' ? (data.url_primeiro_envio ?? null) : (data.url_segundo_envio ?? null);
-      if (!stored) return null;
-
-      // se for URL completa, tentar usar diretamente (HEAD)
-      if (stored.startsWith('http')) {
-        try {
-          const head = await fetch(stored, { method: 'HEAD', cache: 'no-cache' });
-          if (head.ok) return stored;
-        } catch (err) {
-          // continuar para tentar extrair path
-        }
-      }
-
-      // se for um path armazenado (ex: primeiro_envio/pdf/123.pdf) ou extraível da URL, normalizar
-      let path = '';
-      if (!stored.startsWith('http')) {
-        path = stored;
-      } else {
-        path = this.extractFilePathFromUrl(stored);
-      }
-
-      if (!path) return null;
-
-      // tentar public URL
-      const storageClient = getStorageClient();
-      try {
-        const { data } = storageClient.storage.from(this.bucketName).getPublicUrl(path);
-        if (data?.publicUrl) {
+      if (stored) {
+        // se for URL completa, tentar usar diretamente (HEAD)
+        if (stored.startsWith('http')) {
           try {
-            const head = await fetch(data.publicUrl, { method: 'HEAD', cache: 'no-cache' });
-            if (head.ok) return data.publicUrl;
+            const head = await fetch(stored, { method: 'HEAD', cache: 'no-cache' });
+            if (head.ok) return stored;
           } catch (err) {
-            // continuar para signed-url
+            // continuar para tentar extrair path
           }
         }
-      } catch (err) {
-        // ignore
-      }
 
-      // tentar signed-url no server
-      const server = import.meta.env.VITE_SIGNED_URL_SERVER_URL || import.meta.env.VITE_API_URL || '';
-      if (server) {
+        // se for um path armazenado (ex: primeiro_envio/pdf/123.pdf) ou extraível da URL, normalizar
+        let path = '';
+        if (!stored.startsWith('http')) {
+          path = stored;
+        } else {
+          path = this.extractFilePathFromUrl(stored);
+        }
+
+        if (!path) return null;
+
+        // tentar public URL
+        const storageClient = getStorageClient();
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const accessToken = session?.access_token || anonKey;
-          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-          if (accessToken) {
-            headers['Authorization'] = `Bearer ${accessToken}`;
-          }
-          const resp = await fetch(`${server.replace(/\/$/, '')}/signed-url`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ bucket: this.bucketName, path, expires: 60 })
-          });
-          if (resp.ok) {
-            const payload = await resp.json();
-            if (payload?.signedUrl) return payload.signedUrl;
+          const { data } = storageClient.storage.from(this.bucketName).getPublicUrl(path);
+          if (data?.publicUrl) {
+            try {
+              const head = await fetch(data.publicUrl, { method: 'HEAD', cache: 'no-cache' });
+              if (head.ok) return data.publicUrl;
+            } catch (err) {
+              // continuar para signed-url
+            }
           }
         } catch (err) {
-          // continue
+          // ignore
         }
+
+        // tentar signed-url no server
+        const server = import.meta.env.VITE_SIGNED_URL_SERVER_URL || import.meta.env.VITE_API_URL || '';
+        if (server) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const accessToken = session?.access_token || anonKey;
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (accessToken) {
+              headers['Authorization'] = `Bearer ${accessToken}`;
+            }
+            const resp = await fetch(`${server.replace(/\/$/, '')}/signed-url`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ bucket: this.bucketName, path, expires: 60 })
+            });
+            if (resp.ok) {
+              const payload = await resp.json();
+              if (payload?.signedUrl) return payload.signedUrl;
+            }
+          } catch (err) {
+            // continue
+          }
+        }
+
+        // fallback: download blob e retornar URL.createObjectURL
+        try {
+          const dlClient = getStorageClient();
+          const { data: blobData, error: dlErr } = await dlClient.storage.from(this.bucketName).download(path);
+          if (!dlErr && blobData) {
+            return URL.createObjectURL(blobData);
+          }
+        } catch (err) {
+          // ignore
+        }
+
+        return null;
       }
 
-      // fallback: download blob e retornar URL.createObjectURL
-      try {
-        const dlClient = getStorageClient();
-        const { data: blobData, error: dlErr } = await dlClient.storage.from(this.bucketName).download(path);
-        if (!dlErr && blobData) {
-          return URL.createObjectURL(blobData);
-        }
-      } catch (err) {
-        // ignore
+      // Fallback: tentar montar o caminho novo
+      // Padrão: {user_id}/{tipo_envio}/{extensao}/{maquinaId}.{ext}
+      const user = AuthService.getInstance().getCurrentUser();
+      if (!user?.user_id) return null;
+      const extensoes = ['jpg','jpeg','png','webp','gif','bmp','svg','avif','pdf','xml','doc','docx','xls','xlsx','csv','txt'];
+      for (const ext of extensoes) {
+        const filePath = `${user.user_id}/${uploadType}/${ext}/${maquinaId}.${ext}`;
+        const storageClient = getStorageClient();
+        // Tenta gerar signed URL
+        try {
+          const { data: signedData, error: signedError } = await storageClient.storage.from(this.bucketName).createSignedUrl(filePath, 60);
+          if (!signedError && signedData?.signedUrl) {
+            // Opcional: pode fazer um HEAD para garantir que existe
+            return signedData.signedUrl;
+          }
+        } catch {}
       }
-
       return null;
-  } catch (e) {
-    console.error('Erro em getFileUrl:', e);
-    return null;
+    } catch (e) {
+      console.error('Erro em getFileUrl:', e);
+      return null;
+    }
   }
-}
 
   /**
    * Extrai o caminho do arquivo a partir da URL pública (máquina)

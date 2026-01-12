@@ -70,13 +70,76 @@ export default function FileAttachmentModal({
     }
   }, [isOpen, maquinaId]);
 
+  // Extrai o path relativo do storage a partir de uma URL completa ou retorna o path se já for relativo
+  function extractStoragePath(input: string): string {
+    if (!input) return '';
+    let path = input;
+    // Caso seja uma signed URL (com /sign/ e ?token=), extrai só o path relativo
+    if (path.includes('/sign/') && path.includes('?token=')) {
+      // Pega entre '/Documento_Maquina/' e '?token='
+      const marker = '/Documento_Maquina/';
+      const idx = path.indexOf(marker);
+      if (idx !== -1) {
+        const start = idx + marker.length;
+        const end = path.indexOf('?', start);
+        path = path.substring(start, end !== -1 ? end : undefined);
+      }
+    } else {
+      // Remove URL completa, deixa só o path relativo
+      const marker = '/storage/v1/object/Documento_Maquina/';
+      const idx = path.indexOf(marker);
+      if (idx !== -1) {
+        path = path.slice(idx + marker.length);
+      }
+      // Remove prefixo Documento_Maquina/ se vier duplicado
+      if (path.startsWith('Documento_Maquina/')) {
+        path = path.replace(/^Documento_Maquina\//, '');
+      }
+      // Garante que sempre começa com user_id e não duplica
+      const currentUser = AuthService.getInstance().getCurrentUser();
+      const userId = currentUser?.user_id;
+      if (userId && path) {
+        // Remove user_id duplicado se já existir
+        path = path.replace(new RegExp('^' + userId + '/?'), '');
+        path = `${userId}/${path}`;
+      }
+      // Garante que termina com extensão conhecida
+      const extensoes = ['.jpg', '.jpeg', '.png', '.pdf', '.xml', '.doc', '.docx'];
+      const temExtensao = extensoes.some(ext => path.toLowerCase().endsWith(ext));
+        // Para PDF/XML, garantir compatibilidade com ambos formatos
+        if (path.includes('/pdf/') || path.includes('/xml/')) {
+          const ext = path.includes('/pdf/') ? '.pdf' : '.xml';
+          // Se já termina com .pdf/.xml, não faz nada
+          if (path.endsWith(ext)) {
+            // ok
+          } else {
+            // Se termina só com o id, adiciona /{id}{ext}
+            const parts = path.split('/');
+            const id = parts[parts.length - 1];
+            path = `${path}/${id}${ext}`;
+          }
+      } else if (!temExtensao) {
+        // Para imagens, adiciona extensão se faltar
+        if (path.includes('/jpg/') || path.includes('/jpeg/') || path.includes('/png/')) {
+          path = path + '.jpg';
+        } else {
+          // Loga para debug
+          console.warn('[extractStoragePath] Path sem extensão conhecida:', path);
+        }
+      }
+    }
+    return path;
+  }
+
   const resolveUrls = async (path: string): Promise<{ displayUrl: string | null; storageUrl: string | null }> => {
     try {
       let displayUrl: string | null = null;
       let storageUrl: string | null = null;
       const BUCKET_NAME = 'Documento_Maquina';
 
-      console.log('[Maquinas] Resolvendo URLs para:', path);
+      // NOVO: sempre extrai o path relativo
+      const storagePath = extractStoragePath(path);
+      console.log('[Maquinas] Resolvendo URLs para:', storagePath);
 
       // SEMPRE usa signed URL (igual ao Estoque)
       const server = import.meta.env.VITE_SIGNED_URL_SERVER_URL || import.meta.env.VITE_API_URL || '';
@@ -84,7 +147,7 @@ export default function FileAttachmentModal({
 
       if (server) {
         try {
-          const payload = { bucket: BUCKET_NAME, path, expires: 3600 };
+          const payload = { bucket: BUCKET_NAME, path: storagePath, expires: 3600 };
           console.log('[Maquinas] Requisitando signed URL com payload:', payload);
 
           // Get user session token for authentication
@@ -129,7 +192,7 @@ export default function FileAttachmentModal({
       try {
         const { data: signedData, error: signedError } = await supabase.storage
           .from(BUCKET_NAME)
-          .createSignedUrl(path, 3600);
+          .createSignedUrl(storagePath, 3600);
 
         if (!signedError && signedData?.signedUrl) {
           console.log('[Maquinas] Signed URL do Supabase obtida:', signedData.signedUrl);
@@ -146,7 +209,7 @@ export default function FileAttachmentModal({
       // Download fallback (blob URL para display apenas)
       console.log('[Maquinas] Fallback: baixando arquivo para criar blob URL...');
       try {
-        const { data: blobData, error: dlErr } = await supabase.storage.from(BUCKET_NAME).download(path);
+        const { data: blobData, error: dlErr } = await supabase.storage.from(BUCKET_NAME).download(storagePath);
         if (!dlErr && blobData) {
           displayUrl = URL.createObjectURL(blobData);
           console.log('[Maquinas] Blob URL criada para display:', displayUrl);
