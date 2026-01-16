@@ -3,6 +3,93 @@ export type VolumeUnit = 'L' | 'mL';
 export type OtherUnit = 'un';
 export type Unit = MassUnit | VolumeUnit | OtherUnit;
 
+// Mapear variantes textuais comuns para unidades canônicas
+const UNIT_ALIASES: Record<string, string> = {
+  // massa
+  't': 'ton',
+  't.': 'ton',
+  'ton': 'ton',
+  'tons': 'ton',
+  'tonelada': 'ton',
+  'toneladas': 'ton',
+  'kg': 'kg',
+  'kg.': 'kg',
+  'kgs': 'kg',
+  'kilo': 'kg',
+  'kilos': 'kg',
+  'kilograma': 'kg',
+  'kilogramas': 'kg',
+  'g': 'g',
+  'g.': 'g',
+  'gs': 'g',
+  'gr': 'g',
+  'gr.': 'g',
+  'grs': 'g',
+  'grama': 'g',
+  'gramas': 'g',
+  'mg': 'mg',
+  'mg.': 'mg',
+  'mgs': 'mg',
+  'miligrama': 'mg',
+  'miligramas': 'mg',
+
+  // volume
+  'l': 'L',
+  'l.': 'L',
+  'lt': 'L',
+  'lt.': 'L',
+  'litro': 'L',
+  'litros': 'L',
+  'ltrs': 'L',
+  'ltrs.': 'L',
+  'ml': 'mL',
+  'ml.': 'mL',
+  'mls': 'mL',
+  'mililitro': 'mL',
+  'mililitros': 'mL',
+
+  // outros (unidades)
+  'un': 'un',
+  'un.': 'un',
+  'und': 'un',
+  'und.': 'un',
+  'unidade': 'un',
+  'unidades': 'un',
+  'unid': 'un',
+  'unid.': 'un',
+  'pc': 'un',
+  'pcs': 'un',
+  'peca': 'un',
+};
+
+function normalizeUnit(raw?: string | null): string {
+  if (!raw || typeof raw !== 'string') return '';
+  // Trim, remover acentos, pontuação simples e espaços internas
+  const lower = raw.trim().toLowerCase();
+  const noAccents = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const cleaned = noAccents.replace(/\./g, '').replace(/\s+/g, '');
+
+  // tentativa direta por aliases
+  if (UNIT_ALIASES[cleaned]) return UNIT_ALIASES[cleaned];
+
+  // remover plural final (ex: 'kgs' -> 'kg') e tentar de novo
+  if (cleaned.endsWith('s')) {
+    const singular = cleaned.slice(0, -1);
+    if (UNIT_ALIASES[singular]) return UNIT_ALIASES[singular];
+  }
+
+  // heurísticas por substring para cobrir variações menos comuns
+  if (cleaned.includes('mg')) return 'mg';
+  if (cleaned.includes('kg') || cleaned.includes('kilo')) return 'kg';
+  if (cleaned === 't' || cleaned.includes('ton')) return 'ton';
+  if (cleaned.includes('ml')) return 'mL';
+  // 'l' pode ser ambíguo se já capturamos 'ml' antes
+  if (cleaned === 'l' || cleaned.includes('litro') || cleaned === 'lt') return 'L';
+  if (cleaned.startsWith('un') || cleaned.startsWith('und') || cleaned.startsWith('pc') || cleaned.startsWith('pe')) return 'un';
+
+  // fallback: devolver versão limpa (lowercase sem pontuação) para uso posterior
+  return cleaned;
+}
 const MASS_TO_MG: Record<MassUnit, number> = {
   'ton': 1_000_000_000,
   'kg': 1_000_000,
@@ -16,41 +103,45 @@ const VOLUME_TO_ML: Record<VolumeUnit, number> = {
 };
 
 export function isMassUnit(unit: string): unit is MassUnit {
-  return ['ton', 'kg', 'g', 'mg'].includes(unit);
+  const u = normalizeUnit(unit);
+  return ['ton', 'kg', 'g', 'mg'].includes(u);
 }
 
 export function isVolumeUnit(unit: string): unit is VolumeUnit {
-  return ['L', 'mL'].includes(unit);
+  const u = normalizeUnit(unit);
+  return ['L', 'mL'].includes(u);
 }
 
 export function isOtherUnit(unit: string): unit is OtherUnit {
-  return unit === 'un';
+  const u = normalizeUnit(unit);
+  return u === 'un';
 }
 
 export function convertToStandardUnit(quantidade: number, unidade: string): { quantidade: number; unidade: string } {
-  if (isMassUnit(unidade)) {
-    if (unidade === 'mg') {
+  const u = normalizeUnit(unidade) || unidade;
+  if (isMassUnit(u)) {
+    if (u === 'mg') {
       return { quantidade, unidade: 'mg' };
     }
-    const fator = MASS_TO_MG[unidade];
+    const fator = MASS_TO_MG[u as MassUnit];
     return {
       quantidade: quantidade * fator,
       unidade: 'mg'
     };
   }
 
-  if (isVolumeUnit(unidade)) {
-    if (unidade === 'mL') {
+  if (isVolumeUnit(u)) {
+    if (u === 'mL') {
       return { quantidade, unidade: 'mL' };
     }
-    const fator = VOLUME_TO_ML[unidade];
+    const fator = VOLUME_TO_ML[u as VolumeUnit];
     return {
       quantidade: quantidade * fator,
       unidade: 'mL'
     };
   }
 
-  return { quantidade, unidade };
+  return { quantidade, unidade: u };
 }
 
 export function convertFromStandardUnit(
@@ -58,13 +149,15 @@ export function convertFromStandardUnit(
   unidadePadrao: string,
   unidadeDesejada: string
 ): number {
-  if (unidadePadrao === 'mg' && isMassUnit(unidadeDesejada)) {
-    const fator = MASS_TO_MG[unidadeDesejada];
+  const padrao = normalizeUnit(unidadePadrao) || unidadePadrao;
+  const desejada = normalizeUnit(unidadeDesejada) || unidadeDesejada;
+  if (padrao === 'mg' && isMassUnit(desejada)) {
+    const fator = MASS_TO_MG[desejada as MassUnit];
     return quantidadePadrao / fator;
   }
 
-  if (unidadePadrao === 'mL' && isVolumeUnit(unidadeDesejada)) {
-    const fator = VOLUME_TO_ML[unidadeDesejada];
+  if (padrao === 'mL' && isVolumeUnit(desejada)) {
+    const fator = VOLUME_TO_ML[desejada as VolumeUnit];
     return quantidadePadrao / fator;
   }
 
@@ -153,19 +246,22 @@ export function convertValueBetweenUnits(
   unidadeOriginal: string,
   unidadeDestino: string
 ): number {
-  if (unidadeOriginal === unidadeDestino) {
+  const orig = normalizeUnit(unidadeOriginal) || unidadeOriginal;
+  const dest = normalizeUnit(unidadeDestino) || unidadeDestino;
+
+  if (orig === dest) {
     return valor;
   }
 
-  if (isMassUnit(unidadeOriginal) && isMassUnit(unidadeDestino)) {
-    const quantidadeEmMg = convertToStandardUnit(1, unidadeOriginal).quantidade;
-    const quantidadeDestinoEmMg = convertToStandardUnit(1, unidadeDestino).quantidade;
+  if (isMassUnit(orig) && isMassUnit(dest)) {
+    const quantidadeEmMg = convertToStandardUnit(1, orig).quantidade;
+    const quantidadeDestinoEmMg = convertToStandardUnit(1, dest).quantidade;
     return (valor * quantidadeEmMg) / quantidadeDestinoEmMg;
   }
 
-  if (isVolumeUnit(unidadeOriginal) && isVolumeUnit(unidadeDestino)) {
-    const quantidadeEmMl = convertToStandardUnit(1, unidadeOriginal).quantidade;
-    const quantidadeDestinoEmMl = convertToStandardUnit(1, unidadeDestino).quantidade;
+  if (isVolumeUnit(orig) && isVolumeUnit(dest)) {
+    const quantidadeEmMl = convertToStandardUnit(1, orig).quantidade;
+    const quantidadeDestinoEmMl = convertToStandardUnit(1, dest).quantidade;
     return (valor * quantidadeEmMl) / quantidadeDestinoEmMl;
   }
 
@@ -198,16 +294,17 @@ export function convertValueFromStandardUnit(
   unidadeOriginal: string
 ): number {
   if (!unidadeOriginal) return valorPorUnidadePadrao;
+  const orig = normalizeUnit(unidadeOriginal) || unidadeOriginal;
 
   // Para unidades de massa (ton, kg, g, mg)
-  if (isMassUnit(unidadeOriginal)) {
-    const fatorConversao = MASS_TO_MG[unidadeOriginal];
+  if (isMassUnit(orig)) {
+    const fatorConversao = MASS_TO_MG[orig as MassUnit];
     return valorPorUnidadePadrao * fatorConversao;
   }
 
   // Para unidades de volume (L, mL)
-  if (isVolumeUnit(unidadeOriginal)) {
-    const fatorConversao = VOLUME_TO_ML[unidadeOriginal];
+  if (isVolumeUnit(orig)) {
+    const fatorConversao = VOLUME_TO_ML[orig as VolumeUnit];
     return valorPorUnidadePadrao * fatorConversao;
   }
 
@@ -232,22 +329,26 @@ export function convertBetweenUnits(
   fromUnit: string,
   toUnit: string
 ): number {
+  // Normalizar unidades primeiro (aceita "Kg", "KG", "gr", "litro" etc.)
+  const from = normalizeUnit(fromUnit) || fromUnit;
+  const to = normalizeUnit(toUnit) || toUnit;
+
   // Se as unidades são iguais, não precisa converter
-  if (fromUnit === toUnit) {
+  if (from === to) {
     return value;
   }
 
   // Conversão DIRETA entre unidades de massa
-  if (isMassUnit(fromUnit) && isMassUnit(toUnit)) {
-    const fromFactor = MASS_TO_MG[fromUnit];  // quanto vale 1 unidade de origem em mg
-    const toFactor = MASS_TO_MG[toUnit];      // quanto vale 1 unidade de destino em mg
+  if (isMassUnit(from) && isMassUnit(to)) {
+    const fromFactor = MASS_TO_MG[from as MassUnit];  // quanto vale 1 unidade de origem em mg
+    const toFactor = MASS_TO_MG[to as MassUnit];      // quanto vale 1 unidade de destino em mg
     return value * (fromFactor / toFactor);
   }
 
   // Conversão DIRETA entre unidades de volume
-  if (isVolumeUnit(fromUnit) && isVolumeUnit(toUnit)) {
-    const fromFactor = VOLUME_TO_ML[fromUnit];  // quanto vale 1 unidade de origem em mL
-    const toFactor = VOLUME_TO_ML[toUnit];      // quanto vale 1 unidade de destino em mL
+  if (isVolumeUnit(from) && isVolumeUnit(to)) {
+    const fromFactor = VOLUME_TO_ML[from as VolumeUnit];  // quanto vale 1 unidade de origem em mL
+    const toFactor = VOLUME_TO_ML[to as VolumeUnit];      // quanto vale 1 unidade de destino em mL
     return value * (fromFactor / toFactor);
   }
 
