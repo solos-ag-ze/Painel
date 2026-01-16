@@ -89,8 +89,8 @@ export default function NfReviewModal({ isOpen, meta, items, onClose, onEditItem
                   <th className="px-6 py-4 text-left text-[14px] font-bold text-[#004417]">Categoria</th>
                   <th className="px-6 py-4 text-center text-[14px] font-bold text-[#004417]">Unidade</th>
                   <th className="px-6 py-4 text-center text-[14px] font-bold text-[#004417]">Quantidade</th>
-                  <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Valor unitário</th>
-                  <th className="px-6 py-4 text-right text-[14px] font-bold text-[#004417]">Ações</th>
+                  <th className="px-6 py-4 text-center text-[14px] font-bold text-[#004417]">Valor unitário</th>
+                  <th className="px-6 py-4 text-left text-[14px] font-bold text-[#004417]"></th>
                 </tr>
               </thead>
               <tbody>
@@ -100,7 +100,7 @@ export default function NfReviewModal({ isOpen, meta, items, onClose, onEditItem
                     <td className="px-6 py-5 text-sm text-[#004417] font-medium align-top">{it.categoria}</td>
                       <td className="px-6 py-5 text-sm text-[#004417] font-medium align-top text-center">{it.unidade_valor_original ?? it.unidade}</td>
                     <td className="px-6 py-5 text-sm text-[#092f20] font-medium align-top whitespace-nowrap text-center">{formatQuantity(it.quantidade, it.unidade, it.unidade_valor_original)}</td>
-                    <td className="px-6 py-5 text-sm text-right font-medium text-[#092f20] align-top whitespace-nowrap">{it.valor_unitario != null ? `R$ ${Number(it.valor_unitario).toFixed(2)}` : '-'}</td>
+                    <td className="px-6 py-5 text-sm font-medium text-[#092f20] align-top whitespace-nowrap text-center">{it.valor_unitario != null ? `R$ ${Number(it.valor_unitario).toFixed(2)}` : '-'}</td>
                     <td className="px-6 py-5 text-sm text-right align-top whitespace-nowrap">
                       <div className="inline-flex items-center justify-end gap-2">
                         <button onClick={() => onEditItem(it)} className="text-sm px-3 py-1 bg-[#86b646] bg-opacity-10 hover:bg-[#86b646] hover:bg-opacity-20 text-[#004417] rounded transition-colors">Editar</button>
