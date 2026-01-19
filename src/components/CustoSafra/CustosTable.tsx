@@ -31,8 +31,47 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
     const fetchData = async () => {
       const estatisticas = await FinanceService.getTransactionsByCategory(userId);
       console.log("Dados recebidos do serviço:", estatisticas);
+      // Debug: contar e somar transações classificadas como 'Insumos'
+      try {
+        const totalRecebidas = Array.isArray(estatisticas) ? estatisticas.length : 0;
+        const insumosArr = (estatisticas || []).filter(e => String(e.categoria || '').trim().toLowerCase() === 'insumos');
+        const insumosCount = insumosArr.length;
+        const insumosSum = insumosArr.reduce((s, it) => s + Math.abs(Number((it as any).valor ?? (it as any).total ?? 0) || 0), 0);
+        console.log(`DEBUG CustosTable: total transacoes=${totalRecebidas}, insumos_count=${insumosCount}, insumos_sum=R$ ${insumosSum.toFixed(2)}`);
+      } catch (err) {
+        console.error('DEBUG CustosTable erro ao calcular insumos:', err);
+      }
       const processados = updateCustosWithFinancialData(estatisticas, areaCultivada, produtividade);
+      // Debug: verificar se os 3 destinos receberam valor após distribuição
+      try {
+        const f = processados.find(p => p.categoria === 'Fertilizantes');
+        const d = processados.find(p => p.categoria === 'Defensivos Agrícolas');
+        const s = processados.find(p => p.categoria === 'Sementes e mudas');
+        console.log(`DEBUG CustosTable processed: Fertilizantes=${(f?.valor||0).toFixed(2)} Defensivos=${(d?.valor||0).toFixed(2)} Sementes=${(s?.valor||0).toFixed(2)}`);
+      } catch (err) {
+        console.error('DEBUG CustosTable erro ao logar processados:', err);
+      }
+      // Debug: log detalhado dos itens com valor diferente de zero
+      try {
+        const nonZero = processados.filter(p => (p.valor || 0) !== 0);
+        if (nonZero.length) {
+          console.log('DEBUG CustosTable non-zero items:');
+          nonZero.forEach(it => console.log(`${it.categoria}: valor=${(it.valor||0).toFixed(2)} R$ /ha=${(it.realHectare||0).toFixed(6)} R$/sc=${(it.realSaca||0).toFixed(6)}`));
+        } else {
+          console.log('DEBUG CustosTable non-zero items: none');
+        }
+      } catch (err) {
+        console.error('DEBUG CustosTable erro ao logar nonZero:', err);
+      }
       setCustos(processados); // Aqui sim atualiza o estado
+      // Verificação rápida: soma dos valores deve corresponder ao totalRealHectare * areaCultivada
+      try {
+        const sumValores = processados.reduce((s, p) => s + (p.valor || 0), 0);
+        const expectedTotalRealHectare = areaCultivada > 0 ? sumValores / areaCultivada : 0;
+        console.log(`VERIF Custos: sumValores=R$ ${sumValores.toFixed(2)}, area=${areaCultivada}, expectedTotalRealHectare=R$ ${expectedTotalRealHectare.toFixed(6)}`);
+      } catch (err) {
+        console.error('VERIF Custos erro:', err);
+      }
     };
 
     fetchData();
@@ -60,14 +99,29 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
   const areaCultivada = toNumber(areaCultivadaIn);
   const produtividade = toNumber(produtividadeIn);
 
-  // 1. Agrupa valores reais do usuário, excluindo categoria "Receita"
+  // 1. Agrupa valores reais do usuário, excluindo categoria "Receita".
+  //    Se a categoria financeira for 'Insumos', divide igualmente entre
+  //    Fertilizantes, Defensivos Agrícolas e Sementes e mudas.
   const grouped = estatisticas.reduce((acc, est) => {
-    const categoria = est.categoria || "Sem categoria";
+    const rawCat = est.categoria || "Sem categoria";
+    const categoria = String(rawCat).trim();
     // Ignora categoria "Receita"
-    if (categoria === "Receita") {
+    if (categoria.toLowerCase() === "receita") {
       return acc;
     }
+
     const valorCategoria = Math.abs(est.valor ?? est.total ?? 0);
+
+    // Se categorizado como 'insumos' (qualquer capitalização), distribuir
+    // igualmente entre as três discriminações da CONAB.
+    if (categoria.toLowerCase() === 'insumos') {
+      const part = valorCategoria / 3;
+      acc['Fertilizantes'] = (acc['Fertilizantes'] || 0) + part;
+      acc['Defensivos Agrícolas'] = (acc['Defensivos Agrícolas'] || 0) + part;
+      acc['Sementes e mudas'] = (acc['Sementes e mudas'] || 0) + part;
+      return acc;
+    }
+
     acc[categoria] = (acc[categoria] || 0) + valorCategoria;
     return acc;
   }, {} as Record<string, number>);
@@ -76,7 +130,7 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
   const todasCategorias = CustoConabService.getAllCustos();
 
   // 3. Monta array final, mesmo que valor real = 0
-  return todasCategorias.map((item) => {
+  const base = todasCategorias.map((item) => {
     const valor = grouped[item.discriminacao] ?? 0;
     const realHectare = areaCultivada > 0 ? valor / areaCultivada : 0;
     const realSaca = produtividade > 0 ? realHectare / produtividade : 0;
@@ -90,6 +144,8 @@ const CustosTable: React.FC<{ userId: string; areaCultivada: number; produtivida
       estimadoSaca: item.custoPorSaca,
     };
   });
+
+  return base;
 };
 
 
