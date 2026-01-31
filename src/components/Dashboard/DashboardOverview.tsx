@@ -34,7 +34,9 @@ import { ActivityService } from '../../services/activityService';
 import { CotacaoService } from '../../services/cotacaoService';
 import { formatSmartCurrency } from '../../lib/currencyFormatter';
 import { TalhaoService } from '../../services/talhaoService';
-import { Usuario, TransacaoFinanceira } from '../../lib/supabase';
+import { Usuario, TransacaoFinanceira, Talhao } from '../../lib/supabase';
+import IncompleteTalhoesBanner from './IncompleteTalhoesBanner';
+import IncompleteTalhoesReviewModal from './IncompleteTalhoesReviewModal';
 
 function WheatDollarIcon({ size = 20, className = "" }) {
   return (
@@ -106,6 +108,8 @@ export default function DashboardOverview() {
   const [custoTotal, setCustoTotal] = useState(0);
   const [incompleteTransactions, setIncompleteTransactions] = useState<TransacaoFinanceira[]>([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [incompleteTalhoes, setIncompleteTalhoes] = useState<Talhao[]>([]);
+  const [isTalhoesReviewOpen, setIsTalhoesReviewOpen] = useState(false);
   const [incompleteActivities, setIncompleteActivities] = useState<TransacaoFinanceira[]>([]);
   const [isActivitiesReviewOpen, setIsActivitiesReviewOpen] = useState(false);
     const [resumoMensalFinanceiro, setResumoMensalFinanceiro] = useState<ResumoMensalFinanceiro>({
@@ -198,6 +202,21 @@ export default function DashboardOverview() {
       } catch (e) {
         console.warn('Erro ao carregar atividades:', e);
         setIncompleteActivities([]);
+      }
+
+      // carregar talhões incompletos (talhoes.is_completed = false)
+      try {
+        const { data: talhoesInc, error: tError } = await supabase
+          .from('talhoes')
+          .select('*')
+          .or(`user_id.eq.${currentUser.user_id},criado_por.eq.${currentUser.user_id}`)
+          .eq('is_completed', false);
+
+        if (tError) throw tError;
+        setIncompleteTalhoes(talhoesInc || []);
+      } catch (e) {
+        console.warn('Erro ao carregar talhões incompletos:', e);
+        setIncompleteTalhoes([]);
       }
       setOverallBalance(overall);
       // Sincroniza o saldo do dashboard com o resultado canônico do serviço
@@ -414,6 +433,97 @@ export default function DashboardOverview() {
       <div className="mb-6">
         <IncompleteActivitiesBanner count={incompleteActivities.length} onReview={() => setIsActivitiesReviewOpen(true)} />
       </div>
+
+      {/* Incomplete talhões banner */}
+      <div className="mb-6">
+        <IncompleteTalhoesBanner count={incompleteTalhoes.length} onReview={() => setIsTalhoesReviewOpen(true)} />
+      </div>
+
+      <IncompleteTalhoesReviewModal
+        isOpen={isTalhoesReviewOpen}
+        talhoes={incompleteTalhoes}
+        onClose={() => setIsTalhoesReviewOpen(false)}
+        onEdit={async (id, payload) => {
+          try {
+            setIncompleteTalhoes((prev) => (prev || []).map(t => (t.id_talhao === id ? { ...t, ...payload } as any : t)));
+            await supabase.from('talhoes').update(payload).eq('id_talhao', id);
+          } catch (err) {
+            console.error('Erro ao atualizar talhão:', err);
+          }
+
+          // reload incompletos
+          const currentUser = AuthService.getInstance().getCurrentUser();
+          if (currentUser) {
+            try {
+              const { data: talhoesInc } = await supabase
+                .from('talhoes')
+                .select('*')
+                .or(`user_id.eq.${currentUser.user_id},criado_por.eq.${currentUser.user_id}`)
+                .eq('is_completed', false);
+              setIncompleteTalhoes(talhoesInc || []);
+            } catch (e) {
+              console.warn('Erro ao recarregar talhões incompletos:', e);
+            }
+          }
+        }}
+        onDelete={async (id) => {
+          try {
+            await supabase.from('talhoes').delete().eq('id_talhao', id);
+          } catch (err) {
+            console.error('Erro ao deletar talhão:', err);
+          }
+          const currentUser = AuthService.getInstance().getCurrentUser();
+          if (currentUser) {
+            try {
+              const { data: talhoesInc } = await supabase
+                .from('talhoes')
+                .select('*')
+                .or(`user_id.eq.${currentUser.user_id},criado_por.eq.${currentUser.user_id}`)
+                .eq('is_completed', false);
+              setIncompleteTalhoes(talhoesInc || []);
+            } catch (e) {
+              console.warn('Erro ao recarregar talhões incompletos:', e);
+            }
+          }
+        }}
+        onConfirmItem={async (id) => {
+          try {
+            const currentUser = AuthService.getInstance().getCurrentUser();
+            if (currentUser) await supabase.from('talhoes').update({ is_completed: true }).eq('id_talhao', id).or(`user_id.eq.${currentUser.user_id},criado_por.eq.${currentUser.user_id}`);
+          } catch (err) {
+            console.error('Erro ao confirmar talhão:', err);
+          }
+          // reload
+          const currentUser2 = AuthService.getInstance().getCurrentUser();
+          if (currentUser2) {
+            const { data: talhoesInc } = await supabase
+              .from('talhoes')
+              .select('*')
+              .or(`user_id.eq.${currentUser2.user_id},criado_por.eq.${currentUser2.user_id}`)
+              .eq('is_completed', false);
+            setIncompleteTalhoes(talhoesInc || []);
+          }
+        }}
+        onConfirmAll={async () => {
+          try {
+            const currentUser = AuthService.getInstance().getCurrentUser();
+            if (currentUser) await supabase.from('talhoes').update({ is_completed: true }).or(`user_id.eq.${currentUser.user_id},criado_por.eq.${currentUser.user_id}`).eq('is_completed', false);
+          } catch (err) {
+            console.error('Erro ao confirmar todos talhões:', err);
+          }
+          // reload
+          const currentUser2 = AuthService.getInstance().getCurrentUser();
+          if (currentUser2) {
+            const { data: talhoesInc } = await supabase
+              .from('talhoes')
+              .select('*')
+              .or(`user_id.eq.${currentUser2.user_id},criado_por.eq.${currentUser2.user_id}`)
+              .eq('is_completed', false);
+            setIncompleteTalhoes(talhoesInc || []);
+          }
+          setIsTalhoesReviewOpen(false);
+        }}
+      />
 
       <IncompleteFinancialReviewModal
         isOpen={isReviewOpen}

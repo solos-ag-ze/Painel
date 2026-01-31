@@ -80,6 +80,7 @@ export class FinanceService {
       const { data, error } = await supabase
         .from('transacoes_financeiras')
         .select('tipo_transacao, valor')
+        .or('eh_transacao_pai.is.null,eh_transacao_pai.eq.false')
         .eq('user_id', userId)
         .gte('data_agendamento_pagamento', format(inicioMes, 'yyyy-MM-dd'))
         .lte('data_agendamento_pagamento', format(fimMes, 'yyyy-MM-dd'));
@@ -118,6 +119,7 @@ export class FinanceService {
       const { data, error } = await supabase
         .from('transacoes_financeiras')
         .select('tipo_transacao, valor')
+        .or('eh_transacao_pai.is.null,eh_transacao_pai.eq.false')
         .eq('user_id', userId);
 
       if (error) {
@@ -162,6 +164,7 @@ export class FinanceService {
             )
           )
         `)
+        .or('eh_transacao_pai.is.null,eh_transacao_pai.eq.false')
         .eq('user_id', userId)
         .order('data_agendamento_pagamento', { ascending: false })
         .limit(limit);
@@ -707,6 +710,7 @@ export class FinanceService {
       const { data, error } = await supabase
         .from('transacoes_financeiras')
         .select('valor, categoria')
+        .neq('eh_transacao_pai', true)
         .eq('user_id', userId);
 
       if (error) {
@@ -735,6 +739,7 @@ export class FinanceService {
       const { data, error } = await supabase
         .from('transacoes_financeiras')
         .select('valor, status, data_agendamento_pagamento')
+        .or('eh_transacao_pai.is.null,eh_transacao_pai.eq.false')
         .eq('user_id', userId);
 
       if (error) {
@@ -816,6 +821,7 @@ export class FinanceService {
       const { data, error } = await supabase
         .from('transacoes_financeiras')
         .select('valor, status, data_agendamento_pagamento')
+        .or('eh_transacao_pai.is.null,eh_transacao_pai.eq.false')
         .eq('user_id', userId);
 
       if (error) {
@@ -876,6 +882,7 @@ export class FinanceService {
       const { data, error } = await supabase
         .from('transacoes_financeiras')
         .select('valor')
+        .or('eh_transacao_pai.is.null,eh_transacao_pai.eq.false')
         .eq('user_id', userId)
         .eq('status', 'Pago')
         .lte('data_agendamento_pagamento', hojeSemHora);
@@ -986,6 +993,7 @@ static async getResumoMensalFinanceiro(userId: string): Promise<{ totalReceitas:
       const { data, error } = await supabase
         .from('transacoes_financeiras')
         .select('*')
+        .or('eh_transacao_pai.is.null,eh_transacao_pai.eq.false')
         .eq('user_id', userId);
 
       if (error) {
@@ -1347,6 +1355,7 @@ static async getTotalNegativeTransactions(userId: string): Promise<number> {
     const { data, error } = await supabase
       .from('transacoes_financeiras')
       .select('valor')
+      .neq('eh_transacao_pai', true)
       .eq('user_id', userId)
       .lt('valor', 0); // Filtra apenas valores negativos
 
@@ -1466,6 +1475,7 @@ static async getTotalNegativeTransactions(userId: string): Promise<number> {
             )
           )
         `)
+        .or('eh_transacao_pai.is.null,eh_transacao_pai.eq.false')
         .eq('user_id', userId)
         .order('data_registro', { ascending: false })
         .order('data_agendamento_pagamento', { ascending: false });
