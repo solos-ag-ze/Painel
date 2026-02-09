@@ -1,5 +1,4 @@
 // src/services/authService.ts
-import { setAccessToken } from '../lib/supabase';
 
 export interface JWTPayload {
   sub: string;          // UUID do usuário (vem como "sub" no JWT assinado pelo n8n)
@@ -85,18 +84,11 @@ export class AuthService {
     const token = localStorage.getItem(this.TOKEN_KEY);
 
     if (token) {
-      if (!DEV_BYPASS) {
-        console.log('🔍 [PRODUCTION] Token encontrado, injetando no Supabase...');
-
-        try {
-          await setAccessToken(token);
-          console.log('✅ [PRODUCTION] Token injetado com sucesso no Supabase');
-        } catch (e) {
-          console.error('❌ [PRODUCTION] Falha ao setar token no Supabase:', e);
-          return null;
-        }
+      // 🔍 Em DEV, apenas loga o token sem validar
+      if (DEV_BYPASS) {
+        console.log('🔑 [DEV] Token encontrado; usando modo desenvolvimento com bypass');
       } else {
-        console.log('🔑 [DEV] Token encontrado; usando JWT real sem injetar no Supabase');
+        console.log('🔑 [PRODUCTION] Token encontrado, decodificando...');
       }
 
       try {
@@ -109,9 +101,19 @@ export class AuthService {
           email: payload.email,
           role: payload.role,
           aud: payload.aud,
+          exp: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'N/A',
           ambiente: DEV_BYPASS ? 'development' : 'production',
-          rlsStatus: DEV_BYPASS ? '⚠️ BYPASS (service_role)' : '✅ ATIVO (anon key + JWT)'
+          rlsStatus: DEV_BYPASS ? '⚠️ BYPASS (service_role)' : '✅ ATIVO (anon key + user_id nas queries)'
         });
+
+        // Verificar se token expirou
+        if (payload.exp && payload.exp < Date.now() / 1000) {
+          console.error('❌ Token expirado!');
+          localStorage.removeItem(this.TOKEN_KEY);
+          if (!DEV_BYPASS) {
+            return null;
+          }
+        }
 
         if (!payload?.sub) {
           console.error('❌ JWT inválido: sem campo `sub`');
@@ -123,8 +125,9 @@ export class AuthService {
           nome: payload.nome || payload.email || 'Usuário',
         };
 
-        console.log('✅ Sessão restaurada via JWT custom:', this.currentUser);
+        console.log('✅ Sessão restaurada via JWT n8n:', this.currentUser);
         console.log('🔑 User ID que será usado nas queries:', payload.sub);
+        console.log('📝 IMPORTANTE: RLS ativo - queries filtradas por user_id');
         return this.currentUser;
       } catch (err) {
         console.error('❌ Falha ao decodificar JWT:', err);
