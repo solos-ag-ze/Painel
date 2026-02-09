@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { formatDateTimeBR, parseDateFromDB } from '../../lib/dateUtils';
 import NfDeleteConfirmModal from '../Estoque/NfDeleteConfirmModal';
@@ -31,6 +31,17 @@ export default function IncompleteMaquinasReviewModal({ isOpen, maquinas, onClos
   const [processing, setProcessing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name?: string } | null>(null);
   const [editingMaquina, setEditingMaquina] = useState<MaquinaData | null>(null);
+
+  // Fecha automaticamente quando não houver mais máquinas para revisar
+  useEffect(() => {
+    if (isOpen && maquinas.length === 0) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, maquinas.length]);
 
   if (!isOpen) return null;
 

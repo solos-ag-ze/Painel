@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { TransacaoFinanceira } from '../../lib/supabase';
 import { formatDateTimeBR } from '../../lib/dateUtils';
@@ -19,6 +19,17 @@ export default function IncompleteFinancialReviewModal({ isOpen, transactions, o
   const [processing, setProcessing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name?: string } | null>(null);
   const [editingTx, setEditingTx] = useState<TransacaoFinanceira | null>(null);
+
+  // Fecha automaticamente quando não houver mais transações para revisar
+  useEffect(() => {
+    if (isOpen && transactions.length === 0) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, transactions.length]);
 
   if (!isOpen) return null;
 

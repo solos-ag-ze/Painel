@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { ActivityPayload } from '../../types/activity';
 import ActivityEditModal from './ActivityEditModal';
@@ -19,6 +19,17 @@ export default function IncompleteActivitiesReviewModal({ isOpen, activities, on
   const [processing, setProcessing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name?: string } | null>(null);
   const [editingActivity, setEditingActivity] = useState<ActivityPayload | null>(null);
+
+  // Fecha automaticamente quando não houver mais atividades para revisar
+  useEffect(() => {
+    if (isOpen && activities.length === 0) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activities.length]);
 
   if (!isOpen) return null;
 
