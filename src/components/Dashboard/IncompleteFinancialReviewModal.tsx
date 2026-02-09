@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { TransacaoFinanceira } from '../../lib/supabase';
 import { formatDateTimeBR } from '../../lib/dateUtils';
+import { formatSmartCurrency } from '../../lib/currencyFormatter';
 import TransactionEditModal from './TransactionEditModal';
 import NfDeleteConfirmModal from '../Estoque/NfDeleteConfirmModal';
 
@@ -65,7 +66,7 @@ export default function IncompleteFinancialReviewModal({ isOpen, transactions, o
                     })()}
                   </div>
                   <div className="mt-1 text-xs text-[#092f20]">{tx.descricao || '-'}</div>
-                  <div className="mt-1 text-xs text-[#092f20]">Valor: {String(tx.valor ?? '-')}</div>
+                  <div className="mt-1 text-xs text-[#092f20]">Valor: {tx.valor != null ? formatSmartCurrency(tx.valor) : '-'}</div>
                   <div className="mt-1 text-xs text-[#092f20]">Categoria: {tx.categoria || '-'}</div>
                   <div className="mt-1 text-xs text-[#092f20]">Talhão: {tx.nome_talhao || '-'}</div>
                   <div className="mt-1 text-xs text-[#092f20]">Pagador/Recebedor: {tx.pagador_recebedor || '-'}</div>
@@ -119,7 +120,7 @@ export default function IncompleteFinancialReviewModal({ isOpen, transactions, o
                       })()}
                     </div>
                     <div className="mt-1 text-xs text-[#092f20]">{tx.descricao || '-'}</div>
-                    <div className="mt-1 text-xs text-[#092f20]">Valor: {String(tx.valor ?? '-')}</div>
+                    <div className="mt-1 text-xs text-[#092f20]">Valor: {tx.valor != null ? formatSmartCurrency(tx.valor) : '-'}</div>
                     <div className="mt-1 text-xs text-[#092f20]">Categoria: {tx.categoria || '-'}</div>
                     <div className="mt-1 text-xs text-[#092f20]">Talhão: {tx.nome_talhao || '-'}</div>
                     <div className="mt-1 text-xs text-[#092f20]">Pagador/Recebedor: {tx.pagador_recebedor || '-'}</div>
