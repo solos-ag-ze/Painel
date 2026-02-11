@@ -73,56 +73,18 @@ export default function OcorrenciaFormModal({
       setFormData(initialData);
       // Carregar preview da imagem se existir
       const fp = initialData.fotoPrincipal;
-      if (fp && !fp.includes('emoji')) {
-        // Se já é uma URL completa (http), usar diretamente
-        if (fp.startsWith('http')) {
-          // Se é uma URL de storage, tentar gerar signed URL
-          if (fp.includes('/storage/v1/object/')) {
-            (async () => {
-              try {
-                // Extrair o path do storage da URL
-                const bucketName = 'pragas_e_doencas';
-                const objMarker = `/storage/v1/object/${bucketName}/`;
-                const publicMarker = `/storage/v1/object/public/${bucketName}/`;
-                let extractedPath: string | null = null;
-                
-                if (fp.includes(publicMarker)) {
-                  const idx = fp.indexOf(publicMarker) + publicMarker.length;
-                  extractedPath = fp.slice(idx).split('?')[0];
-                } else if (fp.includes(objMarker)) {
-                  const idx = fp.indexOf(objMarker) + objMarker.length;
-                  extractedPath = fp.slice(idx).split('?')[0];
-                }
-                
-                if (extractedPath) {
-                  const signedUrl = await PragasDoencasService.getSignedUrl(extractedPath, 3600, userId);
-                  if (signedUrl) {
-                    setImagePreview(signedUrl);
-                    return;
-                  }
-                }
-                // Fallback: usar a URL original
-                setImagePreview(fp);
-              } catch {
-                setImagePreview(fp);
-              }
-            })();
-          } else {
-            setImagePreview(fp);
-          }
-        } else {
-          // É um path do storage (ex: userId/imagem.jpg), gerar signed URL
-          (async () => {
-            try {
-              const signedUrl = await PragasDoencasService.getSignedUrl(fp, 3600, userId);
-              if (signedUrl) {
-                setImagePreview(signedUrl);
-              }
-            } catch (error) {
-              console.error('[OcorrenciaFormModal] Erro ao gerar signed URL:', error);
+      const storagePath = PragasDoencasService.extractStoragePath(fp);
+      if (storagePath) {
+        (async () => {
+          try {
+            const signedUrl = await PragasDoencasService.getSignedUrl(fp, 3600, userId);
+            if (signedUrl) {
+              setImagePreview(signedUrl);
             }
-          })();
-        }
+          } catch (error) {
+            console.error('[OcorrenciaFormModal] Erro ao gerar signed URL:', error);
+          }
+        })();
       }
     }
     if (initialTalhaoIds.length > 0) {

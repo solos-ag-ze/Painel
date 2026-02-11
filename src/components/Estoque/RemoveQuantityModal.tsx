@@ -26,6 +26,17 @@ export default function RemoveQuantityModal({
   onConfirm,
   onClose,
 }: RemoveQuantityModalProps) {
+  // 🔧 HOOKS PRIMEIRO - antes de qualquer return
+  const [unidadeSelecionada, setUnidadeSelecionada] = useState<string>('kg');
+
+  // Atualizar unidade selecionada quando o produto mudar
+  useEffect(() => {
+    if (productGroup) {
+      setUnidadeSelecionada(productGroup.unidadeValorOriginal || productGroup.unidadeDisplay);
+    }
+  }, [productGroup]);
+
+  // ✅ Early return DEPOIS dos hooks
   if (!isOpen || !productGroup) return null;
 
   // Determinar as unidades disponíveis baseado no tipo do produto
@@ -38,17 +49,6 @@ export default function RemoveQuantityModal({
     : ehVolume
     ? ['mL', 'L']
     : ['un'];
-
-  const [unidadeSelecionada, setUnidadeSelecionada] = useState<string>(
-    productGroup.unidadeValorOriginal || productGroup.unidadeDisplay
-  );
-
-  // Atualizar unidade selecionada quando o produto mudar
-  useEffect(() => {
-    if (productGroup) {
-      setUnidadeSelecionada(productGroup.unidadeValorOriginal || productGroup.unidadeDisplay);
-    }
-  }, [productGroup]);
 
   const handleInputChange = (value: string) => {
     const num = parseFloat(value.replace(",", "."));

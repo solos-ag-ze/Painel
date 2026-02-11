@@ -57,19 +57,69 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
         // Buscar produtos vinculados na tabela lancamento_produtos
         const { data: produtosVinculados, error: errorProd } = await supabase
           .from('lancamento_produtos')
-          .select('id, nome_produto, quantidade_val, quantidade_un, unidade_medida, produto_id')
+          .select('id, nome_produto, quantidade_val, quantidade_un, unidade_medida, produto_catalogo_id')
           .eq('atividade_id', transaction.id);
 
         if (errorProd) {
           console.error('Erro ao carregar produtos vinculados:', errorProd);
         }
 
-        const produtos = (produtosVinculados || []).map((p: any) => ({
+        const produtosRaw = (produtosVinculados || []).map((p: any) => ({
           id: String(p.id),
           nome: p.nome_produto || '',
           quantidade: p.quantidade_val ? String(p.quantidade_val) : '',
           unidade: p.quantidade_un || p.unidade_medida || 'kg',
-          produto_id: p.produto_id // Adicionar campo para rastrear se está cadastrado
+          produto_catalogo_id: p.produto_catalogo_id
+        }));
+
+        // Resolver nomes reais dos produtos via produto_catalogo_id → estoque_de_produtos.produto_id
+        const catalogoIds = produtosRaw.map(p => p.produto_catalogo_id).filter(Boolean);
+        let prodNamesMap: Record<string, string> = {};
+        if (catalogoIds.length > 0) {
+          const { data: estoqueProds } = await supabase
+            .from('estoque_de_produtos')
+            .select('produto_id, nome_do_produto')
+            .in('produto_id', catalogoIds);
+          prodNamesMap = (estoqueProds || []).reduce((acc: Record<string, string>, ep: any) => {
+            if (ep.produto_id && ep.nome_do_produto) acc[ep.produto_id] = ep.nome_do_produto;
+            return acc;
+          }, {});
+        }
+
+        const produtos = produtosRaw.map(p => ({
+          ...p,
+          nome: (p.produto_catalogo_id && prodNamesMap[p.produto_catalogo_id]) ? prodNamesMap[p.produto_catalogo_id] : p.nome
+        }));
+
+        // Buscar máquinas vinculadas na tabela lancamento_maquinas
+        const { data: maquinasVinculadas, error: errorMaq } = await supabase
+          .from('lancamento_maquinas')
+          .select('id, maquina_id, nome_maquina, horas_maquina')
+          .eq('atividade_id', transaction.id);
+
+        if (errorMaq) {
+          console.error('Erro ao carregar máquinas vinculadas:', errorMaq);
+        }
+
+        // Buscar nomes reais de maquinas_equipamentos para máquinas com maquina_id
+        const maqIds = (maquinasVinculadas || []).map((m: any) => m.maquina_id).filter(Boolean);
+        let maqNamesMap: Record<string, string> = {};
+        if (maqIds.length > 0) {
+          const { data: maqEquip } = await supabase
+            .from('maquinas_equipamentos')
+            .select('id_maquina, nome')
+            .in('id_maquina', maqIds);
+          maqNamesMap = (maqEquip || []).reduce((acc: Record<string, string>, eq: any) => {
+            acc[eq.id_maquina] = eq.nome;
+            return acc;
+          }, {});
+        }
+
+        const maquinas = (maquinasVinculadas || []).map((m: any) => ({
+          id: String(m.id),
+          nome: (m.maquina_id && maqNamesMap[m.maquina_id]) ? maqNamesMap[m.maquina_id] : (m.nome_maquina || ''),
+          horas: m.horas_maquina != null ? String(m.horas_maquina) : '',
+          maquina_id: m.maquina_id
         }));
 
         // Preencher campos relevantes para atividade agrícola
@@ -80,7 +130,7 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
           nome_talhao: tx.nome_talhao ?? '',
           talhao_ids: talhaoIdsVinculados.length > 0 ? talhaoIdsVinculados : (tx.talhao_ids ?? []),
           produtos: produtos.length > 0 ? produtos : (tx.produtos ?? []),
-          maquinas: tx.maquinas ?? [],
+          maquinas: maquinas.length > 0 ? maquinas : (tx.maquinas ?? []),
           imagem: tx.imagem ?? undefined,
           arquivo: tx.arquivo ?? undefined,
           observacoes: tx.observacoes ?? undefined,
@@ -216,11 +266,11 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
             <input
               className="mt-1 border rounded px-3 py-2 focus:border-[#397738]"
               value={String(local.descricao || '')}
-              maxLength={30}
-              onChange={(e) => setLocal({ ...local, descricao: e.target.value.slice(0, 30) })}
+              maxLength={50}
+              onChange={(e) => setLocal({ ...local, descricao: e.target.value.slice(0, 50) })}
             />
-            {(String(local.descricao || '').length >= 30) && (
-              <p className="mt-1 text-sm text-[#F7941F]">Você atingiu o limite de 30 caracteres. Use uma descrição curta.</p>
+            {(String(local.descricao || '').length >= 50) && (
+              <p className="mt-1 text-sm text-[#F7941F]">Você atingiu o limite de 50 caracteres. Use uma descrição curta.</p>
             )}
           </label>
 
@@ -328,7 +378,7 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
               {(local?.produtos || []).map((p: any, idx) => (
                 <div key={p.id || idx} className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end">
                   {/* Alerta se produto não está cadastrado no estoque */}
-                  {!p.produto_id && (
+                  {!p.produto_catalogo_id && (
                     <div className="col-span-1 sm:col-span-6 bg-orange-50 border border-orange-200 rounded p-2 text-sm text-orange-700 flex items-center gap-2">
                       <span>⚠️</span>
                       <span>Este produto não está cadastrado no estoque</span>
@@ -349,9 +399,11 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
                                 const val = e.target.value;
                                 if (val === '') {
                                   // marcar como custom (vai mostrar input)
-                                  produtos[idx] = { ...produtos[idx], nome: '' };
+                                  produtos[idx] = { ...produtos[idx], nome: '', produto_catalogo_id: null };
                                 } else {
-                                  produtos[idx] = { ...produtos[idx], nome: val };
+                                  // Buscar produto_id do estoque para vincular
+                                  const matchProd = availableProdutos.find(ap => ap.nome_produto === val);
+                                  produtos[idx] = { ...produtos[idx], nome: val, produto_catalogo_id: matchProd?.produto_id || null };
                                 }
                                 setLocal({ ...local, produtos });
                               }}

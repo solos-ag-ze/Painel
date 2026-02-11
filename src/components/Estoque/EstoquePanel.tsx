@@ -221,7 +221,7 @@ export default function EstoquePanel() {
     try {
       // Carrega todos os produtos (incluindo pendentes) para detectar NF pendente,
       // mas usa somente os visíveis (sem pendentes) para exibir/agrupamentos.
-      const dadosTodos = await EstoqueService.getProdutos();
+      const dadosTodos = await EstoqueService.getAllMovimentacoes();
       const dadosVisiveis = (dadosTodos || []).filter(p => (p.status || '').toLowerCase() !== 'pendente');
 
       const grupos = await agruparProdutos(dadosVisiveis);

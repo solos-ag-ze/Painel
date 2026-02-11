@@ -50,6 +50,24 @@ export default function MinhaFazendaPanel() {
         TalhaoService.getTotalAreaFazenda(userId)
       ]);
 
+      console.log('='.repeat(80));
+      console.log('🌾 [MinhaFazenda] Talhões carregados (ANTES do filtro):', talhoesDetalhados.length);
+      console.log('🌾 [MinhaFazenda] Todos os talhões:', talhoesDetalhados.map((t: any) => ({
+        nome: t.nome,
+        cultura: t.cultura,
+        is_completed: t.is_completed,
+        ativo: t.ativo,
+        talhao_default: t.talhao_default
+      })));
+      
+      const talhoesCafe = talhoesDetalhados.filter((t: any) => t.cultura === 'Café' && t.is_completed === true);
+      console.log('☕ [MinhaFazenda] Talhões após filtro (Café + is_completed=true):', talhoesCafe.length);
+      console.log('☕ [MinhaFazenda] Talhões filtrados:', talhoesCafe.map((t: any) => ({
+        nome: t.nome,
+        ativo: t.ativo
+      })));
+      console.log('='.repeat(80));
+
       setUserData(user);
       setTalhoes(talhoesDetalhados as TalhaoDetalhado[]);
       setAreaCultivada(areaCafe);
@@ -117,10 +135,15 @@ export default function MinhaFazendaPanel() {
     return <ErrorMessage message={error} onRetry={loadFarmData} />;
   }
 
-  const talhoesCafe = talhoes.filter(t => t.cultura === 'Café');
-  // Agora consideramos 'is_completed' como indicador de talhão válido/completo
-  const talhoesCompletos = talhoesCafe.filter(t => Boolean(t.is_completed));
-  const talhoesIncompletos = talhoesCafe.filter(t => !t.is_completed);
+  const talhoesCafe = talhoes.filter(t => t.cultura === 'Café' && t.is_completed === true);
+  // Separar entre ativos e inativos baseado no campo 'ativo'
+  const talhoesAtivos = talhoesCafe.filter(t => t.ativo === true);
+  const talhoesInativos = talhoesCafe.filter(t => t.ativo !== true);
+
+  console.log('📊 [MinhaFazenda RENDER] Total talhões no state:', talhoes.length);
+  console.log('☕ [MinhaFazenda RENDER] Talhões de café com is_completed=true:', talhoesCafe.length);
+  console.log('✅ [MinhaFazenda RENDER] Talhões ativos:', talhoesAtivos.length);
+  console.log('⏸️  [MinhaFazenda RENDER] Talhões inativos:', talhoesInativos.length);
 
   // Confirmation Modal Component
   const ConfirmationModal = () => {
@@ -320,21 +343,21 @@ export default function MinhaFazendaPanel() {
               <span className="text-sm font-medium text-[#004417]">Total de Talhões</span>
             </div>
             <p className="text-2xl font-bold text-[#004417] mb-1">{talhoesCafe.length}</p>
-            <p className="text-xs text-[rgba(0,68,23,0.7)]">{talhoesCompletos.length} completos</p>
+            <p className="text-xs text-[rgba(0,68,23,0.7)]">{talhoesAtivos.length} ativos • {talhoesInativos.length} inativos</p>
           </div>
         </div>
       </div>
 
       {/* Talhões Ativos */}
       <TalhaoList 
-        talhoes={talhoesCompletos}
+        talhoes={talhoesAtivos}
         title="Talhões Ativos"
         emptyMessage="Nenhum talhão ativo encontrado"
       />
 
-      {/* Talhões Incompletos */}
+      {/* Talhões Inativos */}
       <TalhaoList 
-        talhoes={talhoesIncompletos}
+        talhoes={talhoesInativos}
         title="Talhões Inativos"
         emptyMessage="Nenhum talhão inativo encontrado"
       />

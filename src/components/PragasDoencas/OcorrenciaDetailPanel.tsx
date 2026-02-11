@@ -85,89 +85,26 @@ export default function OcorrenciaDetailPanel({
     const fp = typeof rawFp === 'string' ? rawFp.trim() : rawFp;
     const currentUser = AuthService.getInstance().getCurrentUser();
     const myUserId = currentUser?.user_id;
-    if (!fp) {
+
+    // Extrair path do storage (aceita path relativo, signed URL, URL pública)
+    const storagePath = PragasDoencasService.extractStoragePath(fp);
+    if (!storagePath) {
       setImageSrc(null);
       setImagePath(null);
       return;
     }
 
-    if (typeof fp === 'string' && fp.startsWith('http')) {
-      const publicMarker = '/storage/v1/object/public/';
-      const objMarker = '/storage/v1/object/';
-      if (fp.includes(publicMarker)) {
-        setImageSrc(fp);
-        return;
-      }
-
-      if (fp.includes(objMarker)) {
-        (async () => {
-          try {
-            const idx = fp.indexOf(objMarker) + objMarker.length;
-            const after = fp.slice(idx);
-            const parts = after.split('/');
-            if (parts.length >= 2) {
-              const key = parts.slice(1).join('/');
-              const candidates: string[] = [];
-              if (key.includes('/')) candidates.push(key);
-              else {
-                if (myUserId) candidates.push(`${myUserId}/${key}`);
-                candidates.push(key);
-              }
-
-              for (const candidate of candidates) {
-                try {
-                  const { data, error } = await supabase.storage
-                    .from('pragas_e_doencas')
-                    .createSignedUrl(candidate, 60);
-                  if (!error && data?.signedUrl) {
-                    if (mounted) {
-                      setImageSrc(data.signedUrl);
-                      setImagePath(candidate);
-                    }
-                    return;
-                  }
-                } catch (err) {
-                  // continue
-                }
-              }
-            }
-          } catch (e) {
-            // fallthrough
-          }
-        })();
-      }
-
-      setImageSrc(fp);
-      return;
-    }
-
+    // Gerar signed URL via service (aceita qualquer formato)
     (async () => {
-      const candidates: string[] = [];
-      if (typeof fp === 'string' && fp.includes('/')) candidates.push(fp);
-      else {
-        if (myUserId) candidates.push(`${myUserId}/${fp}`);
-        candidates.push(fp as string);
-      }
-
-      for (const candidate of candidates) {
-        try {
-          const { data, error } = await supabase.storage
-            .from('pragas_e_doencas')
-            .createSignedUrl(candidate, 60);
-          if (!error && data?.signedUrl) {
-            if (mounted) {
-              setImageSrc(data.signedUrl);
-              setImagePath(candidate);
-            }
-            return;
-          }
-        } catch (err) {
-          // continua para próxima candidate
-        }
-      }
+      const signedUrl = await PragasDoencasService.getSignedUrl(fp, 3600, myUserId);
       if (mounted) {
-        setImageSrc(null);
-        setImagePath(null);
+        if (signedUrl) {
+          setImageSrc(signedUrl);
+          setImagePath(storagePath.includes('/') ? storagePath : (myUserId ? `${myUserId}/${storagePath}` : storagePath));
+        } else {
+          setImageSrc(null);
+          setImagePath(null);
+        }
       }
     })();
 
@@ -220,7 +157,7 @@ export default function OcorrenciaDetailPanel({
 
       if (newPath) {
         // Atualizar preview
-        const signedUrl = await PragasDoencasService.getSignedUrl(newPath, 60, userId);
+        const signedUrl = await PragasDoencasService.getSignedUrl(newPath, 3600, userId);
         setImageSrc(signedUrl);
         setImagePath(newPath);
 

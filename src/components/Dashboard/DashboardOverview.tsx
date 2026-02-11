@@ -117,6 +117,7 @@ export default function DashboardOverview() {
   const [isActivitiesReviewOpen, setIsActivitiesReviewOpen] = useState(false);
   const [incompleteMaquinas, setIncompleteMaquinas] = useState<any[]>([]);
   const [isMaquinasReviewOpen, setIsMaquinasReviewOpen] = useState(false);
+  const [allMaquinas, setAllMaquinas] = useState<any[]>([]);
     const [resumoMensalFinanceiro, setResumoMensalFinanceiro] = useState<ResumoMensalFinanceiro>({
     totalReceitas: 0,
     totalDespesas: 0,
@@ -136,8 +137,18 @@ export default function DashboardOverview() {
   }, []);
 
   // Normaliza lançamentos retornados pelo ActivityService para o formato esperado pelos modais/cards
-  const normalizeActivities = (list: any[] = [], talhoesList?: any[]) => {
+  // Resolve o nome da máquina: prioriza maquinas_equipamentos (via maquina_id), fallback para nome_maquina
+  const resolveMaquinaNome = (m: any, maqList: any[]) => {
+    if (m.maquina_id && maqList.length > 0) {
+      const found = maqList.find((eq: any) => eq.id_maquina === m.maquina_id);
+      if (found) return found.nome;
+    }
+    return m.nome_maquina || m.nome || '';
+  };
+
+  const normalizeActivities = (list: any[] = [], talhoesList?: any[], maqList?: any[]) => {
     const talhoesRef = talhoesList || talhoesCafe || [];
+    const maqRef = maqList || allMaquinas || [];
     return (list || []).map((l: any) => {
       const talhoesLanc = l.lancamento_talhoes || l.talhoes || [];
       const nomes = talhoesLanc
@@ -156,8 +167,9 @@ export default function DashboardOverview() {
         created_at: l.created_at || null,
         updated_at: l.updated_at || null,
         nome_talhao: talhaoLabel || 'Área não informada',
-        produtos: l.lancamento_produtos || [],
-        maquinas: l.lancamento_maquinas || [],
+        produtos: l.lancamento_produtos || l.produtos || [],
+        maquinas: (l.lancamento_maquinas || l.maquinas || []).map((m: any) => ({ id: m.id || m.maquina_id, nome: resolveMaquinaNome(m, maqRef), horas: m.horas_maquina ?? m.horas ?? '', maquina_id: m.maquina_id })),
+        responsaveis: (l.lancamento_responsaveis || l.responsaveis || []).map((r: any) => ({ id: r.id, nome: r.nome })),
         observacoes: l.observacoes || l.observacao || ''
       };
     });
@@ -202,11 +214,11 @@ export default function DashboardOverview() {
         FinanceService.getUltimas5TransacoesExecutadas(currentUser.user_id),
         FinanceService.getOverallBalance(currentUser.user_id),
         FinanceService.getPeriodBalance(currentUser.user_id, 'todos'),
-  ActivityService.getLancamentos(currentUser.user_id, 5),
+  ActivityService.getLancamentos(currentUser.user_id, 5, true),
   ActivityService.getLancamentos(currentUser.user_id, 100),
         CotacaoService.getCotacaoCompleta(),
         TalhaoService.getAreaCultivadaCafe(currentUser.user_id),
-        TalhaoService.getTalhoesCafe(currentUser.user_id),
+        TalhaoService.getTalhoesByUserId(currentUser.user_id),
         TalhaoService.getTotalProducaoFazenda(currentUser.user_id),
         FinanceService.getTotalNegativeTransactions(currentUser.user_id),
         FinanceService.getResumoMensalFinanceiro(currentUser.user_id),
@@ -228,9 +240,26 @@ export default function DashboardOverview() {
         console.warn('Erro ao carregar transações incompletas:', e);
         setIncompleteTransactions([]);
       }
-      // carregar atividades (Supabase) e normalizar para ActivityPayload
+      // Carregar máquinas do usuário para resolver nomes via maquina_id
+      let userMaquinas: any[] = [];
       try {
-        const incActs = await ActivityService.getLancamentos(currentUser.user_id, 100);
+        const { data: maqData } = await supabase
+          .from('maquinas_equipamentos')
+          .select('id_maquina, nome')
+          .eq('user_id', currentUser.user_id);
+        userMaquinas = maqData || [];
+        setAllMaquinas(userMaquinas);
+      } catch (e) {
+        console.warn('Erro ao carregar máquinas do usuário:', e);
+      }
+
+      // carregar atividades incompletas (Supabase) e normalizar para ActivityPayload
+      try {
+        const allActs = await ActivityService.getLancamentos(currentUser.user_id, 100);
+        console.log('📋 Total de atividades carregadas:', allActs?.length || 0);
+        // Filtrar apenas atividades incompletas (is_completed = false ou null)
+        const incActs = (allActs || []).filter((l: any) => !l.is_completed);
+        console.log('⏳ Atividades incompletas encontradas:', incActs.length);
         const mappedIncActs = (incActs || []).map((l: any) => {
           const talhoesLanc = l.lancamento_talhoes || l.talhoes || [];
           const nomes = talhoesLanc
@@ -247,6 +276,11 @@ export default function DashboardOverview() {
 
           const talhaoLabel = nomes.length > 0 ? nomes.join(', ') : (l.area_atividade || l.area || null);
 
+          // O service já mapeia lancamento_responsaveis → responsaveis (idem produtos/maquinas)
+          const rawResp = l.lancamento_responsaveis || l.responsaveis || [];
+          const rawProd = l.lancamento_produtos || l.produtos || [];
+          const rawMaq  = l.lancamento_maquinas || l.maquinas || [];
+
           return {
             id: l.atividade_id || l.id,
             descricao: l.nome_atividade || l.descricao || '',
@@ -254,8 +288,9 @@ export default function DashboardOverview() {
             created_at: l.created_at || null,
             updated_at: l.updated_at || null,
             nome_talhao: talhaoLabel || 'Área não informada',
-            produtos: l.lancamento_produtos || [],
-            maquinas: l.lancamento_maquinas || [],
+            produtos: rawProd,
+            maquinas: rawMaq.map((m: any) => ({ id: m.id || m.maquina_id, nome: resolveMaquinaNome(m, userMaquinas), horas: m.horas_maquina ?? m.horas ?? '', maquina_id: m.maquina_id })),
+            responsaveis: rawResp.map((r: any) => ({ id: r.id, nome: r.nome })),
             observacoes: l.observacoes || l.observacao || ''
           };
         });
@@ -310,7 +345,7 @@ export default function DashboardOverview() {
     const nomes = talhoesLanc
       .map((t: any) => {
         const match = (talhoes || []).find((th: any) => th.id_talhao === t.talhao_id || th.id_talhao === t.talho_id);
-        return match ? match.nome : t.talhao_id || t.talho_id || null;
+        return match ? match.nome : null;
       })
       .filter(Boolean);
 
@@ -785,7 +820,7 @@ export default function DashboardOverview() {
             TalhaoService.getTalhoesCafe(userId)
           ]);
           setTalhoesCafe(freshTalhoes);
-          setIncompleteActivities(normalizeActivities(updated || [], freshTalhoes));
+          setIncompleteActivities(normalizeActivities((updated || []).filter((l: any) => !l.is_completed), freshTalhoes, allMaquinas));
         }}
         onDelete={async (id) => {
           try {
@@ -799,13 +834,32 @@ export default function DashboardOverview() {
             TalhaoService.getTalhoesCafe(userId)
           ]);
           setTalhoesCafe(freshTalhoes);
-          setIncompleteActivities(normalizeActivities(updated || [], freshTalhoes));
+          setIncompleteActivities(normalizeActivities((updated || []).filter((l: any) => !l.is_completed), freshTalhoes, allMaquinas));
         }}
         onConfirmItem={async (id) => {
           try {
-            await ActivityService.updateLancamento(id, { esperando_por_anexo: false } as any);
-          } catch (err) {
-            console.error('Erro ao marcar atividade como completa:', err);
+            // 1) Marcar como completa
+            const { error: updateErr } = await supabase.from('lancamentos_agricolas').update({ is_completed: true }).eq('atividade_id', id);
+            if (updateErr) throw updateErr;
+
+            // 2) Baixar estoque FIFO via RPC
+            const { error: fifoErr } = await supabase.rpc('fn_baixar_estoque_fifo_lancamento', { p_atividade_id: id });
+            if (fifoErr) {
+              console.error('Erro FIFO:', fifoErr);
+              // Reverter is_completed se FIFO falhou
+              await supabase.from('lancamentos_agricolas').update({ is_completed: false }).eq('atividade_id', id);
+              // Extrair mensagem amigável
+              const msg = fifoErr.message || 'Erro ao dar baixa no estoque';
+              const match = msg.match(/Sem estoque para produto "([^"]+)"|Estoque insuficiente para "([^"]+)"/);
+              if (match) {
+                const prodName = match[1] || match[2];
+                return `Estoque insuficiente para "${prodName}". Cadastre ou ajuste o estoque antes de confirmar.`;
+              }
+              return msg;
+            }
+          } catch (err: any) {
+            console.error('Erro ao confirmar atividade:', err);
+            return err?.message || 'Erro ao confirmar atividade';
           }
           const userId = AuthService.getInstance().getCurrentUser()?.user_id || '';
           const [updated, freshTalhoes] = await Promise.all([
@@ -813,26 +867,41 @@ export default function DashboardOverview() {
             TalhaoService.getTalhoesCafe(userId)
           ]);
           setTalhoesCafe(freshTalhoes);
-          setIncompleteActivities(normalizeActivities(updated || [], freshTalhoes));
+          setIncompleteActivities(normalizeActivities((updated || []).filter((l: any) => !l.is_completed), freshTalhoes, allMaquinas));
+          return null;
         }}
         onConfirmAll={async () => {
           const userId = AuthService.getInstance().getCurrentUser()?.user_id || '';
-          const current = await ActivityService.getLancamentos(userId, 1000);
-          for (const t of current) {
+          const erros: string[] = [];
+          // Processar uma por uma para que falhas individuais não bloqueiem as demais
+          for (const act of incompleteActivities) {
+            const actId = act.id;
+            if (!actId) continue;
             try {
-              const idToUpdate = (t as any).atividade_id || (t as any).id;
-              if (idToUpdate) await ActivityService.updateLancamento(idToUpdate, { esperando_por_anexo: false } as any);
-            } catch (err) {
-              console.error('Erro ao marcar atividade como completa:', err, t);
+              const { error: updateErr } = await supabase.from('lancamentos_agricolas').update({ is_completed: true }).eq('atividade_id', actId);
+              if (updateErr) { erros.push(`${act.descricao || actId}: ${updateErr.message}`); continue; }
+
+              const { error: fifoErr } = await supabase.rpc('fn_baixar_estoque_fifo_lancamento', { p_atividade_id: actId });
+              if (fifoErr) {
+                // Reverter
+                await supabase.from('lancamentos_agricolas').update({ is_completed: false }).eq('atividade_id', actId);
+                erros.push(`${act.descricao || actId}: ${fifoErr.message}`);
+              }
+            } catch (err: any) {
+              erros.push(`${act.descricao || actId}: ${err?.message || 'Erro desconhecido'}`);
             }
+          }
+          if (erros.length > 0) {
+            alert('Algumas atividades não puderam ser confirmadas (estoque insuficiente ou erro):\n\n' + erros.join('\n'));
           }
           const [updated, freshTalhoes] = await Promise.all([
             ActivityService.getLancamentos(userId, 100),
             TalhaoService.getTalhoesCafe(userId)
           ]);
           setTalhoesCafe(freshTalhoes);
-          setIncompleteActivities(normalizeActivities(updated || [], freshTalhoes));
-          setIsActivitiesReviewOpen(false);
+          const remaining = normalizeActivities((updated || []).filter((l: any) => !l.is_completed), freshTalhoes, allMaquinas);
+          setIncompleteActivities(remaining);
+          if (remaining.length === 0) setIsActivitiesReviewOpen(false);
         }}
       />
 

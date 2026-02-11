@@ -104,135 +104,26 @@ export default function OcorrenciaCard({
     const fp = typeof rawFp === 'string' ? rawFp.trim() : rawFp;
     const currentUser = AuthService.getInstance().getCurrentUser();
     const myUserId = currentUser?.user_id;
-    if (!fp) {
+
+    // Extrair path do storage (aceita path relativo, signed URL, URL pública)
+    const storagePath = PragasDoencasService.extractStoragePath(fp);
+    if (!storagePath) {
       setImageSrc(null);
       setImagePath(null);
       return;
     }
 
-    // Função auxiliar para extrair path do storage a partir de uma URL
-    const extractPathFromUrl = (url: string): string | null => {
-      const bucketName = 'pragas_e_doencas';
-      // Tenta extrair de URL de storage (public ou signed)
-      const publicMarker = `/storage/v1/object/public/${bucketName}/`;
-      const objMarker = `/storage/v1/object/${bucketName}/`;
-      
-      if (url.includes(publicMarker)) {
-        const idx = url.indexOf(publicMarker) + publicMarker.length;
-        return url.slice(idx).split('?')[0]; // Remove query params
-      }
-      if (url.includes(objMarker)) {
-        const idx = url.indexOf(objMarker) + objMarker.length;
-        return url.slice(idx).split('?')[0]; // Remove query params
-      }
-      return null;
-    };
-
-    if (typeof fp === 'string' && fp.startsWith('http')) {
-      const publicMarker = '/storage/v1/object/public/';
-      const objMarker = '/storage/v1/object/';
-      
-      // If it's explicitly a public storage URL, use it as-is
-      if (fp.includes(publicMarker)) {
-        const extractedPath = extractPathFromUrl(fp);
-        console.log('[OcorrenciaCard] URL pública detectada, path extraído:', extractedPath);
-        setImageSrc(fp);
-        setImagePath(extractedPath);
-        return;
-      }
-
-      // If it's a storage object URL (non-public), try to extract the object path
-      if (fp.includes(objMarker)) {
-        (async () => {
-          try {
-            const idx = fp.indexOf(objMarker) + objMarker.length;
-            const after = fp.slice(idx); // e.g. 'pragas_e_doencas/11.jpg' or 'pragas_e_doencas/userId/11.jpg'
-            const parts = after.split('/');
-            // remove the bucket segment
-            if (parts.length >= 2) {
-              const key = parts.slice(1).join('/');
-              const candidates: string[] = [];
-              if (key.includes('/')) candidates.push(key);
-              else {
-                if (myUserId) candidates.push(`${myUserId}/${key}`);
-                candidates.push(key);
-              }
-
-              for (const candidate of candidates) {
-                try {
-                  const { data, error } = await supabase.storage
-                    .from('pragas_e_doencas')
-                    .createSignedUrl(candidate, 60);
-                  if (!error && data?.signedUrl) {
-                    if (mounted) {
-                      console.log('[OcorrenciaCard] Signed URL gerada, path:', candidate);
-                      setImageSrc(data.signedUrl);
-                      setImagePath(candidate);
-                    }
-                    return;
-                  }
-                } catch (err) {
-                  // continue
-                }
-              }
-              // Fallback: usa a URL como está, mas extrai o path
-              if (mounted) {
-                const fallbackPath = extractPathFromUrl(fp) || key;
-                console.log('[OcorrenciaCard] Fallback URL storage, path:', fallbackPath);
-                setImageSrc(fp);
-                setImagePath(fallbackPath);
-              }
-            }
-          } catch (e) {
-            // fallthrough to use fp as last resort
-            const fallbackPath = extractPathFromUrl(fp);
-            if (mounted) {
-              console.log('[OcorrenciaCard] Erro, usando fallback path:', fallbackPath);
-              setImageSrc(fp);
-              setImagePath(fallbackPath);
-            }
-          }
-        })();
-        return;
-      }
-
-      // If it's an arbitrary HTTP URL (not public storage) we may not have access.
-      // Use it as-is as a last resort so developer can see what's stored.
-      console.log('[OcorrenciaCard] URL HTTP arbitrária, sem path extraível');
-      setImageSrc(fp);
-      setImagePath(null);
-      return;
-    }
-
-    // Tenta gerar signed url localmente. Prioriza `${userId}/${fp}` quando aplicável,
-    // depois tenta o fp na raiz.
+    // Gerar signed URL via service (aceita qualquer formato)
     (async () => {
-      const candidates: string[] = [];
-      if (fp.includes('/')) candidates.push(fp);
-      else {
-        if (myUserId) candidates.push(`${myUserId}/${fp}`);
-        candidates.push(fp);
-      }
-
-      for (const candidate of candidates) {
-        try {
-          const { data, error } = await supabase.storage
-            .from('pragas_e_doencas')
-            .createSignedUrl(candidate, 60);
-          if (!error && data?.signedUrl) {
-            if (mounted) {
-              setImageSrc(data.signedUrl);
-              setImagePath(candidate);
-            }
-            return;
-          }
-        } catch (err) {
-          // continue para próxima candidate
-        }
-      }
+      const signedUrl = await PragasDoencasService.getSignedUrl(fp, 3600, myUserId);
       if (mounted) {
-        setImageSrc(null);
-        setImagePath(null);
+        if (signedUrl) {
+          setImageSrc(signedUrl);
+          setImagePath(storagePath.includes('/') ? storagePath : (myUserId ? `${myUserId}/${storagePath}` : storagePath));
+        } else {
+          setImageSrc(null);
+          setImagePath(null);
+        }
       }
     })();
 

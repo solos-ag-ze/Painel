@@ -186,6 +186,130 @@ export class EstoqueService {
           numero_nota_fiscal
         `)
         .eq('user_id', userId)
+        .eq('tipo_de_movimentacao', 'entrada')
+        .order('created_at', { ascending: false });
+
+      data = resp.data;
+      error = resp.error;
+
+      // Se o erro indicar coluna desconhecida, refazer sem os campos extras
+      if (error && /column|invalid|does not exist/i.test(String(error.message || error))) {
+        console.warn('Colunas NF não encontradas em estoque_de_produtos, fazendo fallback sem elas.');
+        const resp2 = await supabase
+          .from('estoque_de_produtos')
+          .select(`
+            id,
+            created_at,
+            user_id,
+            nome_do_produto,
+            marca_ou_fabricante,
+            categoria,
+            unidade_de_medida,
+            quantidade_em_estoque,
+            valor_unitario,
+            lote,
+            validade,
+            fornecedor,
+            registro_mapa,
+            unidade_valor_original,
+            unidade_nota_fiscal,
+            quantidade_inicial,
+            valor_total,
+            valor_medio,
+            tipo_de_movimentacao,
+            produto_id,
+            observacoes_das_movimentacoes,
+            entrada_referencia_id
+          `)
+          .eq('user_id', userId)
+          .eq('tipo_de_movimentacao', 'entrada')
+          .order('created_at', { ascending: false });
+
+        data = resp2.data;
+        error = resp2.error;
+      }
+    } catch (e) {
+      console.error('Erro ao buscar produtos (getProdutos):', e);
+      error = e;
+    }
+
+    if (error) {
+      console.error('❌ Erro ao buscar produtos:', error);
+      throw error;
+    }
+
+    // Mapear nomes das colunas
+    const produtosMapeados: ProdutoEstoque[] = (data || []).map((produto: any) => ({
+      id: produto.id,
+      user_id: produto.user_id,
+      nome_produto: produto.nome_do_produto,
+      marca: produto.marca_ou_fabricante,
+      categoria: produto.categoria,
+      unidade: produto.unidade_de_medida,
+      quantidade: produto.quantidade_em_estoque,
+      valor: produto.valor_unitario,
+      status: produto.status ?? null,
+      nota_fiscal: produto.nota_fiscal ?? null,
+      numero_nota_fiscal: produto.numero_nota_fiscal ?? null,
+      unidade_nota_fiscal: produto.unidade_nota_fiscal ?? null,
+      lote: produto.lote,
+      validade: produto.validade,
+      created_at: produto.created_at,
+      fornecedor: produto.fornecedor,
+      registro_mapa: produto.registro_mapa,
+      unidade_valor_original: produto.unidade_valor_original,
+      quantidade_inicial: produto.quantidade_inicial,
+      valor_total: produto.valor_total,
+      valor_medio: produto.valor_medio,
+      tipo_de_movimentacao: produto.tipo_de_movimentacao,
+      produto_id: produto.produto_id,
+      observacoes_das_movimentacoes: produto.observacoes_das_movimentacoes,
+      entrada_referencia_id: produto.entrada_referencia_id,
+    }));
+
+    return produtosMapeados;
+  }
+
+  /**
+   * Busca TODAS as movimentações (entrada, saída e aplicação) do estoque.
+   * Usado para histórico completo e análises que precisam ver todas as movimentações.
+   */
+  static async getAllMovimentacoes(): Promise<ProdutoEstoque[]> {
+    const userId = await this.getCurrentUserId();
+    let data: any = null;
+    let error: any = null;
+
+    try {
+      const resp = await supabase
+        .from('estoque_de_produtos')
+        .select(`
+          id,
+          created_at,
+          user_id,
+          nome_do_produto,
+          marca_ou_fabricante,
+          categoria,
+          unidade_de_medida,
+          quantidade_em_estoque,
+          valor_unitario,
+          lote,
+          validade,
+          fornecedor,
+          registro_mapa,
+          unidade_valor_original,
+          unidade_nota_fiscal,
+          quantidade_inicial,
+          valor_total,
+          valor_medio,
+          tipo_de_movimentacao,
+          produto_id,
+          observacoes_das_movimentacoes,
+          entrada_referencia_id,
+          status,
+          nota_fiscal,
+          numero_nota_fiscal
+        `)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       data = resp.data;
@@ -227,12 +351,12 @@ export class EstoqueService {
         error = resp2.error;
       }
     } catch (e) {
-      console.error('Erro ao buscar produtos (getProdutos):', e);
+      console.error('Erro ao buscar todas movimentações (getAllMovimentacoes):', e);
       error = e;
     }
 
     if (error) {
-      console.error('❌ Erro ao buscar produtos:', error);
+      console.error('❌ Erro ao buscar todas movimentações:', error);
       throw error;
     }
 

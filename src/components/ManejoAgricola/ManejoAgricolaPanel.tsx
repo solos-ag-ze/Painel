@@ -110,7 +110,7 @@ export default function ManejoAgricolaPanel() {
     
     // Busca lançamentos (novo modelo), talhões e talhão default do usuário em paralelo
     const [lancamentosData, talhoesData, talhaoDefaultId] = await Promise.all([
-      ActivityService.getLancamentos(currentUser.user_id, 100),
+      ActivityService.getLancamentos(currentUser.user_id, 100, true),
       TalhaoService.getTalhoesPorCriador(currentUser.user_id, { onlyActive: false }),
       TalhaoService.getTalhaoDefaultId(currentUser.user_id)
     ]);
@@ -153,12 +153,17 @@ export default function ManejoAgricolaPanel() {
       };
     });
 
+    // Filtrar talhões: apenas completos (is_completed=true) e não-default (talhao_default=false)
+    const talhoesFiltrados = (talhoesData || []).filter(t => 
+      t.is_completed === true && t.talhao_default !== true
+    );
+
     setAtividades(mapped);
-    setTalhoes(talhoesData);
+    setTalhoes(talhoesFiltrados);
     setTalhaoDefault(talhaoDefaultId); // This should be the returned value from getTalhaoDefaultId
 
     console.log('Estado final - Atividades:', mapped.length);
-    console.log('Estado final - Talhões:', talhoesData.length);
+    console.log('Estado final - Talhões (filtrados):', talhoesFiltrados.length, 'de', talhoesData.length, 'total');
     console.log('talhao defaultId final:', talhaoDefaultId);
     
   } catch (err) {
@@ -432,16 +437,16 @@ export default function ManejoAgricolaPanel() {
   <div className="flex flex-wrap items-center gap-4 text-sm md:text-base">
     <div className="flex items-center space-x-2">
       <div className="w-3 h-3 bg-[#00A651] rounded-full"></div>
-      <span className="font-bold text-[#004417] text-lg">{talhaoSelecionado.nome}</span>
+      <span className="font-bold text-[#004417] text-lg">{talhaoSelecionado.nome || 'Sem nome'}</span>
     </div>
     <div className="text-[rgba(0,68,23,0.15)]">|</div>
     <div className="flex items-center space-x-1">
-      <span className="font-semibold text-[#004417]">{talhaoSelecionado.area.toFixed(1)} ha</span>
+      <span className="font-semibold text-[#004417]">{talhaoSelecionado.area ? Number(talhaoSelecionado.area).toFixed(1) : '0.0'} ha</span>
     </div>
     <div className="text-[rgba(0,68,23,0.15)]">|</div>
     <div className="flex items-center space-x-1">
       <Coffee className="w-4 h-4 text-[#00A651]" />
-      <span className="text-[#004417] font-medium">{talhaoSelecionado.cultura}</span>
+      <span className="text-[#004417] font-medium">{talhaoSelecionado.cultura || 'Café'}</span>
     </div>
     <div className="text-[rgba(0,68,23,0.15)]">|</div>
     <div className="flex items-center space-x-1">

@@ -21,7 +21,7 @@ export interface LancamentoComData extends LancamentoAgricola {
 
 export class ActivityService {
   /** Lista lançamentos (com filhos) — retorna em ordem decrescente por data_atividade */
-  static async getLancamentos(userId?: string, limit: number = 50): Promise<LancamentoComData[]> {
+  static async getLancamentos(userId?: string, limit: number = 50, onlyCompleted?: boolean): Promise<LancamentoComData[]> {
     try {
       const query = supabase
         .from('lancamentos_agricolas')
@@ -32,10 +32,15 @@ export class ActivityService {
           lancamento_produtos(*), 
           lancamento_maquinas(*)`
         )
-        .order('data_atividade', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(limit);
 
       if (userId) query.eq('user_id', userId);
+      
+      // Se onlyCompleted for true, filtra apenas atividades completas
+      if (onlyCompleted === true) {
+        query.eq('is_completed', true);
+      }
 
       const { data, error } = await query;
       if (error) {
@@ -257,6 +262,7 @@ export class ActivityService {
             nome_produto: p.nome.trim(),
             quantidade_val: p.quantidade ? Number(p.quantidade) : null,
             quantidade_un: p.unidade || null,
+            produto_catalogo_id: p.produto_catalogo_id || null,
             user_id: userId
           }));
           const { error: errProd } = await supabase.from('lancamento_produtos').insert(rows);

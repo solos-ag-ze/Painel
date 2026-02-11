@@ -29,11 +29,12 @@ async function getCustosInsumosPorTalhao(
   dataFim: Date | null
 ): Promise<Record<string, number>> {
   try {
-    // 1. Buscar atividades agrícolas no período
+    // 1. Buscar atividades agrícolas no período (apenas completas)
     let queryAtividades = supabase
       .from('lancamentos_agricolas')
       .select('atividade_id, data_atividade')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('is_completed', true);
 
     if (dataInicio) {
       queryAtividades = queryAtividades.gte('data_atividade', format(dataInicio, 'yyyy-MM-dd'));
@@ -88,9 +89,9 @@ async function getCustosInsumosPorTalhao(
       atividadeTalhoesMap.get(t.atividade_id)!.push(t.talhao_id);
     });
 
-    // 4. Buscar talhões non-default para distribuição proporcional
+    // 4. Buscar talhões non-default para distribuição proporcional (apenas completos)
     const talhoesNonDefault = await TalhaoService.getTalhoesNonDefault(userId, { onlyActive: true });
-    const talhoesElegiveis = (talhoesNonDefault || []).filter(t => t && !t.talhao_default && (t.area || 0) > 0);
+    const talhoesElegiveis = (talhoesNonDefault || []).filter(t => t && !t.talhao_default && (t.area || 0) > 0 && t.is_completed === true);
     
     // Criar mapa de talhões elegíveis por ID
     const talhoesElegivelMap = new Map<string, { id: string; nome: string; area: number }>();
@@ -441,9 +442,9 @@ export class CustoPorTalhaoService {
     filtros: FiltrosCustoPorTalhao = {}
   ): Promise<CustoTalhao[]> {
     try {
-      // 1. Buscar talhões do usuário (non-default e ativos)
+      // 1. Buscar talhões do usuário (non-default, ativos e completos)
       const talhoes = await TalhaoService.getTalhoesNonDefault(userId, { onlyActive: true });
-      const eligibleTalhoes = (talhoes || []).filter(t => t && !t.talhao_default && (t.area || 0) > 0);
+      const eligibleTalhoes = (talhoes || []).filter(t => t && !t.talhao_default && (t.area || 0) > 0 && t.is_completed === true);
 
       if (eligibleTalhoes.length === 0) {
         return [];
@@ -519,6 +520,7 @@ export class CustoPorTalhaoService {
         `)
         .eq('user_id', userId)
         .eq('tipo_transacao', 'GASTO')
+        .eq('is_completed', true)
         .or(`status.eq.Pago,and(status.eq.Agendado,data_agendamento_pagamento.lte.${hoje})`);
 
       if (dataInicio) {
@@ -688,11 +690,12 @@ export class CustoPorTalhaoService {
         dataFim = periodo.fim;
       }
 
-      // 1. Buscar TODAS as atividades agrícolas no período
+      // 1. Buscar TODAS as atividades agrícolas no período (apenas completas)
       let queryAtividades = supabase
         .from('lancamentos_agricolas')
         .select('atividade_id, nome_atividade, data_atividade')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('is_completed', true);
 
       if (dataInicio) {
         queryAtividades = queryAtividades.gte('data_atividade', format(dataInicio, 'yyyy-MM-dd'));
@@ -738,9 +741,9 @@ export class CustoPorTalhaoService {
         atividadeTalhoesMap.get(t.atividade_id)!.push(t.talhao_id);
       });
 
-      // 4. Buscar talhões non-default para saber quais são elegíveis
+      // 4. Buscar talhões non-default para saber quais são elegíveis (apenas completos)
       const talhoesNonDefault = await TalhaoService.getTalhoesNonDefault(userId, { onlyActive: true });
-      const talhoesElegiveis = (talhoesNonDefault || []).filter(t => t && !t.talhao_default && (t.area || 0) > 0);
+      const talhoesElegiveis = (talhoesNonDefault || []).filter(t => t && !t.talhao_default && (t.area || 0) > 0 && t.is_completed === true);
       
       const talhoesElegivelMap = new Map<string, { id: string; nome: string; area: number }>();
       let totalAreaElegivel = 0;
@@ -874,6 +877,7 @@ export class CustoPorTalhaoService {
         `)
         .eq('user_id', userId)
         .eq('tipo_transacao', 'GASTO')
+        .eq('is_completed', true)
         .or(`status.eq.Pago,and(status.eq.Agendado,data_agendamento_pagamento.lte.${hojeFinanceiro})`);
 
       if (dataInicio) {
@@ -1086,7 +1090,7 @@ export class CustoPorTalhaoService {
     try {
       // Carrega talhões non-default e ativos do usuário, filtrando area>0 e talhao_default=false
       const talhoes = await TalhaoService.getTalhoesNonDefault(userId, { onlyActive: true });
-      const eligibleTalhoes = (talhoes || []).filter(t => t && !t.talhao_default && (t.area || 0) > 0);
+      const eligibleTalhoes = (talhoes || []).filter(t => t && !t.talhao_default && (t.area || 0) > 0 && t.is_completed === true);
 
       // helper: normaliza strings removendo acentos, caracteres extras e espaços
       const normalize = (input: string) => {
@@ -1196,6 +1200,7 @@ export class CustoPorTalhaoService {
         .eq('user_id', userId)
         .eq('tipo_transacao', 'GASTO')
         .eq('status', 'Pago')
+        .eq('is_completed', true)
         .lte('data_agendamento_pagamento', endOfDay);
 
       if (error) {

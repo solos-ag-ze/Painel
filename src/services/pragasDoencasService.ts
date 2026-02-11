@@ -106,19 +106,7 @@ export class PragasDoencasService {
         })
       );
 
-      // Gerar signed URLs para foto_principal (se não for URL pública)
-      const withSigned = await Promise.all(
-        ocorrenciasComTalhoes.map(async (o) => {
-          const fp = o.foto_principal;
-          if (fp && typeof fp === 'string' && !fp.startsWith('http')) {
-            const signed = await this.getSignedUrl(fp, 60, o.user_id as string);
-            return { ...o, foto_principal: signed || o.foto_principal };
-          }
-          return o;
-        })
-      );
-
-      return withSigned;
+      return ocorrenciasComTalhoes;
     } catch (err) {
       console.error('Erro no PragasDoencasService.getOcorrencias:', err);
       return [];
@@ -158,16 +146,8 @@ export class PragasDoencasService {
         })
       );
 
-      // Gerar signed URL para foto_principal se necessário
-      let fotoPrincipal = data.foto_principal;
-      if (fotoPrincipal && typeof fotoPrincipal === 'string' && !fotoPrincipal.startsWith('http')) {
-        const signed = await this.getSignedUrl(fotoPrincipal, 60, data.user_id as string);
-        fotoPrincipal = signed || fotoPrincipal;
-      }
-
       return {
         ...data,
-        foto_principal: fotoPrincipal,
         talhoes_vinculados: talhoesComNomes,
       };
     } catch (err) {
@@ -180,13 +160,10 @@ export class PragasDoencasService {
 
   static async uploadImage(file: File, ocorrenciaId: number, userId: string): Promise<string | null> {
     try {
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const timestamp = Date.now();
-      const randomSuffix = Math.random().toString(36).substring(2, 8);
-      const fileName = `${timestamp}_${randomSuffix}.${fileExt}`;
-      const filePath = `${userId}/${fileName}`; // prefixa com userId para ownership-by-prefix
+      // Padrão fixo: user_id/id.jpg — sempre sobrescreve (upsert)
+      const filePath = `${userId}/${ocorrenciaId}.jpg`;
 
-      console.log('📸 [PragasDoencas] Iniciando upload da imagem:', { fileName, fileSize: file.size, fileType: file.type });
+      console.log('📸 [PragasDoencas] Iniciando upload da imagem:', { filePath, fileSize: file.size, fileType: file.type });
 
       const { error: uploadError } = await getStorageClient().storage
         .from(this.BUCKET_NAME)
@@ -246,30 +223,22 @@ export class PragasDoencasService {
   }
 
   /**
-   * Substitui uma imagem existente por uma nova
+   * Substitui uma imagem existente por uma nova.
+   * Como o padrão é sempre user_id/id.jpg, o upsert sobrescreve automaticamente.
    */
-  static async replaceImage(file: File, oldPath: string, ocorrenciaId: number, userId: string): Promise<string | null> {
+  static async replaceImage(file: File, _oldPath: string, ocorrenciaId: number, userId: string): Promise<string | null> {
     try {
-      console.log('🔄 [PragasDoencas] Substituindo imagem:', oldPath);
+      const filePath = `${userId}/${ocorrenciaId}.jpg`;
+      console.log('🔄 [PragasDoencas] Substituindo imagem (upsert):', filePath);
 
-      // Deletar imagem antiga do storage (sem atualizar banco)
-      try {
-        await getStorageClient().storage
-          .from(this.BUCKET_NAME)
-          .remove([oldPath]);
-        console.log('🗑️ [PragasDoencas] Imagem antiga removida');
-      } catch (delErr) {
-        console.warn('⚠️ [PragasDoencas] Falha ao remover imagem antiga:', delErr);
-      }
-
-      // Upload da nova imagem
+      // Upload com upsert — sobrescreve o arquivo no mesmo path
       const newPath = await this.uploadImage(file, ocorrenciaId, userId);
       if (!newPath) {
         console.error('❌ [PragasDoencas] Falha no upload da nova imagem');
         return null;
       }
 
-      // Atualizar banco com novo path
+      // Atualizar banco com path (garantir consistência)
       const { error: dbError } = await supabase
         .from('pragas_e_doencas')
         .update({ foto_principal: newPath })
@@ -277,8 +246,6 @@ export class PragasDoencasService {
 
       if (dbError) {
         console.error('❌ [PragasDoencas] Erro ao atualizar banco:', dbError);
-        // Rollback: tentar deletar arquivo novo
-        await getStorageClient().storage.from(this.BUCKET_NAME).remove([newPath]);
         return null;
       }
 
@@ -290,46 +257,57 @@ export class PragasDoencasService {
     }
   }
 
-  static async getSignedUrl(path: string | null | undefined, expires = 60, userId?: string): Promise<string | null> {
-    try {
-      if (!path) return null;
-      // Se já for uma URL pública, retorna como está
-      if (path.startsWith('http')) return path;
+  /**
+   * Extrai o path relativo do storage a partir de qualquer formato de foto_principal.
+   * Aceita: path relativo, URL pública, signed URL.
+   * Retorna null para emojis, valores inválidos ou URLs externas.
+   */
+  static extractStoragePath(value: string | null | undefined): string | null {
+    if (!value || typeof value !== 'string') return null;
 
-      // Validar formato do path antes de chamar a API de signed url
-      // Aceitamos dois formatos principais:
-      // 1) prefixado por usuário: "<userId>/<filename.ext>"
-      // 2) arquivo na raiz gerado por WhatsApp com nome igual ao id da ocorrência: "<occurrenceId>.<ext>"
-      if (typeof path !== 'string' || !path.includes('.')) {
-        console.warn('getSignedUrl: path inválido, pulando signedUrl:', path);
-        return null;
-      }
+    // Emoji ou texto sem extensão de arquivo
+    if (!value.includes('.')) return null;
 
+    // Se é uma URL, tentar extrair o path do storage
+    if (value.startsWith('http')) {
+      const bucketName = 'pragas_e_doencas';
+      const markers = [
+        `/storage/v1/object/public/${bucketName}/`,
+        `/storage/v1/object/sign/${bucketName}/`,
+        `/storage/v1/object/${bucketName}/`,
+      ];
 
-      const isPrefixed = path.includes('/');
-      // aceitar "123.png" ou "123" (apenas id numérico na raiz)
-      const isNumericRoot = /^[0-9]+(\.[A-Za-z0-9]+)?$/.test(path);
-      if (!isPrefixed && !isNumericRoot) {
-        console.warn('getSignedUrl: path não corresponde ao formato esperado, pulando:', path);
-        return null;
-      }
-
-      // Se estiver na raiz e tivermos userId, tente primeiro o path prefixado
-      if (!isPrefixed && userId) {
-        const prefixed = `${userId}/${path}`;
-        try {
-          const { data: prefData, error: prefError } = await getStorageClient().storage
-            .from(this.BUCKET_NAME)
-            .createSignedUrl(prefixed, expires);
-          if (!prefError && prefData?.signedUrl) return prefData.signedUrl;
-        } catch (err) {
-          // ignore and try original path
+      for (const marker of markers) {
+        const idx = value.indexOf(marker);
+        if (idx !== -1) {
+          return value.slice(idx + marker.length).split('?')[0];
         }
       }
+      return null; // URL externa (não-Supabase)
+    }
+
+    // Já é um path relativo
+    return value;
+  }
+
+  /**
+   * Gera signed URL para um path no bucket pragas_e_doencas.
+   * Aceita qualquer formato: path relativo, signed URL expirada, URL pública.
+   * Padrão esperado no storage: user_id/id.jpg
+   */
+  static async getSignedUrl(path: string | null | undefined, expires = 3600, userId?: string): Promise<string | null> {
+    try {
+      const storagePath = this.extractStoragePath(path);
+      if (!storagePath) return null;
+
+      // Se path não contém '/' e temos userId, monta o path padrão user_id/id.jpg
+      const resolvedPath = !storagePath.includes('/') && userId
+        ? `${userId}/${storagePath}`
+        : storagePath;
 
       const { data, error } = await getStorageClient().storage
         .from(this.BUCKET_NAME)
-        .createSignedUrl(path, expires);
+        .createSignedUrl(resolvedPath, expires);
 
       if (error) {
         console.error('Erro ao criar signedUrl:', error);
@@ -465,14 +443,7 @@ export class PragasDoencasService {
         }
       }
 
-      // Gerar signed URL para foto_principal do registro atualizado, se necessário
-      let fotoPrincipal = (data as any).foto_principal;
-      if (fotoPrincipal && !fotoPrincipal.startsWith('http')) {
-        const signed = await this.getSignedUrl(fotoPrincipal, 60, (data as any).user_id as string);
-        fotoPrincipal = signed || fotoPrincipal;
-      }
-
-      return { data: { ...(data as any), foto_principal: fotoPrincipal } };
+      return { data };
     } catch (err) {
       console.error('Erro no PragasDoencasService.updateOcorrencia:', err);
       return { error: err };

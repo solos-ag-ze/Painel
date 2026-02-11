@@ -4,7 +4,7 @@ import type { Talhao, VinculoUsuarioPropriedade, Propriedade } from '../lib/supa
 
 export class TalhaoService {
   /**
-   * Gets the total cultivated coffee area for a user
+   * Gets the total area of all talhões (excluding default) for a user
    */
   static async getAreaCultivadaCafe(
     userId: string,
@@ -13,59 +13,45 @@ export class TalhaoService {
     try {
       console.log('🌾 [TalhaoService] getAreaCultivadaCafe - userId:', userId, 'propriedadeId:', propriedadeId);
 
-      // First get all propriedade IDs linked to this user
+      // Buscar diretamente por user_id (não depende de vínculos)
       let query = supabase
-        .from<VinculoUsuarioPropriedade>('vinculo_usuario_propriedade')
-        .select('id_propriedade')
+        .from('talhoes')
+        .select('area')
         .eq('user_id', userId)
-        .eq('ativo', true);
+        .eq('talhao_default', false);
 
       if (propriedadeId) {
         query = query.eq('id_propriedade', propriedadeId);
       }
 
-      const { data: vinculos, error: vinculoError } = await query;
+      const { data: talhoes, error } = await query;
 
-      console.log('🔍 [TalhaoService] Vinculos result:', { vinculos, vinculoError });
-
-      if (vinculoError) {
-        console.error('❌ [TalhaoService] Error fetching vinculos:', vinculoError);
-        return 0;
-      }
-
-      if (!vinculos || vinculos.length === 0) {
-        console.warn('⚠️ [TalhaoService] No active properties found for user:', userId);
-        return 0;
-      }
-
-      const propriedadeIds = vinculos.map(v => v.id_propriedade);
-
-      // Now query the sum of areas directly from the database
-      const { data, error } = await supabase
-        .from('talhoes')
-        .select('area')
-        .in('id_propriedade', propriedadeIds)
-        .eq('cultura', 'Café')
-        .eq('talhao_default', false)
-        .or('ativo.eq.true,is_completed.eq.true');
+      console.log('🔍 [TalhaoService] Talhões encontrados para soma de área:', talhoes?.length || 0);
 
       if (error) {
-        console.error('Error calculating coffee area:', error);
+        console.error('❌ [TalhaoService] Erro ao buscar talhões:', error);
         return 0;
       }
 
-      // Sum all areas (convert to number if needed)
-      const totalArea = data.reduce((sum, talhao) => {
-        // Ensure area is treated as a number
+      if (!talhoes || talhoes.length === 0) {
+        console.warn('⚠️ [TalhaoService] Nenhum talhão encontrado para o usuário');
+        return 0;
+      }
+
+      // Somar todas as áreas
+      const totalArea = talhoes.reduce((sum, talhao) => {
+        // Garantir que area seja tratada como número
         const area = typeof talhao.area === 'string' 
           ? parseFloat(talhao.area.replace(',', '.')) 
           : talhao.area;
         return sum + (area || 0);
       }, 0);
 
-      return parseFloat(totalArea.toFixed(2)); // Return with 2 decimal places
+      console.log('📊 [TalhaoService] Área total calculada:', totalArea, 'ha');
+
+      return parseFloat(totalArea.toFixed(2));
     } catch (error) {
-      console.error('Unexpected error in getAreaCultivadaCafe:', error);
+      console.error('❌ [TalhaoService] Erro inesperado em getAreaCultivadaCafe:', error);
       return 0;
     }
   }
@@ -236,15 +222,11 @@ static async getTalhoesNonDefault(
     try {
       console.log('🌾 [TalhaoService] getTalhoesNonDefault - userId:', userId, 'options:', options);
 
-      // Get propriedade IDs linked to user
+      // Get propriedade IDs linked to user - SEMPRE buscar TODOS os vínculos
       let query = supabase
         .from<VinculoUsuarioPropriedade>('vinculo_usuario_propriedade')
         .select('id_propriedade')
         .eq('user_id', userId);
-
-      if (options?.onlyActive !== false) {
-        query = query.eq('ativo', true);
-      }
 
       if (options?.propriedadeId) {
         query = query.eq('id_propriedade', options.propriedadeId);
@@ -252,7 +234,9 @@ static async getTalhoesNonDefault(
 
       const { data: vinculos, error: vinculoError } = await query;
 
-      console.log('🔍 [TalhaoService] Vinculos for non-default talhoes:', { vinculos, vinculoError });
+      console.log('🔍 [TalhaoService] Vinculos encontrados:', vinculos?.length || 0);
+      console.log('🔍 [TalhaoService] Vinculos detalhes:', vinculos);
+      console.log('🔍 [TalhaoService] Vinculo error:', vinculoError);
 
       if (vinculoError) {
         console.error('❌ [TalhaoService] Error fetching vinculos:', vinculoError);
@@ -266,6 +250,9 @@ static async getTalhoesNonDefault(
       
       const propriedadeIds = vinculos.map(v => v.id_propriedade);
       
+      console.log('🔍 [TalhaoService] Buscando talhões para propriedades:', propriedadeIds);
+      console.log('🔍 [TalhaoService] Filtro onlyActive =', options?.onlyActive);
+      
       // Get talhoes where talhao_default is false
       let talhaoQuery = supabase
         .from<Talhao>('talhoes')
@@ -273,13 +260,67 @@ static async getTalhoesNonDefault(
         .in('id_propriedade', propriedadeIds)
         .eq('talhao_default', false);  // Only non-default talhões
       
-      if (options?.onlyActive !== false) {
-        talhaoQuery = talhaoQuery.or('ativo.eq.true,is_completed.eq.true');
+      // Se especificar filtro de ativos, aplicar
+      if (options?.onlyActive === true) {
+        console.log('✅ [TalhaoService] Aplicando filtro ativo=true nos talhões');
+        talhaoQuery = talhaoQuery.eq('ativo', true);
+      } else {
+        console.log('❌ [TalhaoService] NÃO filtrando por ativo - retorna todos os talhões');
       }
       
       const { data: talhoes, error } = await talhaoQuery;
       
+      console.log('📋 [TalhaoService] Talhões encontrados (total):', talhoes?.length || 0);
+      console.log('📋 [TalhaoService] Talhões com is_completed=true:', talhoes?.filter(t => t.is_completed === true).length || 0);
+      console.log('📋 [TalhaoService] Talhões com is_completed=false:', talhoes?.filter(t => t.is_completed !== true).length || 0);
+      console.log('📋 [TalhaoService] Primeiros 3 talhões:', talhoes?.slice(0, 3).map(t => ({
+        nome: t.nome,
+        ativo: t.ativo,
+        is_completed: t.is_completed,
+        cultura: t.cultura,
+        id_propriedade: t.id_propriedade
+      })));
+      console.log('📋 [TalhaoService] Query error:', error);
+      
       if (error) throw error;
+      
+      // ⚠️ FALLBACK: Se não encontrou talhões via propriedade, buscar direto pelo user_id
+      // Isso resolve problemas de vínculos inconsistentes no banco
+      if (!talhoes || talhoes.length === 0) {
+        console.warn('⚠️ [TalhaoService] FALLBACK: Nenhum talhão encontrado via propriedade, buscando direto por user_id');
+        
+        let fallbackQuery = supabase
+          .from<Talhao>('talhoes')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('talhao_default', false);
+        
+        if (options?.onlyActive === true) {
+          fallbackQuery = fallbackQuery.eq('ativo', true);
+        }
+        
+        const { data: fallbackTalhoes, error: fallbackError } = await fallbackQuery;
+        
+        console.log('🔄 [TalhaoService] Fallback result:', {
+          found: fallbackTalhoes?.length || 0,
+          error: fallbackError
+        });
+        
+        if (fallbackError) {
+          console.error('❌ [TalhaoService] Fallback error:', fallbackError);
+          return [];
+        }
+        
+        if (fallbackTalhoes && fallbackTalhoes.length > 0) {
+          console.log('✅ [TalhaoService] Fallback SUCCESS - usando talhões do user_id');
+          return fallbackTalhoes.map(talhao => ({
+            ...talhao,
+            area: typeof talhao.area === 'string' 
+              ? parseFloat(talhao.area.replace(',', '.')) 
+              : talhao.area
+          }));
+        }
+      }
       
       // Ensure all area values are numbers
       return (talhoes || []).map(talhao => ({
@@ -542,47 +583,66 @@ static async getProdutividadeFazendaTeste(
   propriedadeId?: string
 ): Promise<number> {
   try {
+    console.log('🏡 [TalhaoService] getTotalAreaFazenda - userId:', userId, 'propriedadeId:', propriedadeId);
+
     // 1. Buscar as propriedades vinculadas ao usuário
     let propQuery = supabase
       .from('vinculo_usuario_propriedade')
       .select('id_propriedade')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('ativo', true);
     
     if (propriedadeId) {
       propQuery = propQuery.eq('id_propriedade', propriedadeId);
     }
     
     const { data: vinculos, error: vinculoError } = await propQuery;
-    if (vinculoError) throw vinculoError;
-    if (!vinculos || !vinculos.length) return 0;
+    
+    console.log('🔍 [TalhaoService] Vinculos para área total:', vinculos?.length || 0);
+    
+    if (vinculoError) {
+      console.error('❌ [TalhaoService] Erro ao buscar vínculos:', vinculoError);
+      return 0;
+    }
+    
+    if (!vinculos || vinculos.length === 0) {
+      console.warn('⚠️ [TalhaoService] Nenhum vínculo ativo encontrado');
+      return 0;
+    }
     
     const propriedadesIds = vinculos.map(v => v.id_propriedade);
     
-    // 2. Buscar talhões dessas propriedades (sem filtro de ativo, mas excluindo default)
-    const { data: talhoes, error: talhaoError } = await supabase
-      .from('talhoes')
-      .select('area')
+    // 2. Buscar o area_total das propriedades vinculadas
+    const { data: propriedades, error: propError } = await supabase
+      .from('propriedades')
+      .select('area_total')
       .in('id_propriedade', propriedadesIds)
-      .eq('talhao_default', false);
+      .eq('ativo', true);
     
-    if (talhaoError) throw talhaoError;
-    if (!talhoes || !talhoes.length) return 0;
+    console.log('🏡 [TalhaoService] Propriedades encontradas:', propriedades?.length || 0);
     
-    // 3. Calcular área total
-    let totalArea = 0;
-    
-    for (const talhao of talhoes) {
-      const area = talhao.area ?? 0;
-      
-      if (area > 0) {
-        totalArea += area;
-      }
+    if (propError) {
+      console.error('❌ [TalhaoService] Erro ao buscar propriedades:', propError);
+      return 0;
     }
+    
+    if (!propriedades || propriedades.length === 0) {
+      console.warn('⚠️ [TalhaoService] Nenhuma propriedade ativa encontrada');
+      return 0;
+    }
+    
+    // 3. Somar as áreas totais das propriedades
+    const totalArea = propriedades.reduce((acc, prop) => {
+      const area = Number(prop.area_total) || 0;
+      return acc + area;
+    }, 0);
+    
+    console.log('📊 [TalhaoService] Área total calculada:', totalArea, 'ha');
     
     // 4. Retornar área total
     return parseFloat(totalArea.toFixed(2));
   } catch (error) {
-    console.error('Erro ao calcular área total da fazenda:', error);
+    console.error('❌ [TalhaoService] Erro ao calcular área total da fazenda:', error);
     return 0;
   }
 }
