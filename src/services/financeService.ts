@@ -245,7 +245,7 @@ export class FinanceService {
         .eq('is_completed', false)
         .neq('ativo', false)
         .eq('user_id', userId)
-        .order('data_agendamento_pagamento', { ascending: false });
+        .order('data_registro', { ascending: false });
 
       if (error) {
         console.error('Erro ao buscar transações incompletas:', error);
@@ -265,6 +265,59 @@ export class FinanceService {
           nome_talhao: nomeTalhao
         };
       });
+
+      // --- Buscar último evento de histórico para cada transação (batch) ---
+      try {
+        const txIds = result.map((r: any) => r.id_transacao).filter(Boolean);
+        if (txIds.length > 0) {
+          // históricos onde a transação é a própria ou onde aponta como parent
+          const { data: histById, error: err1 } = await supabase
+            .from('historico_transacoes_financeiras')
+            .select('id, id_transacao, id_transacao_pai, nome_editor, dados_novos, dados_anteriores, campos_alterados, editado_em')
+            .in('id_transacao', txIds)
+            .order('editado_em', { ascending: false });
+
+          const { data: histByParent, error: err2 } = await supabase
+            .from('historico_transacoes_financeiras')
+            .select('id, id_transacao, id_transacao_pai, nome_editor, dados_novos, dados_anteriores, campos_alterados, editado_em')
+            .in('id_transacao_pai', txIds)
+            .order('editado_em', { ascending: false });
+
+          if (err1) console.warn('Erro ao buscar histórico por id_transacao:', err1);
+          if (err2) console.warn('Erro ao buscar histórico por id_transacao_pai:', err2);
+
+          const allHist = [ ...(histById || []), ...(histByParent || []) ];
+
+          const mapLast: Record<string, any> = {};
+          for (const h of allHist) {
+            // determinar chave para mapear: prefer id_transacao (evento da própria transação),
+            // caso contrário mapear por id_transacao_pai (evento criado para a parcela com referência ao pai)
+            const keyDirect = h.id_transacao;
+            const keyParent = h.id_transacao_pai;
+            // preferir o primeiro evento mais recente que aparecer (já ordenado desc por consulta)
+            if (keyDirect && !mapLast[keyDirect]) mapLast[keyDirect] = h;
+            if (keyParent && !mapLast[keyParent]) mapLast[keyParent] = h;
+          }
+
+          result.forEach((r: any) => {
+            const last = mapLast[r.id_transacao];
+            if (last) {
+              r.last_history = {
+                id: last.id,
+                nome_editor: last.nome_editor,
+                campos_alterados: last.campos_alterados,
+                editado_em: last.editado_em,
+                dados_novos: last.dados_novos,
+                dados_anteriores: last.dados_anteriores,
+              };
+            } else {
+              r.last_history = null;
+            }
+          });
+        }
+      } catch (histErr) {
+        console.warn('Erro ao anexar histórico às transações (batch):', histErr);
+      }
 
       return result;
     } catch (err) {

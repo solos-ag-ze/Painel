@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 export interface HistoricoEdicao {
   id: string;
   id_transacao: string;
+  id_transacao_pai?: string | null;
   user_id: string;
   nome_editor: string;
   dados_anteriores: Record<string, unknown>;
@@ -26,6 +27,12 @@ export interface HistoricoEdicaoFormatado {
     valorAnterior: unknown;
     valorNovo: unknown;
   }>;
+  /** Se true, é uma confirmação de transação (única alteração foi is_completed) */
+  isConfirmacao?: boolean;
+  /** Se true, é o registro de criação (snapshot no INSERT) */
+  isCriacao?: boolean;
+  /** Dados completos da transação (preenchido quando isConfirmacao = true) */
+  dadosTransacao?: Record<string, unknown>;
 }
 
 /**
@@ -61,14 +68,30 @@ export class HistoricoTransacoesService {
         return true; // Não é um erro, apenas não havia o que registrar
       }
 
-      // Filtrar dados para incluir apenas campos relevantes (evita gravar campos internos)
-      const dadosAnterioresFiltrados = this.filtrarCamposRelevantes(dadosAnteriores, camposAlterados);
-      const dadosNovosFiltrados = this.filtrarCamposRelevantes(dadosNovos, camposAlterados);
+      // Verificar se é uma confirmação (única alteração é is_completed)
+      const isConfirmacao = camposAlterados.length === 1 && 
+        camposAlterados[0] === 'is_completed' &&
+        dadosNovos['is_completed'] === true;
+
+      let dadosAnterioresFiltrados: Record<string, unknown>;
+      let dadosNovosFiltrados: Record<string, unknown>;
+
+      if (isConfirmacao) {
+        // Para confirmações, salvar todos os dados da transação
+        dadosAnterioresFiltrados = this.filtrarCamposExibicao(dadosAnteriores);
+        dadosNovosFiltrados = this.filtrarCamposExibicao(dadosNovos);
+      } else {
+        // Filtrar dados para incluir apenas campos relevantes (evita gravar campos internos)
+        dadosAnterioresFiltrados = this.filtrarCamposRelevantes(dadosAnteriores, camposAlterados);
+        dadosNovosFiltrados = this.filtrarCamposRelevantes(dadosNovos, camposAlterados);
+      }
 
       const { error } = await supabase
         .from('historico_transacoes_financeiras')
         .insert({
           id_transacao: idTransacao,
+          // tentar salvar o id_transacao_pai quando disponível (dados novos > anteriores)
+          id_transacao_pai: dadosNovos['id_transacao_pai'] ?? dadosAnteriores['id_transacao_pai'] ?? null,
           user_id: userId,
           nome_editor: nomeEditor,
           dados_anteriores: dadosAnterioresFiltrados,
@@ -85,6 +108,7 @@ export class HistoricoTransacoesService {
         idTransacao,
         camposAlterados,
         nomeEditor,
+        isConfirmacao,
       });
 
       return true;
@@ -103,11 +127,39 @@ export class HistoricoTransacoesService {
    */
   static async getHistoricoByTransacao(idTransacao: string): Promise<HistoricoEdicao[]> {
     try {
-      const { data, error } = await supabase
-        .from('historico_transacoes_financeiras')
-        .select('*')
-        .eq('id_transacao', idTransacao)
-        .order('editado_em', { ascending: false });
+      // Primeiro, tentar descobrir se a transação é uma parcela (tem parent)
+      let parentId: string | null = null;
+      try {
+        const txRes = await supabase
+          .from('transacoes_financeiras')
+          .select('id_transacao_pai')
+          .eq('id_transacao', idTransacao)
+          .limit(1)
+          .single();
+        if (!txRes.error && txRes.data) {
+          parentId = txRes.data.id_transacao_pai || null;
+        }
+      } catch (e) {
+        // ignore - fallback to simple query
+      }
+
+      let query;
+      if (parentId) {
+        // Se é parcela, buscar histórico da própria parcela e do pai (e também entradas onde parent_id aponta para o pai)
+        query = supabase
+          .from('historico_transacoes_financeiras')
+          .select('*')
+          .or(`id_transacao.eq.${idTransacao},id_transacao.eq.${parentId},id_transacao_pai.eq.${parentId}`)
+          .order('editado_em', { ascending: false });
+      } else {
+        query = supabase
+          .from('historico_transacoes_financeiras')
+          .select('*')
+          .or(`id_transacao.eq.${idTransacao},id_transacao_pai.eq.${idTransacao}`)
+          .order('editado_em', { ascending: false });
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('HistoricoTransacoesService: Erro ao buscar histórico:', error);
@@ -132,26 +184,74 @@ export class HistoricoTransacoesService {
     try {
       const historico = await this.getHistoricoByTransacao(idTransacao);
 
-      return historico.map((registro) => {
+      // Categorizar eventos: criação (insert), confirmação (is_completed) e edições
+      const criacoes: HistoricoEdicaoFormatado[] = [];
+      const confirmacoes: HistoricoEdicaoFormatado[] = [];
+      const edicoes: HistoricoEdicaoFormatado[] = [];
+
+      for (const registro of historico) {
+        const isConfirmacao = registro.campos_alterados.length === 1 &&
+          registro.campos_alterados[0] === 'is_completed' &&
+          registro.dados_novos['is_completed'] === true;
+
+        const campos = Array.isArray(registro.campos_alterados) ? registro.campos_alterados : [];
+        const isCriacao = campos.includes('criada') || campos.includes('insert') ||
+          (registro.nome_editor === 'Sistema' && Object.keys(registro.dados_anteriores || {}).length === 0);
+
+        if (isCriacao) {
+          criacoes.push({
+            id: registro.id,
+            editadoEm: new Date(registro.editado_em),
+            nomeEditor: registro.nome_editor,
+            alteracoes: [],
+            isCriacao: true,
+            dadosTransacao: registro.dados_novos,
+          });
+          continue;
+        }
+
+        if (isConfirmacao) {
+          confirmacoes.push({
+            id: registro.id,
+            editadoEm: new Date(registro.editado_em),
+            nomeEditor: registro.nome_editor,
+            alteracoes: [],
+            isConfirmacao: true,
+            dadosTransacao: registro.dados_novos,
+          });
+          continue;
+        }
+
         // Mapear e formatar as alterações
-        const alteracoesFormatadas = registro.campos_alterados.map((campo) => ({
+        const alteracoesFormatadas = campos.map((campo) => ({
           campo: this.formatarNomeCampo(campo),
-          valorAnterior: this.formatarValor(campo, registro.dados_anteriores[campo]),
-          valorNovo: this.formatarValor(campo, registro.dados_novos[campo]),
+          valorAnterior: this.formatarValor(campo, registro.dados_anteriores?.[campo]),
+          valorNovo: this.formatarValor(campo, registro.dados_novos?.[campo]),
         }));
 
-        // Filtrar alterações onde o valor formatado é igual (ex: GASTO → Gasto)
-        const alteracoesReais = alteracoesFormatadas.filter(
-          (alt) => alt.valorAnterior !== alt.valorNovo
-        );
+        const alteracoesReais = alteracoesFormatadas.filter((alt) => alt.valorAnterior !== alt.valorNovo);
 
-        return {
-          id: registro.id,
-          editadoEm: new Date(registro.editado_em),
-          nomeEditor: registro.nome_editor,
-          alteracoes: alteracoesReais,
-        };
-      }).filter((registro) => registro.alteracoes.length > 0); // Remove registros sem alterações reais
+        if (alteracoesReais.length > 0) {
+          edicoes.push({
+            id: registro.id,
+            editadoEm: new Date(registro.editado_em),
+            nomeEditor: registro.nome_editor,
+            alteracoes: alteracoesReais,
+          });
+        }
+      }
+
+      // Ordenar cada grupo por data (desc) e retornar na ordem requerida: Criado, Confirmado, Editado
+      const sortDesc = (a: HistoricoEdicaoFormatado, b: HistoricoEdicaoFormatado) => b.editadoEm.getTime() - a.editadoEm.getTime();
+      criacoes.sort(sortDesc);
+      confirmacoes.sort(sortDesc);
+      edicoes.sort(sortDesc);
+
+      return [
+        ...criacoes,
+        ...confirmacoes,
+        ...edicoes,
+      ];
     } catch (err) {
       console.error('HistoricoTransacoesService: Erro ao formatar histórico:', err);
       return [];
@@ -207,9 +307,18 @@ export class HistoricoTransacoesService {
    * e tratando datas e números de forma especial.
    */
   private static valoresIguais(a: unknown, b: unknown, campo?: string): boolean {
-    // Tratar null/undefined como equivalentes
-    const aVazio = a === null || a === undefined || a === '';
-    const bVazio = b === null || b === undefined || b === '';
+    // Valores que devem ser tratados como "vazio"
+    const valoresVazios = ['sem talhão específico', 'sem talhao especifico', 'nenhum', '-'];
+    
+    const isVazio = (v: unknown): boolean => {
+      if (v === null || v === undefined || v === '') return true;
+      const str = String(v).trim().toLowerCase();
+      return valoresVazios.includes(str);
+    };
+
+    // Tratar null/undefined e valores equivalentes a vazio como iguais
+    const aVazio = isVazio(a);
+    const bVazio = isVazio(b);
     if (aVazio && bVazio) return true;
     if (aVazio !== bVazio) return false;
 
@@ -245,6 +354,44 @@ export class HistoricoTransacoesService {
 
     for (const campo of camposAlterados) {
       if (campo in dados) {
+        resultado[campo] = dados[campo];
+      }
+    }
+
+    return resultado;
+  }
+
+  /**
+   * Filtra os dados para exibição da transação completa (usado em confirmações).
+   * Inclui apenas campos relevantes para visualização do usuário.
+   */
+  private static filtrarCamposExibicao(
+    dados: Record<string, unknown>
+  ): Record<string, unknown> {
+    const camposExibicao = [
+      'tipo_transacao',
+      'descricao',
+      'valor',
+      'categoria',
+      'data_transacao',
+      'data_agendamento_pagamento',
+      'pagador_recebedor',
+      'forma_pagamento_recebimento',
+      'forma_pagamento',
+      'tipo_pagamento',
+      'status',
+      'nome_talhao',
+      'area_vinculada',
+      'numero_parcelas',
+      'parcela',
+      'observacao',
+      'is_completed',
+    ];
+
+    const resultado: Record<string, unknown> = {};
+
+    for (const campo of camposExibicao) {
+      if (campo in dados && dados[campo] !== null && dados[campo] !== undefined && dados[campo] !== '') {
         resultado[campo] = dados[campo];
       }
     }

@@ -1,0 +1,1328 @@
+{
+  "name": "NOVO - Gestor Financeiro",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "user_id"
+            },
+            {
+              "name": "nome"
+            },
+            {
+              "name": "telefone"
+            },
+            {
+              "name": "cidade"
+            },
+            {
+              "name": "estado"
+            },
+            {
+              "name": "timestamp"
+            },
+            {
+              "name": "mensagem_usuario"
+            },
+            {
+              "name": "key_imagem"
+            },
+            {
+              "name": "id_mensagem_usuario"
+            }
+          ]
+        }
+      },
+      "id": "d596da50-d238-4547-89ff-b50a83bbb922",
+      "typeVersion": 1.1,
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        -14800,
+        -6592
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9d0e77bd-9ec2-479d-bd51-0704effae0e6",
+              "name": "user_id",
+              "value": "={{ $('When Executed by Another Workflow').item.json.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4ea71c9c-8e8e-45e8-a5c1-7da3198ef615",
+              "name": "nome",
+              "value": "={{ $('When Executed by Another Workflow').item.json.nome }}",
+              "type": "string"
+            },
+            {
+              "id": "91fac232-86af-40b5-a32b-fa8b2bae5292",
+              "name": "telefone",
+              "value": "={{ $('When Executed by Another Workflow').item.json.telefone }}",
+              "type": "string"
+            },
+            {
+              "id": "f5303f87-3fe7-4260-9375-bfa4266dc8b7",
+              "name": "cidade",
+              "value": "={{ $('When Executed by Another Workflow').item.json.cidade }}",
+              "type": "string"
+            },
+            {
+              "id": "7987ef32-eb42-4368-aa55-f62661b0db95",
+              "name": "estado",
+              "value": "={{ $('When Executed by Another Workflow').item.json.estado }}",
+              "type": "string"
+            },
+            {
+              "id": "f0c1f553-944e-4d9e-b026-845d7eeac0b4",
+              "name": "timestamp",
+              "value": "={{ $('When Executed by Another Workflow').item.json.timestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "b2816aef-9a0b-40c7-9054-fd01cb493b40",
+              "name": "mensagem_usuario",
+              "value": "={{ $('When Executed by Another Workflow').item.json.mensagem_usuario }}",
+              "type": "string"
+            },
+            {
+              "id": "74aa7eb4-84d0-4506-8004-658eef58ae46",
+              "name": "key_imagem",
+              "value": "={{ $('When Executed by Another Workflow').item.json.key_imagem }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -14352,
+        -6592
+      ],
+      "id": "7320f34c-d7b1-4cb8-9683-75098b0701c7",
+      "name": "Prepara Variáveis Orquestrador"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pega os itens que chegam neste node\nconst inputs = $input.all();\nconst out = [];\n\nfor (let inputIndex = 0; inputIndex < inputs.length; inputIndex++) {\n  const item = inputs[inputIndex];\n  const base = item.json ?? {};\n\n  // Pega o texto da mensagem do usuário\n  const raw = (base.mensagem_usuario ?? base.raw_text ?? \"\").toString();\n\n  // Divide por linha, remove espaços e linhas vazias\n  const parts = raw\n    .split(/\\r?\\n/)\n    .map(s => s.trim())\n    .filter(Boolean);\n\n  // Garante que haja pelo menos um item para processar\n  const finalParts = parts.length ? parts : [raw.trim()].filter(Boolean);\n\n  for (let i = 0; i < finalParts.length; i++) {\n    out.push({\n      json: {\n        // Mantém todo o contexto original (user_id, telefone, key_imagem, etc.)\n        ...base,\n\n        // Define o texto individual para o agente processar\n        text: finalParts[i],\n\n        // Metadados para rastreabilidade opcional\n        raw_text: finalParts[i],\n        raw_text_index: i,\n        raw_text_total: finalParts.length,\n      },\n      // VÍNCULO DE LINHAGEM (Corrige o erro de Paired Item Data)\n      pairedItem: {\n        item: inputIndex\n      }\n    });\n  }\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -14128,
+        -6592
+      ],
+      "id": "f21ea835-3f61-4879-916e-6a811f3f98bd",
+      "name": "Divide raw_text em items",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "=Gestor Financeiro — ZÉ\n\nVocê é um extrator automático de lançamentos financeiros do agro.\nVocê NÃO conversa com o usuário.\nVocê NÃO faz perguntas.\nVocê NÃO pede confirmação.\nVocê NÃO escreve texto explicativo.\nVocê NÃO usa emojis.\nVocê SEMPRE retorna APENAS um JSON válido, sem markdown e sem texto fora do JSON.\n\nOBJETIVO\nExtrair informações financeiras da mensagem do usuário, gerar uma descrição curta e classificar a transação em UMA categoria CONAB válida, devolvendo um registro estruturado, mesmo que incompleto.\n\nREGRAS GERAIS\n- Nunca inventar ou assumir informações.\n- Se um dado não estiver explícito, retornar null (exceto descricao e categoria, que têm fallback).\n- Não assumir data como “hoje”.\n- Não assumir status como “Pago”.\n- Não alterar sinal do valor.\n- O nome “Zé” (ou variações como “ze”) refere-se SEMPRE ao agente/sistema e NUNCA deve ser considerado pagador_recebedor.\n- Não inferir contraparte se não estiver clara. Mas extraia pagador_recebedor quando houver menção explícita a pessoa/empresa/estabelecimento (ex.: ‘no posto X’, ‘na loja Y’, ‘para João’, ‘da cooperativa Z’)\n- Campos ausentes devem existir no JSON com valor null.\n- Listas vazias devem ser [] (nunca null).\n- Sempre incluir raw_text com o texto original do usuário.\n- tipo_transacao NUNCA pode ser null.\n- descricao NUNCA pode ser null.\n- categoria NUNCA pode ser null.\n\nFORMATO DE SAÍDA\nRetorne exatamente este objeto JSON:\n\n{\n  \"user_id\": \"uuid\",\n  \"tipo_transacao\": \"GASTO|RECEITA\",\n  \"valor\": number|null,\n  \"data_transacao\": \"yyyy-MM-dd\"|null,\n  \"descricao\": \"string\",\n  \"pagador_recebedor\": \"string\"|null,\n  \"categoria\": \"string\",\n  \"forma_pagamento_recebimento\": \"string\"|null,\n  \"status\": \"Pago|Agendado\"|null,\n  \"data_agendamento_pagamento\": \"yyyy-MM-dd\"|null,\n  \"numero_parcelas\": number,\n  \"areas_citadas\": [\"string\"],\n  \"area_vinculada\": \"string\"|null,\n  \"raw_text\": \"string\",\n  \"is_completed\": boolean\n}\n\nCOMO PREENCHER OS CAMPOS\n\ntipo_transacao:\n- NUNCA pode ser null.\n- Use \"GASTO\" para saída de dinheiro (paguei, comprei, despesa, custo, parcela, conta, taxa, etc.).\n- Use \"RECEITA\" para entrada de dinheiro (recebi, venda, faturamento, etc.).\n- Se ambíguo, priorize \"GASTO\".\n\nvalor:\n- Extrair o número monetário informado.\n- Sempre que tipo_transacao for \"GASTO\" utilize valor negativo. Ex: -500\n- Sempre que tipo_transacao for \"RECEITA\" utilize valor positivo. Ex: 500\n- Se não existir, null.\n\ndescricao:\n- NUNCA pode ser null.\n- Máximo de 40 caracteres.\n- Primeira letra maiúscula.\n- NÃO inclua valores, datas ou nomes de pessoas.\n- Use verbo + objeto quando fizer sentido.\n- Deve ser suficientemente específica para ajudar o usuário a\n  reconhecer a transação no futuro.\n- Regras:\n  - GASTO por compra → \"Compra de <objeto>\"\n  - GASTO por serviço/obrigação → \"Pagamento de <objeto>\"\n  - RECEITA por venda → \"Venda de <objeto>\"\n  - RECEITA sem venda clara → \"Recebimento\"\n- Se houver objeto explícito → NUNCA use fallback (\"Gasto geral\"/\"Receita geral\").\n- Se o texto contiver “gastei/gasto/comprei” e houver objeto explícito → por padrão trate como COMPRA (use \"Compra de <objeto>\"),\n  EXCETO quando o objeto indicar serviço/obrigação (ex.: manutenção, conserto, reparo, revisão, aluguel, frete, taxa, salário, diária, INSS, FGTS, conta, energia, serviço),\n  que deve usar \"Pagamento de <objeto>\".\n- Use SOMENTE o objeto explicitamente citado no texto.\n\nREGRA DE FINALIDADE (OBRIGATÓRIA):\n- Se houver finalidade explícita com “pro/pra/para <finalidade>” e <finalidade> for MÁQUINA/IMPLEMENTO/ATIVIDADE (ex.: trator, colheitadeira, roçadeira, pulverizador, aplicação, plantio, colheita):\n  → inclua “pra <finalidade>” no final da descricao, desde que caiba em 40 caracteres.\n- Não duplicar finalidade:\n  - Se o objeto já contiver “do/da <finalidade>” (ex.: “peças do trator”), NÃO adicionar “pra <finalidade>”.\n- Se exceder 40 caracteres:\n  1) troque “pra” por “p/”\n  2) se ainda exceder, remova o trecho “pra/p/ <finalidade>”\n\nREGRA ESPECIAL — MANUTENÇÃO/CONSERTO DE MÁQUINA (OBRIGATÓRIA):\n- Se tipo_transacao = GASTO e o objeto for “manutenção”, “conserto”, “reparo” ou “revisão” e houver máquina explícita (ex.: “na/no/em <máquina>”, “do/da/de <máquina>”, “pra/pro/para <máquina>”):\n  - descricao = “Pagamento de <objeto> do/da <máquina>”\n  - Escolha “da” se o nome da máquina terminar com “a” (ex.: colheitadeira, roçadeira) e “do” caso contrário (ex.: trator, pulverizador).\n  - Não use “pra <máquina>” nesta regra (sempre “do/da”).\n- Se a descricao exceder 40 caracteres:\n  1) remova adjetivos (ex.: “preventiva”, “geral”)\n  2) se ainda exceder, mantenha “Pagamento de manutenção do/da <máquina>” (preferência por “manutenção”)\n\nExemplos:\n- “Zé gastei 950 de manutenção na colheitadeira” → “Pagamento de manutenção da colheitadeira”\n- “Gastei 300 de conserto no trator” → “Pagamento de conserto do trator”\n\nREGRA ESPECIAL — COMBUSTÍVEL (OBRIGATÓRIA):\n- Se tipo_transacao = GASTO e o objeto for “gasolina”, “diesel”, “etanol” ou “combustível”:\n  - descricao base = “Compra de <objeto>”\n  - aplique REGRA DE FINALIDADE quando houver “pra/pro/para <finalidade>”\nExemplos:\n- “Zé gastei 2mil de combustivel pra colheitadeira” → “Compra de combustível pra colheitadeira”\n- “Zé gastei 320 de gasolina pra roçadeira” → “Compra de gasolina pra roçadeira”\n- “Gastei 500 de gasolina” → “Compra de gasolina”\n\nREGRA ESPECIAL — COMPRA DE PEÇAS PARA MÁQUINA:\n- Se tipo_transacao = GASTO e o objeto for “peça”/“peças” e houver “pro/pra/para <máquina>” explícito → descricao = “Compra de peças do <máquina>”.\nEx.: “Gastei 9mil de peças novas pro trator” → “Compra de peças do trator”\n\nSELEÇÃO DO OBJETO (ORDEM OBRIGATÓRIA):\n\n1) Se existir UM produto específico com identificação técnica,\n   comercial ou padronizada (ex.: NPK, fórmula, concentração, modelo, tipo):\n   → Use o IDENTIFICADOR ESPECÍFICO mais memorável e objetivo,\n     sem generalizar.\n\n   Exemplos válidos:\n   - \"NPK 20-05-20\"\n   - \"Cloro granulado\"\n   - \"Ureia 45%\"\n   - \"Glifosato 480\"\n   - \"Big bag café\"\n\n   Regra especial (quando houver \"categoria + identificador\"):\n   - \"Adubo NPK 20-05-20\" → objeto: \"NPK 20-05-20\"\n   - \"Herbicida glifosato 480\" → objeto: \"Glifosato 480\"\n\n2) Se existir UM único produto simples (sem especificação técnica):\n   → Use o nome direto do produto.\n\n   Ex.: \"cloro\", \"adubo\", \"diesel\", \"gasolina\", \"combustível\", \"sacaria\", \"peças\"\n\nREGRA DE PRIORIDADE — COMBUSTÍVEL (OBRIGATÓRIA):\n- Se o texto contiver “gasolina”, “diesel”, “etanol” ou “combustível”, o objeto DEVE ser esse combustível (mesmo que exista “pro/pra/para <máquina/atividade>”).\n- Trechos como “pro trator”, “pra aplicação”, “para a roçadeira” indicam finalidade e NÃO mudam o objeto.\n\nExemplos:\n- “Gastei 500 de gasolina pro trator zé” → objeto: “gasolina”\n- “Paguei diesel pra colheitadeira” → objeto: “diesel”\n\nREGRA DE CONTEXTO — PEÇAS PARA MÁQUINA (OBRIGATÓRIA):\n- Se o texto contiver “peça”/“peças” e houver “pro/pra/para <máquina>” explícito, o objeto DEVE ser “peças do <máquina>”.\n\nExemplos:\n- “Gastei 9mil de peças novas pro trator” → objeto: “peças do trator”\n- “Comprei peças pra roçadeira” → objeto: “peças da roçadeira”\n\n3) Se existirem VÁRIOS produtos específicos diferentes:\n   → Escolha o grupo dominante mais reconhecível pelo produtor.\n\n   Exemplos:\n   - adubo + calcário → \"insumos\"\n   - herbicida + inseticida → \"defensivos\"\n   - sacaria + big bag → \"embalagens\"\n\n4) Termos genéricos (\"produto\", \"produtos\", \"itens\", \"mercadoria\")\n   SÓ podem ser usados se NENHUM produto específico for citado.\n\nNORMALIZAÇÃO DO OBJETO (OBRIGATÓRIO):\n- Remova quantidades, pesos e unidades (kg, L, un, etc.).\n- Remova termos operacionais que não ajudam memória (ex.: \"via NF\", \"nota fiscal\", \"NF\").\n- Preserve identificadores técnicos/comerciais (ex.: \"20-05-20\", \"45%\", \"480\", \"granulado\", \"big bag\").\n- Se o objeto final exceder 40 caracteres:\n  - mantenha o núcleo mais informativo (ex.: \"NPK 20-05-20\", \"Glifosato 480\")\n  - corte complementos menos relevantes primeiro.\n\nFALLBACK:\n- GASTO → \"Gasto geral\"\n- RECEITA → \"Receita geral\"\n\npagador_recebedor:\n- Preencher quando houver contraparte explícita no texto (pessoa, empresa, estabelecimento).\n- Padrões explícitos que DEVEM ser capturados:\n  - “no/na <estabelecimento> <nome>” (ex.: “no posto shell” → “Posto Shell”)\n  - “para <nome>” (pagamento para alguém)\n  - “de/da/do <nome>” (recebimento de alguém)\n  - “com <nome>” quando for claramente a contraparte (não objeto)\n- Estabelecimentos comuns: posto, mercado, loja, farmácia, oficina, cooperativa, armazém, transportadora, banco.\n- Não confundir com objeto/insumo/máquina (ex.: “trator”, “adubo”, “diesel” não são contraparte).\n- Se não houver contraparte explícita: null.\nExemplos de pagador_recebedor:\n- “Zé gastei 500 de gasolina no posto shell” → pagador_recebedor: \"Posto Shell\"\n- “paguei 200 na oficina do zé” → pagador_recebedor: \"Oficina do Zé\"\n- “recebi 1500 da cooperativa minasul” → pagador_recebedor: \"Cooperativa Minasul\"\nExemplo (NÃO capturar):\n- “paguei ele no pix zé” → pagador_recebedor: null\n- IGNORAR como contraparte qualquer menção a:\n  - “Zé”, “ze”, “zezinho”, “zé”\nEsses termos referem-se ao agente/sistema, nunca a uma pessoa ou empresa real.\n- Se o único nome próprio citado for “Zé” (ou variação), pagador_recebedor DEVE ser null.\n\ncategoria (CLASSIFICAÇÃO CONAB — MUITO IMPORTANTE):\nVocê deve classificar a transação em EXATAMENTE UMA categoria CONAB válida.\nBaseie-se principalmente no raw_text.\nNÃO use a descricao como base principal.\nNÃO invente.\n\nREGRA 0 (OVERRIDE ABSOLUTO — COMBUSTÍVEL):\n- Se o raw_text contiver QUALQUER menção a combustível:\n  “gasolina”, “diesel”, “etanol”, “combustível”\n  → categoria = \"Máquinas e Equipamentos\"\n- Esta regra tem prioridade sobre TODAS as demais (inclusive sobre \"Insumos\" e qualquer fallback).\n- Independente de: \"compra\", \"paguei\", \"posto\", \"pix\", \"hoje\", etc.\n- Se essa regra disparar, NÃO use \"Outros\".\n\nREGRA PRIORITÁRIA:\n- Se tipo_transacao = RECEITA e o texto indicar venda → categoria = \"Venda\"\n\nLISTA VÁLIDA (responda exatamente com um destes valores):\nMáquinas e Equipamentos\nIrrigação\nAluguel de Máquinas\nMão de obra\nInsumos\nVenda\nEmbalagens\nAnálise de Solo\nDespesas Gerais\nServiços Diversos\nTransporte\nDespesas Administrativas\nDespesas de armazenagem\nBeneficiamento\nSeguro\nAssistência Técnica\nClassificação\nOutros\nManutenção e Instalações\nEncargos Sociais\nArrendamento\n\nGUIA DE CLASSIFICAÇÃO (PADRÕES + EXEMPLOS)\n\nMáquinas e Equipamentos:\n- compra de máquinas, equipamentos, peças, implementos\n- combustível usado na produção (gasolina, diesel, etanol, combustível)\nEx.: \"Compra de diesel\", \"Gasolina, paguei 1800 no pix\", \"Gastei gasolina pra aplicação\"\n\nInsumos:\n- adubo, fertilizante, calcário\n- defensivos, herbicida, fungicida, inseticida\n- sementes, mudas\n- (IMPORTANTE) combustível NUNCA é Insumos\nEx.: \"Comprei adubo\"\n\nManutenção e Instalações:\n- conserto, manutenção, reparo\n- estruturas físicas (galpão, cerca, curral, terreiro)\nEx.: \"Consertei o trator\", \"Arrumei a cerca\"\n\nAluguel de Máquinas:\n- aluguel de trator, pulverizador, colheitadeira\nEx.: \"Aluguei um trator\", \"Paguei o aluguel do pulverizador\"\n\nMão de obra:\n- salários, diárias, pagamento de funcionários\nEx.: \"Paguei o salário\", \"Paguei as diárias\"\n\nEncargos Sociais:\n- INSS, FGTS, encargos trabalhistas\nEx.: \"Paguei o INSS\", \"Saiu o FGTS\"\n\nTransporte:\n- frete, transporte de insumos ou produção\nEx.: \"Paguei o frete do café\"\n\nEmbalagens:\n- sacaria, big bags, embalagens\nEx.: \"Comprei sacaria pro café\"\n\nBeneficiamento:\n- secagem, limpeza, beneficiamento do café\nEx.: \"Paguei o beneficiamento\"\n\nClassificação:\n- classificação por bebida, peneira, qualidade\nEx.: \"Paguei a classificação do café\"\n\nAssistência Técnica:\n- agrônomo, consultor técnico\nEx.: \"Paguei a visita do agrônomo\"\n\nAnálise de Solo:\n- análise de solo, laboratório\nEx.: \"Fiz análise de solo\"\n\nIrrigação:\n- energia, bomba, pivô, manutenção de irrigação\nEx.: \"Paguei a luz da irrigação\"\n\nDespesas Administrativas:\n- contador, sistema, gestão, pró-labore\nEx.: \"Paguei o contador\"\n\nDespesas de armazenagem:\n- armazém, taxa de armazenagem\nEx.: \"Paguei a taxa do armazém\"\n\nSeguro:\n- seguro da lavoura, máquinas, produção\nEx.: \"Paguei o seguro\"\n\nArrendamento:\n- arrendamento de área\nEx.: \"Paguei o arrendamento\"\n\nServiços Diversos:\n- serviços terceirizados não enquadrados acima\nEx.: \"Contratei um serviço terceirizado\"\n\nDespesas Gerais:\n- gasto genérico sem detalhes\nEx.: \"Gastei com despesas pequenas\"\n\nOutros:\n- Use SOMENTE se NÃO houver pistas suficientes para NENHUMA categoria acima.\n- Se houver qualquer pista forte (ex.: combustível), NÃO use \"Outros\".\nEx.: \"Paguei uma multa inesperada\"\n\nforma_pagamento_recebimento:\n- Preencher apenas se explícito.\n- Mapeamentos:\n  - “pix” → \"Pix\"\n  - “credito” → \"Cartão de crédito\"\n  - “débito” → \"Cartão de débito\"\n  - “dinheiro” → \"Dinheiro\"\n  - “boleto” → \"Boleto\"\n\nPRAZO RELATIVO (OBRIGATÓRIO — \"pra 60\", \"em 60 dias\"):\n- Se o texto contiver prazo relativo no formato:\n  - \"pra <N>\" (ex.: \"pra 60\")\n  - \"em <N> dias\" / \"daqui <N> dias\"\n  - \"pra <N> dias\"\n  onde N é inteiro entre 1 e 365:\n  então:\n  1) status = \"Agendado\"\n  2) data_agendamento_pagamento = data_base + N dias\n  3) forma_pagamento_recebimento:\n     - se houver forma explícita (pix, dinheiro, cartão, boleto), use a explícita\n     - se NÃO houver forma explícita, defina \"Boleto\" (pagamento a prazo)\n\n- data_base:\n  - Se houver \"timestamp\" no contexto do workflow, use a data do timestamp como base (não use \"hoje\" textual).\n  - Se NÃO houver timestamp disponível, mantenha data_agendamento_pagamento = null, mas ainda marque status = \"Agendado\".\n\n- Prazo relativo NÃO deve preencher data_transacao (a menos que exista data explícita no texto).\n\n\ndatas:\n- data_transacao: só preencher se explícita. Converter dd/MM/yyyy.\n- data_agendamento_pagamento: só preencher se explícita.\n\nstatus:\n- Só preencher se explicitamente mencionado.\n- \"Pago\" apenas se já pago.\n- \"Agendado\" apenas se pagamento futuro explícito.\n\nnumero_parcelas:\n- Sempre inteiro >= 1.\n- Se não houver parcelamento, retornar 1.\n\nAREAS:\nVocê NÃO tem a lista de talhões.\nareas_citadas deve conter SOMENTE referências explícitas a áreas AGRÍCOLAS.\nEm caso de dúvida: areas_citadas = [] e area_vinculada = null.\n\narea_vinculada:\n- Junte areas_citadas com \", \" ou null.\n\nis_completed:\n- true somente se TODOS forem não-null:\n  tipo_transacao, valor, data_transacao, categoria,\n  forma_pagamento_recebimento, status\n- Caso contrário: false\n\nCONTEXTO DISPONÍVEL\nuser_id: {{ $json.user_id }}\nraw_text: {{ $json.text }}\ntimestamp: {{ $now }}\n\nRESTRIÇÃO FINAL\nA saída deve ser SOMENTE o JSON.\nNão inclua explicações, comentários, emojis ou texto fora do objeto."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        -13904,
+        -6592
+      ],
+      "id": "4310a4c2-8937-4a39-8039-e575b08903be",
+      "name": "Gestor Financeiro",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "frequencyPenalty": 0,
+          "maxTokens": 700,
+          "responseFormat": "json_object",
+          "presencePenalty": 0,
+          "temperature": 0.1,
+          "timeout": 30000,
+          "maxRetries": 2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -13840,
+        -6368
+      ],
+      "id": "5d0fc509-eef8-4d24-9ffc-048af031d4cb",
+      "name": "4o-mini",
+      "credentials": {
+        "openAiApi": {
+          "id": "EgrpiJYfYCF9UXLP",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function toNull(v) {\n  if (v === undefined || v === null) return null;\n  if (typeof v === \"string\") {\n    const s = v.trim();\n    if (s === \"\" || s.toLowerCase() === \"null\") return null;\n    return s;\n  }\n  return v;\n}\n\nfunction toNumeric(v) {\n  v = toNull(v);\n  if (v === null) return null;\n\n  let s = String(v).trim();\n\n  // formato BR: 1.234,56 -> 1234.56\n  if (s.includes(\",\")) {\n    s = s.replace(/\\./g, \"\").replace(\",\", \".\");\n  } else {\n    // formato US/normal: 1234.56 ou 1234\n    s = s.replace(/\\s/g, \"\");\n  }\n\n  const n = Number(s);\n  return Number.isFinite(n) ? n : null;\n}\n\nfunction toInt(v, def = 1) {\n  v = toNull(v);\n  if (v === null) return def;\n  const n = parseInt(String(v), 10);\n  return Number.isFinite(n) && n >= 1 ? n : def;\n}\n\nfunction toDateISO(v) {\n  v = toNull(v);\n  if (v === null) return null;\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(v)) return v;\n  const m = /^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/.exec(v);\n  if (m) return `${m[3]}-${m[2]}-${m[1]}`;\n  return null;\n}\n\nfunction ensureArray(v) {\n  if (Array.isArray(v)) return v;\n  if (v === null || v === undefined) return [];\n  return [];\n}\n\n// --------- Filtro de áreas ---------\nconst AREA_TRIGGERS = [\n  \"talhao\",\"talhão\",\"talao\",\n  \"lote\",\"quadra\",\"gleba\",\n  \"roca\",\"roça\",\"lavoura\",\n  \"area\",\"área\",\n  \"sitio\",\"sítio\",\n  \"fazenda\",\"propriedade\",\n  \"setor\",\"cafezal\",\"morro\",\n];\n\nconst NOT_AREA_WORDS = [\n  \"trator\",\"colheitadeira\",\"pulverizador\",\"roçadeira\",\"rocadeira\",\"implemento\",\n  \"gasolina\",\"diesel\",\"etanol\",\"adubo\",\"fertilizante\",\"defensivo\",\"veneno\",\"herbicida\",\"inseticida\",\n  \"mão de obra\",\"mao de obra\",\"frete\",\"manutenção\",\"manutencao\",\"peça\",\"peca\"\n];\n\nfunction norm(s) {\n  return String(s ?? \"\")\n    .toLowerCase()\n    .normalize(\"NFD\")\n    .replace(/[\\u0300-\\u036f]/g, \"\")\n    .trim();\n}\n\nfunction containsAny(hay, words) {\n  const h = norm(hay);\n  return words.some(w => h.includes(norm(w)));\n}\n\nfunction isValidAreaCandidate(text) {\n  const t = norm(text);\n  if (!t) return false;\n  if (containsAny(t, NOT_AREA_WORDS)) return false;\n  if (containsAny(t, AREA_TRIGGERS)) return true;\n  return false;\n}\n\n// --------- Normalização determinística ---------\nfunction titleCasePT(s) {\n  const raw = String(s ?? \"\").trim();\n  if (!raw) return null;\n\n  const words = raw\n    .split(/\\s+/)\n    .filter(Boolean)\n    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());\n\n  let out = words.join(\" \");\n  out = out\n    .replace(/\\bDa\\b/g, \"da\")\n    .replace(/\\bDe\\b/g, \"de\")\n    .replace(/\\bDo\\b/g, \"do\")\n    .replace(/\\bDas\\b/g, \"das\")\n    .replace(/\\bDos\\b/g, \"dos\");\n\n  return out;\n}\n\nfunction normalizeAreaName(text) {\n  const t = norm(text);\n\n  // 1) Talhão numérico/alfanumérico: \"talhão 1\", \"talhao-01\", etc.\n  let m = t.match(/\\b(talhao|talao)\\s*[- ]*\\s*([a-z0-9]{1,6})\\b/i);\n  if (m) return `Talhão ${m[2].toUpperCase()}`;\n\n  // 2) Talhão com nome: \"talhão da serra\", \"talhão serra\", \"talhão do morro\"\n  m = t.match(/\\b(talhao|talao)\\s+(?:da|do|de)?\\s*([a-z][a-z0-9\\s-]{2,40})\\b/i);\n  if (m) {\n    const nome = titleCasePT(m[2].replace(/[-]/g, \" \").trim());\n    return nome ? `Talhão ${nome}` : null;\n  }\n\n  m = t.match(/lote\\s*[- ]*\\s*([a-z0-9]+)/i);\n  if (m) return `Lote ${m[1].toUpperCase()}`;\n\n  m = t.match(/gleba\\s*[- ]*\\s*([a-z0-9]+)/i);\n  if (m) return `Gleba ${m[1].toUpperCase()}`;\n\n  m = t.match(/quadra\\s*[- ]*\\s*([a-z0-9]+)/i);\n  if (m) return `Quadra ${m[1].toUpperCase()}`;\n\n  m = t.match(/setor\\s*[- ]*\\s*([a-z0-9]+)/i);\n  if (m) return `Setor ${m[1].toUpperCase()}`;\n\n  return null;\n}\n// ---------------------------------------------------\n\n// Processa CADA item de entrada\nreturn $input.all().map((item) => {\n  const raw = item.json?.output ?? item.json;\n  const obj = typeof raw === \"string\" ? JSON.parse(raw) : (raw ?? {});\n\n  const out = {\n    user_id: toNull(obj.user_id),\n    tipo_transacao: toNull(obj.tipo_transacao) ?? \"GASTO\",\n    valor: toNumeric(obj.valor),\n    data_transacao: toDateISO(obj.data_transacao),\n    descricao: toNull(obj.descricao),\n    pagador_recebedor: toNull(obj.pagador_recebedor),\n    categoria: toNull(obj.categoria),\n    forma_pagamento_recebimento: toNull(obj.forma_pagamento_recebimento),\n    status: toNull(obj.status),\n    data_agendamento_pagamento: toDateISO(obj.data_agendamento_pagamento),\n    numero_parcelas: toInt(obj.numero_parcelas, 1),\n    areas_citadas: ensureArray(obj.areas_citadas)\n      .map(x => String(x ?? \"\").trim())\n      .filter(Boolean),\n    area_vinculada: toNull(obj.area_vinculada),\n    raw_text: toNull(obj.raw_text) ?? \"\",\n    is_completed: false,\n  };\n\n  // filtro + normalização de áreas\n  out.areas_citadas = out.areas_citadas\n    .filter(isValidAreaCandidate)\n    .map(normalizeAreaName)\n    .filter(Boolean);\n\n  // area_vinculada coerente\n  if (out.areas_citadas.length === 0) {\n    out.area_vinculada = null;\n  } else {\n    out.area_vinculada = out.areas_citadas.join(\", \");\n  }\n\n  // --------- Prazo relativo (fallback determinístico) ---------\n  const rt = norm(out.raw_text);\n\n  const mPrazo =\n    rt.match(/\\bpra\\s*(\\d{1,3})\\b/) ||\n    rt.match(/\\bpra\\s*(\\d{1,3})\\s*dias?\\b/) ||\n    rt.match(/\\bem\\s*(\\d{1,3})\\s*dias?\\b/) ||\n    rt.match(/\\bdaqui\\s*(\\d{1,3})\\s*dias?\\b/);\n\n  if (mPrazo) {\n    const dias = parseInt(mPrazo[1], 10);\n    if (Number.isFinite(dias) && dias >= 1 && dias <= 365) {\n      if (!out.status) out.status = \"Agendado\";\n      if (!out.forma_pagamento_recebimento) out.forma_pagamento_recebimento = \"Boleto\";\n\n      if (!out.data_agendamento_pagamento && out.data_transacao) {\n        const base = new Date(out.data_transacao + \"T00:00:00\");\n        if (!isNaN(base.getTime())) {\n          base.setDate(base.getDate() + dias);\n          const yyyy = base.getFullYear();\n          const mm = String(base.getMonth() + 1).padStart(2, \"0\");\n          const dd = String(base.getDate()).padStart(2, \"0\");\n          out.data_agendamento_pagamento = `${yyyy}-${mm}-${dd}`;\n        }\n      }\n    }\n  }\n  // -----------------------------------------------------------\n\n  // segurança: numero_parcelas >= 1\n  if (!Number.isFinite(out.numero_parcelas) || out.numero_parcelas < 1) {\n    out.numero_parcelas = 1;\n  }\n\n  // descrição nunca null\n  if (!out.descricao) {\n    out.descricao = out.tipo_transacao === \"RECEITA\" ? \"Receita geral\" : \"Gasto geral\";\n  }\n\n  // recalcula is_completed\n  out.is_completed = [\n    out.tipo_transacao,\n    out.valor,\n    out.data_transacao,\n    out.categoria,\n    out.forma_pagamento_recebimento,\n    out.status,\n  ].every(v => v !== null && v !== \"\");\n\n  return { json: out };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -13552,
+        -6592
+      ],
+      "id": "4a7c2d7c-f2ac-44b0-8f41-c6ba80572650",
+      "name": "Sanitiza Payload Financeiro (pré-RPC)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://enkcmyczhotilkxnqnnq.supabase.co/rest/v1/rpc/rpc_fin_criar_transacao",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_user_id\": \"{{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.user_id }}\",\n  \"p_tipo_transacao\": \"{{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.tipo_transacao }}\",\n  \"p_valor\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.valor ?? 'null' }},\n  \"p_data_transacao\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.data_transacao ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').item.json.data_transacao) : $today.format('yyyy-MM-dd').toJsonString() }},\n  \"p_descricao\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.descricao ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').item.json.descricao) : 'null' }},\n  \"p_pagador_recebedor\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.pagador_recebedor ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').item.json.pagador_recebedor) : 'null' }},\n  \"p_categoria\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.categoria ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').item.json.categoria) : 'null' }},\n  \"p_forma_pagamento_recebimento\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.forma_pagamento_recebimento ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').item.json.forma_pagamento_recebimento) : 'null' }},\n  \"p_status\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.status ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').item.json.status) : 'null' }},\n  \"p_data_agendamento_pagamento\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.data_agendamento_pagamento ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').item.json.data_agendamento_pagamento) : 'null' }},\n  \"p_numero_parcelas\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.numero_parcelas ?? 1 }},\n  \"p_area_vinculada\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.area_vinculada ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').item.json.area_vinculada) : 'null' }},\n  \"p_raw_text\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.raw_text ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').item.json.raw_text) : 'null' }},\n  \"p_propriedade_id\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.propriedade_id ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').item.json.propriedade_id) : 'null' }}\n}\n",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -11984,
+        -6688
+      ],
+      "id": "576e7aa9-60ed-42ed-a263-fcdccfa3c412",
+      "name": "RPC - Criar Transacao Financeira",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Na5w6oS8A3BeJUuu",
+          "name": "NOVO - CREDENCIAL SUPABASE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e60a30d9-e508-4345-b582-070b42d93a28",
+              "leftValue": "={{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.numero_parcelas }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -10864,
+        -6592
+      ],
+      "id": "e0fb982d-a713-4eb6-a296-d40e9765669d",
+      "name": "É Parcelado? (numero_parcelas > 1)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rpcItems = $input.all();\nconst sanitizedItems = $(\"Sanitiza Payload Financeiro (pré-RPC)\").all();\n\nif (rpcItems.length !== sanitizedItems.length) {\n  throw new Error(\n    `Mismatch items: rpc=${rpcItems.length} sanitized=${sanitizedItems.length}`\n  );\n}\n\nreturn rpcItems.map((it, i) => {\n  const rpc = it.json ?? {};\n  const san = sanitizedItems[i].json ?? {};\n\n  // Tenta extrair o id_transacao do retorno do Supabase RPC\n  // (pode vir como { data: \"[{...}]\" } ou { data: [{...}] } ou já como objeto)\n  let parentId = null;\n\n  if (rpc?.id_transacao) parentId = rpc.id_transacao;\n\n  if (!parentId && rpc?.data != null) {\n    let data = rpc.data;\n\n    // caso venha como string JSON (ex: \"[{...}]\")\n    if (typeof data === \"string\") {\n      try {\n        data = JSON.parse(data);\n      } catch (e) {\n        // mantém como está; vai cair no erro abaixo se não der pra extrair\n      }\n    }\n\n    // caso venha como array\n    if (Array.isArray(data) && data[0]) {\n      parentId = data[0].id_transacao ?? data[0].id ?? null;\n    } else if (data && typeof data === \"object\") {\n      parentId = data.id_transacao ?? data.id ?? null;\n    }\n  }\n\n  if (!parentId) {\n    throw new Error(\"RPC não retornou id_transacao (id_transacao_pai)\");\n  }\n\n  return {\n    json: {\n      ...rpc,\n      // id do pai para o passo de parcelamento\n      id_transacao_pai: parentId,\n\n      // reanexa campos do sanitizado (por item)\n      numero_parcelas: san.numero_parcelas ?? 1,\n      area_vinculada: san.area_vinculada ?? null,\n      raw_text: san.raw_text ?? null,\n\n      // se quiser manter consistência total, pode reanexar mais:\n      user_id: san.user_id ?? rpc.user_id ?? null,\n      tipo_transacao: san.tipo_transacao ?? rpc.tipo_transacao ?? null,\n      valor: san.valor ?? rpc.valor ?? null,\n      data_transacao: san.data_transacao ?? rpc.data_transacao ?? null,\n      descricao: san.descricao ?? rpc.descricao ?? null,\n      pagador_recebedor: san.pagador_recebedor ?? rpc.pagador_recebedor ?? null,\n      categoria: san.categoria ?? rpc.categoria ?? null,\n      forma_pagamento_recebimento:\n        san.forma_pagamento_recebimento ?? rpc.forma_pagamento_recebimento ?? null,\n      status: san.status ?? rpc.status ?? null,\n      data_agendamento_pagamento:\n        san.data_agendamento_pagamento ?? rpc.data_agendamento_pagamento ?? null,\n      propriedade_id: san.propriedade_id ?? rpc.propriedade_id ?? null,\n    },\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -11536,
+        -6592
+      ],
+      "id": "0e199fe6-3bad-4f10-b1f1-c8143c50e0cd",
+      "name": "Normaliza retorno RPC (merge por item)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://enkcmyczhotilkxnqnnq.supabase.co/rest/v1/rpc/rpc_fin_criar_parcelas",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_parent_id\": \"{{ $('Merge').item.json.id_transacao }}\"\n}\n",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -10640,
+        -6656
+      ],
+      "id": "0f005c69-f622-47d6-ba3c-7a687cab6fdf",
+      "name": "RPC - Criar Parcelas (Transacao Pai)",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Na5w6oS8A3BeJUuu",
+          "name": "NOVO - CREDENCIAL SUPABASE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://enkcmyczhotilkxnqnnq.supabase.co/rest/v1/rpc/rpc_fin_ensure_talhoes_and_link",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_user_id\": \"{{ $json.user_id }}\",\n  \"p_id_propriedade\": \"{{ $json.propriedade_id }}\",\n  \"p_id_transacao\": \"{{ $json.id_transacao_pai }}\",\n  \"p_nomes_talhoes\": {{ $json.area_vinculada ? JSON.stringify($json.area_vinculada.split(',').map(t => t.trim()).filter(Boolean)) : '[]' }}\n}\n",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -11088,
+        -6656
+      ],
+      "id": "5412912b-7b1e-4d63-8462-a759bcc85ac2",
+      "name": "RPC - Garantir Talhoes e Vincular",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "Na5w6oS8A3BeJUuu",
+          "name": "NOVO - CREDENCIAL SUPABASE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d70560f2-746e-4a7b-98d1-ccb496ef5c72",
+              "leftValue": "={{ $json.area_vinculada }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -11312,
+        -6592
+      ],
+      "id": "1078330c-a92c-432d-8c88-e599eaa78c28",
+      "name": "area_vinculada != null"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Wg4VFPG2C5SrHao7",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Wg4VFPG2C5SrHao7",
+          "cachedResultName": "Zé.Solos.ag — Utilitário - Agente de Deduplicação (Corrigido com Loop)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -13104,
+        -6592
+      ],
+      "id": "c2c2870a-53da-4526-8793-6d062ea315c0",
+      "name": "Call 'Utilitário - Agente de Deduplicação'"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://enkcmyczhotilkxnqnnq.supabase.co/rest/v1/rpc/rpc_fin_patch_transacao",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_user_id\": \"{{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.user_id }}\",\n  \"p_id_transacao\": \"{{ $json.id_alvo || $json.id_transacao }}\",\n  \"p_patch\": {\n    \"tipo_transacao\": \"{{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.tipo_transacao }}\",\n    \"valor\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.valor ?? 'null' }},\n    \"data_transacao\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.data_transacao ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').first().json.data_transacao) : 'null' }},\n    \"descricao\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.descricao ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').first().json.descricao) : 'null' }},\n    \"pagador_recebedor\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.pagador_recebedor ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').first().json.pagador_recebedor) : 'null' }},\n    \"categoria\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.categoria ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').first().json.categoria) : 'null' }},\n    \"forma_pagamento_recebimento\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.forma_pagamento_recebimento ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').first().json.forma_pagamento_recebimento) : 'null' }},\n    \"status\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.status ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').first().json.status) : 'null' }},\n    \"data_agendamento_pagamento\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.data_agendamento_pagamento ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').first().json.data_agendamento_pagamento) : 'null' }},\n    \"numero_parcelas\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.numero_parcelas ?? 1 }},\n    \"area_vinculada\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.area_vinculada ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').first().json.area_vinculada) : 'null' }},\n    \"raw_text\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.raw_text ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').first().json.raw_text) : 'null' }},\n    \"propriedade_id\": {{ $('Sanitiza Payload Financeiro (pré-RPC)').first().json.propriedade_id ? JSON.stringify($('Sanitiza Payload Financeiro (pré-RPC)').first().json.propriedade_id) : 'null' }}\n  }\n}\n",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -11984,
+        -6496
+      ],
+      "id": "2de684b3-e092-47a1-9f5c-f406efb96a1e",
+      "name": "RPC - Atualizar Transacao Financeira (PATCH)",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Na5w6oS8A3BeJUuu",
+          "name": "NOVO - CREDENCIAL SUPABASE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e85c36f4-288b-42f9-adba-de3365b15411",
+              "name": "user_id",
+              "value": "={{ $json.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "53b2ad02-b33c-468d-b27b-7ba6d62ebe9b",
+              "name": "origem",
+              "value": "texto",
+              "type": "string"
+            },
+            {
+              "id": "35c1e3f0-51cd-47d3-b1c3-4979bbb56d4e",
+              "name": "resumo",
+              "value": "={{ $json.raw_text }}",
+              "type": "string"
+            },
+            {
+              "id": "7a2e1005-00e2-4c4f-a5f5-3bfec1aabd87",
+              "name": "telefone",
+              "value": "={{ $('When Executed by Another Workflow').first().json.telefone }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -13328,
+        -6592
+      ],
+      "id": "3cfcc61b-6e1d-4b12-b656-1f34e7282520",
+      "name": "Preparar Contexto p/ Deduplicação"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.acao }}",
+                    "rightValue": "CRIAR",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "f6874254-d450-48f8-9d2c-d805d3ac761c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CRIAR"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "0b06a00d-d83a-4927-aea8-53c7bbaf4547",
+                    "leftValue": "={{ $json.acao }}",
+                    "rightValue": "ATUALIZAR",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ATUALIZAR"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -12880,
+        -6592
+      ],
+      "id": "5456167c-d7ef-4917-9635-46e1d350fb4f",
+      "name": "Roteamento CRIAR / ATUALIZAR"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -11760,
+        -6592
+      ],
+      "id": "401f5f82-0c9e-44a3-b9d7-61b3103f664a",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v23.0/677104595479270/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $vars.WHATSAPP_META_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"status\": \"read\",\n  \"message_id\": \"{{ $json.id_mensagem_usuario }}\",\n  \"typing_indicator\": {\n    \"type\": \"text\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -14576,
+        -6592
+      ],
+      "id": "f18f22f9-0f5f-4cf9-addf-7eb22bec102c",
+      "name": "Digitando...",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "580a0121-425d-4971-bd4d-8b2ed61b2219",
+              "leftValue": "={{ $('Prepara Variáveis Orquestrador').item.json.key_imagem }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -12656,
+        -6688
+      ],
+      "id": "299df918-52d2-4b13-9df7-ce47d5a38647",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "transacoes_financeiras",
+        "limit": 1,
+        "filterType": "string",
+        "filterString": "=select=id_transacao,user_id,valor,descricao,data_transacao&order=data_transacao.desc&user_id=eq.{{ $('When Executed by Another Workflow').item.json.user_id }}&anexo_imagem_url=is.null&valor=eq.{{ $('Sanitiza Payload Financeiro (pré-RPC)').item.json.valor }}&descricao=ilike.%{{ encodeURIComponent($('Sanitiza Payload Financeiro (pré-RPC)').item.json.descricao) }}%&data_transacao=gte.{{ $now.startOf('month').toFormat('yyyy-MM-dd') }}&data_transacao=lte.{{ $now.endOf('month').toFormat('yyyy-MM-dd') }}&limit=1#"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -12432,
+        -6752
+      ],
+      "id": "42477366-8857-4fde-8a77-f0907df6cb25",
+      "name": "Get many rows",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "Na5w6oS8A3BeJUuu",
+          "name": "NOVO - CREDENCIAL SUPABASE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c56a542e-94cc-4be5-b4b8-1763c16b9e14",
+              "leftValue": "={{$json}}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -12208,
+        -6752
+      ],
+      "id": "04c2fcb9-510c-47d9-9d20-3dc010e3192c",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "transacoes_financeiras",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id_transacao",
+              "keyValue": "={{ $json.id_transacao }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -10192,
+        -6592
+      ],
+      "id": "04ed7a44-0401-4cf7-b08a-ac55eb411780",
+      "name": "Verifica Transacao financeira",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Na5w6oS8A3BeJUuu",
+          "name": "NOVO - CREDENCIAL SUPABASE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8633df1a-c96d-4a82-84ca-824fd546f01b",
+              "leftValue": "={{ $('When Executed by Another Workflow').item.json.key_imagem }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -9968,
+        -6592
+      ],
+      "id": "6b1f7066-caa1-4cb5-af68-6761fc907e4a",
+      "name": "Tem Imagem Vinculada?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "transacoes_financeiras",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id_transacao",
+              "condition": "eq",
+              "keyValue": "={{ $json.id_transacao }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "anexo_imagem_url",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.key_imagem }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -9744,
+        -6736
+      ],
+      "id": "cb1f0fd9-bf57-475e-922b-d8e866c69b05",
+      "name": "Anexa Imagem a Transacão",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Na5w6oS8A3BeJUuu",
+          "name": "NOVO - CREDENCIAL SUPABASE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://enkcmyczhotilkxnqnnq.supabase.co/storage/v1/object/transacoes_financeiras/{{ $json.user_id }}/{{ $json.id_transacao }}.jpg ",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apiKey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVua2NteWN6aG90aWxreG5xbm5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5OTY3NjUsImV4cCI6MjA4NDU3Mjc2NX0._DgYNpFl7_M3LCck-LrpS2dtz6-XZAnvY-vrigwJz5U"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVua2NteWN6aG90aWxreG5xbm5xIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODk5Njc2NSwiZXhwIjoyMDg0NTcyNzY1fQ.6SmMrn1VJQ6b6G-xCYhV_-la9cqxx4NkOtTJaMP6T_w"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -9296,
+        -6736
+      ],
+      "id": "0dacad5a-910b-4d33-8ccc-e1ee32827bda",
+      "name": "Salva no Supabase Storage8"
+    },
+    {
+      "parameters": {
+        "url": "=https://enkcmyczhotilkxnqnnq.supabase.co/storage/v1/object/{{ $('When Executed by Another Workflow').item.json.key_imagem }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apiKey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVua2NteWN6aG90aWxreG5xbm5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5OTY3NjUsImV4cCI6MjA4NDU3Mjc2NX0._DgYNpFl7_M3LCck-LrpS2dtz6-XZAnvY-vrigwJz5U"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVua2NteWN6aG90aWxreG5xbm5xIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODk5Njc2NSwiZXhwIjoyMDg0NTcyNzY1fQ.6SmMrn1VJQ6b6G-xCYhV_-la9cqxx4NkOtTJaMP6T_w"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -9520,
+        -6736
+      ],
+      "id": "b1d1e1e6-a36a-4604-91cb-bef96c05b8fc",
+      "name": "Pega Imagem no Storage"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "677104595479270",
+        "recipientPhoneNumber": "={{ $('When Executed by Another Workflow').item.json.telefone }}",
+        "textBody": "=Transação financeira: *{{ $('Normaliza retorno RPC (merge por item)').item.json.descricao }}* armazenada com sucesso!",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -9072,
+        -6688
+      ],
+      "id": "ee142ed2-853b-4264-b12c-a94ca98680ad",
+      "name": "Send message1",
+      "webhookId": "d4dfb64e-95e9-449d-88c2-c33f00036ed9",
+      "retryOnFail": true,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "ZK4gJhUnh9uD26bB",
+          "name": "WhatsApp account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "80a9d966-9375-4d66-9712-5eb255820f93",
+              "name": "id_transacao",
+              "value": "={{ $('Normaliza retorno RPC (merge por item)').item.json.id_transacao }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -10416,
+        -6592
+      ],
+      "id": "25195609-c7ed-4c9d-a0e1-49661d1276eb",
+      "name": "Pega ID da Transacao Financeira"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6bb17b84-08d1-4e0f-abe0-77c6ba3b08d1",
+              "leftValue": "={{ $json.numero_parcelas }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -9296,
+        -6496
+      ],
+      "id": "dc494494-7e32-49e5-8f7b-e281a3eeaaaa",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "677104595479270",
+        "recipientPhoneNumber": "={{ $('When Executed by Another Workflow').item.json.telefone }}",
+        "textBody": "=Transação financeira: *{{ $('Normaliza retorno RPC (merge por item)').item.json.descricao }}* armazenada com sucesso!",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -9072,
+        -6448
+      ],
+      "id": "8a35199b-527f-472b-a6fb-7d12086dbc8f",
+      "name": "Send message",
+      "webhookId": "d4dfb64e-95e9-449d-88c2-c33f00036ed9",
+      "executeOnce": true,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "ZK4gJhUnh9uD26bB",
+          "name": "WhatsApp account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "user_id": "c7f13743-67ef-45d4-807c-9f5de81d4999",
+          "nome": "Velho",
+          "telefone": "5511914843543",
+          "cidade": "Araraquara",
+          "estado": "SP",
+          "timestamp": "2026-02-20T13:48:07.119-03:00",
+          "mensagem_usuario": "Zé gastei 5mil de fertilizante pro talhao 1",
+          "key_imagem": null,
+          "id_mensagem_usuario": "wamid.HBgNNTUxMTkxNDg0MzU0MxUCABIYFDNCNkYzMUIwNEFDQ0NGNEUzMDQyAA=="
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Digitando...",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara Variáveis Orquestrador": {
+      "main": [
+        [
+          {
+            "node": "Divide raw_text em items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Divide raw_text em items": {
+      "main": [
+        [
+          {
+            "node": "Gestor Financeiro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4o-mini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gestor Financeiro",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gestor Financeiro": {
+      "main": [
+        [
+          {
+            "node": "Sanitiza Payload Financeiro (pré-RPC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitiza Payload Financeiro (pré-RPC)": {
+      "main": [
+        [
+          {
+            "node": "Preparar Contexto p/ Deduplicação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RPC - Criar Transacao Financeira": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normaliza retorno RPC (merge por item)": {
+      "main": [
+        [
+          {
+            "node": "area_vinculada != null",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Parcelado? (numero_parcelas > 1)": {
+      "main": [
+        [
+          {
+            "node": "RPC - Criar Parcelas (Transacao Pai)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pega ID da Transacao Financeira",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RPC - Garantir Talhoes e Vincular": {
+      "main": [
+        [
+          {
+            "node": "É Parcelado? (numero_parcelas > 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "area_vinculada != null": {
+      "main": [
+        [
+          {
+            "node": "RPC - Garantir Talhoes e Vincular",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "É Parcelado? (numero_parcelas > 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RPC - Criar Parcelas (Transacao Pai)": {
+      "main": [
+        [
+          {
+            "node": "Pega ID da Transacao Financeira",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Utilitário - Agente de Deduplicação'": {
+      "main": [
+        [
+          {
+            "node": "Roteamento CRIAR / ATUALIZAR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RPC - Atualizar Transacao Financeira (PATCH)": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Preparar Contexto p/ Deduplicação": {
+      "main": [
+        [
+          {
+            "node": "Call 'Utilitário - Agente de Deduplicação'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Roteamento CRIAR / ATUALIZAR": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RPC - Atualizar Transacao Financeira (PATCH)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Normaliza retorno RPC (merge por item)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Digitando...": {
+      "main": [
+        [
+          {
+            "node": "Prepara Variáveis Orquestrador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RPC - Criar Transacao Financeira",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "RPC - Criar Transacao Financeira",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RPC - Atualizar Transacao Financeira (PATCH)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica Transacao financeira": {
+      "main": [
+        [
+          {
+            "node": "Tem Imagem Vinculada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Imagem Vinculada?": {
+      "main": [
+        [
+          {
+            "node": "Anexa Imagem a Transacão",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anexa Imagem a Transacão": {
+      "main": [
+        [
+          {
+            "node": "Pega Imagem no Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pega Imagem no Storage": {
+      "main": [
+        [
+          {
+            "node": "Salva no Supabase Storage8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salva no Supabase Storage8": {
+      "main": [
+        [
+          {
+            "node": "Send message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pega ID da Transacao Financeira": {
+      "main": [
+        [
+          {
+            "node": "Verifica Transacao financeira",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Send message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5a2466f0-fc97-498c-b068-8317c57e8954",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "738a048a4fb42e6a1345d8069c246c129e494e243740f7a6c3b7869f2a676b92"
+  },
+  "id": "EX9BWq9tck7UWRmo",
+  "tags": [
+    {
+      "updatedAt": "2026-01-21T15:10:43.786Z",
+      "createdAt": "2026-01-21T15:10:43.786Z",
+      "id": "sC6KtCGHy49vc2RL",
+      "name": "NOVO"
+    }
+  ]
+}
