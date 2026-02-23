@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { X, Paperclip } from 'lucide-react';
+import { X, Paperclip, Clock } from 'lucide-react';
 import { ActivityService, LancamentoComData } from '../../services/activityService';
 import ActivityAttachmentModal from './ActivityAttachmentModal';
+import ActivityHistoricoModal from './ActivityHistoricoModal';
 import { autoScaleQuantity } from '../../lib/unitConverter';
 
 interface Props {
@@ -16,6 +17,7 @@ export default function ActivityDetailModal({ isOpen, onClose, activityId, activ
   const [activity, setActivity] = useState<LancamentoComData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attachmentModal, setAttachmentModal] = useState<{ isOpen: boolean; activityId: string; description: string }>({ isOpen: false, activityId: '', description: '' });
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -53,6 +55,13 @@ export default function ActivityDetailModal({ isOpen, onClose, activityId, activ
               title="Gerenciar anexo"
             >
               <Paperclip className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="p-2 text-gray-500 hover:text-[#397738] hover:bg-white rounded-lg transition-colors shadow-sm border border-gray-200"
+              title="Ver histórico"
+            >
+              <Clock className="w-4 h-4" />
             </button>
             <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-700 rounded" aria-label="Fechar">
               <X className="w-5 h-5" />
@@ -157,6 +166,11 @@ export default function ActivityDetailModal({ isOpen, onClose, activityId, activ
           onClose={() => setAttachmentModal({ isOpen: false, activityId: '', description: '' })}
           activityId={attachmentModal.activityId}
           activityDescription={attachmentModal.description}
+        />
+        <ActivityHistoricoModal
+          isOpen={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          atividadeId={activityId}
         />
       </div>
     </div>

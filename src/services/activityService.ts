@@ -168,6 +168,15 @@ export class ActivityService {
 
     const userId = AuthService.getInstance().getCurrentUser()?.user_id;
 
+    // capturar dados anteriores para histórico
+    let dadosAnteriores: Record<string, unknown> = {};
+    try {
+      const prev = await this.getLancamentoById(atividade_id);
+      if (prev) dadosAnteriores = { ...prev };
+    } catch (e) {
+      console.warn('Não foi possível carregar dados anteriores para histórico', e);
+    }
+
     // ═══ 1) Mapear campos do frontend → colunas reais do banco ═══
     const dbChanges: Record<string, any> = {};
 
@@ -293,6 +302,37 @@ export class ActivityService {
       } catch (e) {
         console.error('❌ Erro ao atualizar máquinas:', e);
       }
+    }
+
+    // registrar no histórico de atividades agrícolas
+    try {
+      const nomeEditor = AuthService.getInstance().getCurrentUser()?.nome || 'Usuário';
+      // obter registro atualizado do banco para evitar discrepâncias entre
+      // chaves front-end (observacoes, descricao, nome_talhao) e colunas do DB
+      let dadosNovos: Record<string, unknown> = {};
+      try {
+        const atualizado = await this.getLancamentoById(atividade_id);
+        if (atualizado) {
+          dadosNovos = { ...atualizado };
+        } else {
+          // fallback: merge local
+          dadosNovos = { ...dadosAnteriores, ...changes };
+        }
+      } catch (e) {
+        dadosNovos = { ...dadosAnteriores, ...changes };
+      }
+
+      await import('./historicoAtividadesService').then((m) =>
+        m.HistoricoAtividadesService.registrarEdicao(
+          atividade_id,
+          userId || '',
+          nomeEditor,
+          dadosAnteriores,
+          dadosNovos
+        )
+      );
+    } catch (histErr) {
+      console.error('Erro registrando histórico da atividade:', histErr);
     }
 
     return mainResult;

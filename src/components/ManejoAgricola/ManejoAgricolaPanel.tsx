@@ -1,21 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sprout,
   Calendar,
-  Filter,
-  Download,
   MapPin,
   Package,
   Droplets,
   Bug,
   Scissors,
   Leaf,
-  Shield,
-  Plus,
   Clock,
   CheckCircle,
   Coffee,
-  Paperclip
+  Paperclip,
+  Edit2,
+  History
 } from 'lucide-react';
 import { AuthService } from '../../services/authService';
 import { ActivityService } from '../../services/activityService';
@@ -24,6 +22,8 @@ import LoadingSpinner from '../Dashboard/LoadingSpinner';
 import ErrorMessage from '../Dashboard/ErrorMessage';
 import ActivityAttachmentModal from './ActivityAttachmentModal';
 import type { Talhao } from '../../lib/supabase';
+import ActivityEditModal from '../Dashboard/ActivityEditModal';
+import ActivityHistoricoModal from './ActivityHistoricoModal';
 
 export default function ManejoAgricolaPanel() {
   const [filtroTalhao, setFiltroTalhao] = useState('todos');
@@ -68,6 +68,9 @@ export default function ManejoAgricolaPanel() {
     activityId: '',
     description: ''
   });
+  const [editingActivity, setEditingActivity] = useState<any | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyActivityId, setHistoryActivityId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -79,6 +82,34 @@ export default function ManejoAgricolaPanel() {
       activityId,
       description
     });
+  };
+
+  const openEditModal = (atividade: any) => {
+    // montar payload mínimo esperado pelo ActivityEditModal (usa transaction.id)
+    const tx = {
+      id: atividade.id_atividade,
+      descricao: atividade.nome_atividade || atividade.descricao,
+      data_atividade: atividade.data || atividade.data_atividade,
+      nome_talhao: atividade.area || atividade.nome_talhao,
+      talhao_ids: atividade.id_talhoes ? atividade.id_talhoes.split(',').map((s: string) => s.trim()) : [],
+      produtos: atividade.produtos || [],
+      maquinas: atividade.maquinas || [],
+      responsaveis: atividade.responsaveis || [],
+      observacoes: atividade.observacao || atividade.observacoes || '',
+    };
+    setEditingActivity(tx);
+  };
+
+  const closeEditModal = () => setEditingActivity(null);
+
+  const openHistory = (atividadeId: string) => {
+    setHistoryActivityId(atividadeId);
+    setHistoryOpen(true);
+  };
+
+  const closeHistory = () => {
+    setHistoryOpen(false);
+    setHistoryActivityId(null);
   };
 
   const closeAttachmentModal = () => {
@@ -326,29 +357,6 @@ export default function ManejoAgricolaPanel() {
     return <Sprout className="w-5 h-5 text-[#00A651]" />;
   };
 
-  const getStatusColorByType = (nomeAtividade: string) => {
-    const tipo = nomeAtividade.toLowerCase();
-    if (tipo.includes('pulverização') || tipo.includes('pulverizar')) {
-      return 'bg-[#00A651]/5 border-[#00A651]/20';
-    }
-    if (tipo.includes('adubação') || tipo.includes('adubar')) {
-      return 'bg-[#00A651]/5 border-[#00A651]/20';
-    }
-    if (tipo.includes('capina') || tipo.includes('roçada')) {
-      return 'bg-[#00A651]/5 border-[#00A651]/20';
-    }
-    if (tipo.includes('poda')) {
-      return 'bg-[#00A651]/5 border-[#00A651]/20';
-    }
-    if (tipo.includes('irrigação') || tipo.includes('irrigar')) {
-      return 'bg-[#00A651]/5 border-[#00A651]/20';
-    }
-    if (tipo.includes('análise') || tipo.includes('coleta')) {
-      return 'bg-[#00A651]/5 border-[#00A651]/20';
-    }
-    return 'bg-[#00A651]/5 border-[#00A651]/20';
-  };
-
   // Função para mapear campos da atividade real para o formato esperado
   const mapAtividadeToDisplay = (atividade: AtividadeComDataLocal) => {
     return {
@@ -575,9 +583,17 @@ export default function ManejoAgricolaPanel() {
                 </div>
 
                     {atividadeDisplay.observacoes && (
-                  <div className="mt-3 pt-3 border-t border-[rgba(0,68,23,0.08)]">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-shrink-0 text-xs text-[#004417]/65 mr-3">
+                  <div className="mt-3">
+                    <div>
+                      <div className="flex-1">
+                        <span className="text-[rgba(0,68,23,0.75)] font-medium text-sm">Observações:</span>
+                        <p className="text-sm text-[#00A651] mt-1">{atividadeDisplay.observacoes}</p>
+                      </div>
+                    </div>
+                    {/* separador abaixo das observações */}
+                    <div className="mt-3 border-t border-[rgba(0,68,23,0.08)]" />
+                    <div className="mt-3 pt-3 flex items-center justify-between">
+                      <div className="text-xs text-[#004417]/65">
                         {atividade.created_at && (
                           <>Lançado em {new Date(atividade.created_at).toLocaleString('pt-BR', {
                             timeZone: 'America/Sao_Paulo',
@@ -589,17 +605,27 @@ export default function ManejoAgricolaPanel() {
                           })}</>
                         )}
                       </div>
-                      <div className="flex-1">
-                        <span className="text-[rgba(0,68,23,0.75)] font-medium text-sm">Observações:</span>
-                        <p className="text-sm text-[#00A651] mt-1">{atividadeDisplay.observacoes}</p>
-                      </div>
-                      <div className="flex-shrink-0 ml-3">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => openEditModal(atividade)}
+                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
+                          title="Editar lançamento"
+                        >
+                          <Edit2 className="w-4 h-4 text-[#00A651]" />
+                        </button>
+                        <button
+                          onClick={() => openHistory(atividade.id_atividade || '')}
+                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
+                          title="Ver histórico"
+                        >
+                          <History className="w-4 h-4 text-[#00A651]" />
+                        </button>
                         <button
                           onClick={() => openAttachmentModal(
                             atividade.id_atividade || '',
                             atividade.nome_atividade || 'Atividade'
                           )}
-                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none flex-shrink-0"
+                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
                           title="Gerenciar anexo"
                         >
                           <Paperclip className="w-4 h-4 text-[#00A651]" />
@@ -623,7 +649,21 @@ export default function ManejoAgricolaPanel() {
                           })}</>
                         )}
                       </div>
-                      <div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => openEditModal(atividade)}
+                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
+                          title="Editar lançamento"
+                        >
+                          <Edit2 className="w-4 h-4 text-[#00A651]" />
+                        </button>
+                        <button
+                          onClick={() => openHistory(atividade.id_atividade || '')}
+                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
+                          title="Ver histórico"
+                        >
+                          <History className="w-4 h-4 text-[#00A651]" />
+                        </button>
                         <button
                           onClick={() => openAttachmentModal(
                             atividade.id_atividade || '',
@@ -663,6 +703,27 @@ export default function ManejoAgricolaPanel() {
           </div>
         </div>
       </div>
+
+      <ActivityEditModal
+        isOpen={!!editingActivity}
+        transaction={editingActivity}
+        onClose={closeEditModal}
+        onSave={async (id: string, payload: any) => {
+          try {
+            await ActivityService.updateLancamento(id, payload);
+            closeEditModal();
+            await loadData();
+          } catch (err) {
+            console.error('Erro ao salvar edição da atividade:', err);
+          }
+        }}
+      />
+
+      <ActivityHistoricoModal
+        isOpen={historyOpen}
+        onClose={closeHistory}
+        atividadeId={historyActivityId || ''}
+      />
 
       <ActivityAttachmentModal
         isOpen={attachmentModal.isOpen}

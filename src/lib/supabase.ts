@@ -203,6 +203,7 @@ export interface Talhao {
   cultura: string;
   ativo?: boolean;
   talhao_default?: boolean;
+  is_completed?: boolean;
   produtividade_saca?: number | null;
   variedade_plantada?: string | null;
   quantidade_de_pes?: number | null;
