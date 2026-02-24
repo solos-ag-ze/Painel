@@ -1,20 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
   Sprout,
-  Calendar,
-  MapPin,
-  Package,
-  Droplets,
-  Bug,
-  Scissors,
-  Leaf,
   Clock,
   CheckCircle,
-  Coffee,
-  Paperclip,
-  Edit2,
-  History
 } from 'lucide-react';
+import { parseDateWithoutTime, mapAtividadeToDisplay as mapAtividadeUtil } from './manejoUtils';
 import { AuthService } from '../../services/authService';
 import { ActivityService } from '../../services/activityService';
 import { TalhaoService } from '../../services/talhaoService';
@@ -25,6 +15,9 @@ import type { Talhao } from '../../lib/supabase';
 import ActivityEditModal from './ActivityEditModal';
 import ActivityHistoricoModal from './ActivityHistoricoModal';
 import ActivityCard from './ActivityCard';
+import TalhaoFilter from './TalhaoFilter';
+import TalhaoInfoCard from './TalhaoInfoCard';
+import TalhaoEmptyState from './TalhaoEmptyState';
 
 export default function ManejoAgricolaPanel() {
   const [filtroTalhao, setFiltroTalhao] = useState('todos');
@@ -258,54 +251,7 @@ export default function ManejoAgricolaPanel() {
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
-  // Função para converter uma string de data para Date sem horário
-  const parseDateWithoutTime = (dateString: string) => {
-    if (!dateString) return null;
-    try {
-      // Tenta diferentes formatos de data
-      let date: Date;
-      
-      if (dateString.includes('T')) {
-        // ISO format
-        date = new Date(dateString);
-      } else if (dateString.includes('/')) {
-        // Verifica se está no formato DD/MM/YYYY ou MM/DD/YYYY
-        const partes = dateString.split('/');
-        if (partes.length === 3) {
-          const [primeira, segunda, terceira] = partes;
-          // Se a terceira parte tem 4 dígitos, é o ano
-          if (terceira.length === 4) {
-            // DD/MM/YYYY format (formato brasileiro)
-            date = new Date(parseInt(terceira), parseInt(segunda) - 1, parseInt(primeira));
-          } else {
-            // MM/DD/YY format
-            date = new Date(parseInt(terceira) + 2000, parseInt(primeira) - 1, parseInt(segunda));
-          }
-        } else {
-          return null;
-        }
-      } else if (dateString.includes('-')) {
-        // YYYY-MM-DD format
-        if (dateString.length === 10) {
-          date = new Date(dateString);
-        } else {
-          return null;
-        }
-      } else {
-        return null;
-      }
-      
-      if (isNaN(date.getTime())) {
-        return null;
-      }
-      
-      date.setHours(0, 0, 0, 0);
-      return date;
-    } catch (error) {
-      console.error('Erro ao processar data:', error, dateString);
-      return null;
-    }
-  };
+  // parseDateWithoutTime moved to manejoUtils
 
   // Todas as atividades do banco de dados (filtradas por talhão se selecionado)
   const todasAtividades = filtrarAtividadesPorTalhao(atividades);
@@ -335,39 +281,10 @@ export default function ManejoAgricolaPanel() {
 
 
 
-  const getIconByType = (nomeAtividade: string) => {
-    const tipo = nomeAtividade.toLowerCase();
-    if (tipo.includes('pulverização') || tipo.includes('pulverizar')) {
-      return <Droplets className="w-5 h-5 text-[#00A651]" />;
-    }
-    if (tipo.includes('adubação') || tipo.includes('adubar')) {
-      return <Package className="w-5 h-5 text-[#00A651]" />;
-    }
-    if (tipo.includes('capina') || tipo.includes('roçada')) {
-      return <Leaf className="w-5 h-5 text-[#00A651]" />;
-    }
-    if (tipo.includes('poda')) {
-      return <Scissors className="w-5 h-5 text-[#00A651]" />;
-    }
-    if (tipo.includes('irrigação') || tipo.includes('irrigar')) {
-      return <Droplets className="w-5 h-5 text-[#00A651]" />;
-    }
-    if (tipo.includes('análise') || tipo.includes('coleta')) {
-      return <Bug className="w-5 h-5 text-[#00A651]" />;
-    }
-    return <Sprout className="w-5 h-5 text-[#00A651]" />;
-  };
+  // getIconByType moved to manejoUtils
 
   // Função para mapear campos da atividade real para o formato esperado
-  const mapAtividadeToDisplay = (atividade: AtividadeComDataLocal) => {
-    return {
-      ...atividade,
-      tipo: atividade.nome_atividade,
-      descricao: atividade.nome_atividade,
-      talhao: getNomesTalhoesAtividade(atividade),
-      observacoes: atividade.observacao || ''
-    };
-  };
+  const mapAtividadeToDisplay = (atividade: AtividadeComDataLocal) => mapAtividadeUtil(atividade, getNomesTalhoesAtividade);
 
   // helpers legados removidos — usamos getIconByType / getStatusColorByType atuais
 
@@ -380,128 +297,14 @@ export default function ManejoAgricolaPanel() {
 
       {/* Filtro de Talhões */}
       {talhoes.length > 0 && (
-        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-[#004417]">Filtrar por Talhão</h3>
-            <div className="text-[13px] text-[rgba(0,68,23,0.75)] font-medium">
-              {talhoes.length} {talhoes.length === 1 ? 'talhão encontrado' : 'talhões encontrados'}
-            </div>
-          </div>
-          
-            <div className="flex items-center flex-row flex-nowrap gap-2 overflow-x-auto pb-2 snap-x snap-mandatory">
-            {opcoesFiltraTalhao.map((opcao) => (
-              <button
-                key={opcao}
-                onClick={() => setFiltroTalhao(opcao)}
-                className={`px-4 py-2 rounded-[10px] text-sm font-semibold transition-all duration-200 whitespace-nowrap snap-start flex-shrink-0 ${
-                  filtroTalhao === opcao
-                    ? 'bg-[rgba(0,166,81,0.10)] border border-[#00A651] text-[#004417] font-semibold'
-                    : 'bg-white border border-[rgba(0,68,23,0.10)] text-[#004417] hover:bg-[rgba(0,68,23,0.03)] hover:border-[rgba(0,68,23,0.12)]'
-                }`}
-              >
-                {opcao === 'todos' ? 'Sem Filtro' : getNomeTalhaoPorId(opcao)}
-              </button>
-            ))}
-          </div>
-        </div>
+        <TalhaoFilter talhoes={talhoes} value={filtroTalhao} onChange={setFiltroTalhao} talhaoDefault={talhaoDefault} />
       )}
 
       {/* Mensagem quando não há talhões */}
-      {talhoes.length === 0 && (
-        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] p-6">
-          <div className="text-center py-8">
-            <MapPin className="w-12 h-12 text-[#00A651] mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-[#004417] mb-2">Nenhum talhão encontrado</h3>
-            <p className="text-[rgba(0,68,23,0.75)] font-medium mb-4">
-              Você ainda não possui talhões cadastrados. Os talhões são criados automaticamente 
-              quando você registra atividades agrícolas via WhatsApp do Zé.
-            </p>
-            <div className="bg-[#00A651]/10 p-4 rounded-xl border border-[#00A651]/20">
-              <p className="text-sm text-[#004417] font-medium">
-                <strong className="text-[#00A651]">Como criar talhões:</strong> Envie informações sobre suas atividades 
-                agrícolas no WhatsApp do ZÉ, mencionando a área ou talhão onde foram realizadas.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {talhoes.length === 0 && <TalhaoEmptyState />}
       {/* Painel de Informações do Talhão */}
       {filtroTalhao !== 'todos' && talhaoSelecionado && (
-        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,68,23,0.06)] p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-[#00A651]/20 rounded-full flex items-center justify-center">
-                <MapPin className="w-5 h-5 text-[#00A651]" />
-              </div>
-              <h3 className="text-lg font-bold text-[#004417]">Informações Técnicas</h3>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-semibold text-[#00A651]">
-                {todasAtividades.length} {todasAtividades.length === 1 ? 'atividade' : 'atividades'} neste talhão
-              </p>
-            </div>
-          </div>
-          
-        <div className="bg-[#00A651]/8 p-4 rounded-xl mb-4">
-  <div className="flex flex-wrap items-center gap-4 text-sm md:text-base">
-    <div className="flex items-center space-x-2">
-      <div className="w-3 h-3 bg-[#00A651] rounded-full"></div>
-      <span className="font-bold text-[#004417] text-lg">{talhaoSelecionado.nome || 'Sem nome'}</span>
-    </div>
-    <div className="text-[rgba(0,68,23,0.15)]">|</div>
-    <div className="flex items-center space-x-1">
-      <span className="font-semibold text-[#004417]">{talhaoSelecionado.area ? Number(talhaoSelecionado.area).toFixed(1) : '0.0'} ha</span>
-    </div>
-    <div className="text-[rgba(0,68,23,0.15)]">|</div>
-    <div className="flex items-center space-x-1">
-      <Coffee className="w-4 h-4 text-[#00A651]" />
-      <span className="text-[#004417] font-medium">{talhaoSelecionado.cultura || 'Café'}</span>
-    </div>
-    <div className="text-[rgba(0,68,23,0.15)]">|</div>
-    <div className="flex items-center space-x-1">
-      <Calendar className="w-4 h-4 text-[#00A651]" />
-      <span className="text-[#004417] font-medium">
-        Criado: {talhaoSelecionado.data_criacao ? new Date(talhaoSelecionado.data_criacao).toLocaleDateString('pt-BR') : 'N/A'}
-      </span>
-    </div>
-    
-    {/* Variedade */}
-    <div className="text-[rgba(0,68,23,0.15)]">|</div>
-    <div className="flex items-center space-x-1">
-      <span className="text-[#004417] font-medium">
-        Variedade: {talhaoSelecionado.variedade_plantada || '-'}
-      </span>
-    </div>
-    
-    {/* Quantidade de Pés */}
-    <div className="text-[rgba(0,68,23,0.15)]">|</div>
-    <div className="flex items-center space-x-1">
-      <span className="text-[#004417] font-medium">
-        Quantidade de Pés: {talhaoSelecionado.quantidade_de_pes || '-'}
-      </span>
-    </div>
-    
-    {/* Ano de Plantio */}
-      <div className="text-[rgba(0,68,23,0.15)]">|</div>
-    <div className="flex items-center space-x-1">
-      <span className="text-[#004417] font-medium">
-        Ano de Plantio: {talhaoSelecionado.ano_de_plantio ? new Date(talhaoSelecionado.ano_de_plantio).getFullYear() : '-'}
-      </span>
-    </div>
-    
-    {talhaoSelecionado.produtividade_saca && (
-      <>
-        <div className="text-[rgba(0,68,23,0.15)]">|</div>
-        <div className="flex items-center space-x-1">
-          <Sprout className="w-4 h-4 text-[#00A651]" />
-          <span className="text-[#004417] font-medium">{talhaoSelecionado.produtividade_saca} sc/ha</span>
-        </div>
-      </>
-    )}
-  </div>
-</div>
-
-        </div>
+        <TalhaoInfoCard talhao={talhaoSelecionado} atividadesCount={todasAtividades.length} />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

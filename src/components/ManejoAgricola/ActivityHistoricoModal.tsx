@@ -482,6 +482,37 @@ export default function ActivityHistoricoModal({ isOpen, onClose, atividadeId }:
     return String(val);
   };
 
+  const mapCampoLabel = (campo?: string) => {
+    if (!campo) return '';
+    const key = String(campo).toLowerCase();
+    // Mapear campos técnicos para rótulos legíveis/acentuados
+    switch (key) {
+      case 'talhoes':
+      case 'talhao':
+      case 'id_talhoes':
+      case 'talhao_ids':
+        return 'Talhões';
+      case 'observacoes':
+      case 'observacao':
+        return 'Observações';
+      case 'descricao':
+      case 'nome_atividade':
+        return 'Descrição';
+      case 'produtos':
+      case 'lancamento_produtos':
+        return 'Produtos';
+      case 'maquinas':
+      case 'lancamento_maquinas':
+        return 'Máquinas';
+      case 'responsaveis':
+      case 'lancamento_responsaveis':
+        return 'Responsáveis';
+      default:
+        // capitalizar a primeira letra para casos genéricos
+        return String(campo).charAt(0).toUpperCase() + String(campo).slice(1);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -540,7 +571,7 @@ export default function ActivityHistoricoModal({ isOpen, onClose, atividadeId }:
                           <div className="space-y-2">
                             {registro.alteracoes.map((alt, i) => (
                               <div key={i} className="bg-white rounded-md p-3 border border-gray-100">
-                                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">{alt.campo}</p>
+                                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">{mapCampoLabel(alt.campo)}</p>
                                 <div className="flex items-center gap-2 text-sm">
                                   <span className="text-gray-600 line-through">{formatAlteracaoValue(alt.valorAnterior, alt.campo)}</span>
                                   <ArrowRight className="w-4 h-4 text-[#00A651] flex-shrink-0" />

@@ -1,24 +1,16 @@
-import React from 'react';
-import { Sprout, Clock } from 'lucide-react';
 import ProductList from './ProductList';
 import MachineList from './MachineList';
 import ActivityActions from './ActivityActions';
+import { getIconByType } from './manejoUtils';
 
 export default function ActivityCard({
   atividade,
   atividadeDisplay,
-  talhaoDefault,
   onEdit,
   onHistory,
   onAttachment
 }: any) {
-  const getIconByType = (nomeAtividade: string) => {
-    const tipo = (nomeAtividade || '').toLowerCase();
-    if (tipo.includes('pulverização') || tipo.includes('pulverizar')) {
-      return <Clock className="w-5 h-5 text-[#00A651]" />;
-    }
-    return <Sprout className="w-5 h-5 text-[#00A651]" />;
-  };
+  // use shared getIconByType
 
   return (
     <div className="p-5 rounded-xl bg-white shadow-[0_2px_8px_rgba(0,68,23,0.06)] transition-all duration-200">
@@ -47,7 +39,7 @@ export default function ActivityCard({
           </ul>
 
           <div className="mt-2">
-            <span className="text-[rgba(0,68,23,0.75)] font-medium">Responsável:</span>
+            <span className="text-[rgba(0,68,23,0.75)] font-medium">Responsáveis:</span>
             <p className="mt-1 text-sm text-[rgba(0,68,23,0.75)]">{atividade.responsaveis && atividade.responsaveis.length > 0 ? atividade.responsaveis.map((r: any) => r.nome).join(', ') : 'Não informado'}</p>
           </div>
         </div>
