@@ -22,8 +22,9 @@ import LoadingSpinner from '../Dashboard/LoadingSpinner';
 import ErrorMessage from '../Dashboard/ErrorMessage';
 import ActivityAttachmentModal from './ActivityAttachmentModal';
 import type { Talhao } from '../../lib/supabase';
-import ActivityEditModal from '../Dashboard/ActivityEditModal';
+import ActivityEditModal from './ActivityEditModal';
 import ActivityHistoricoModal from './ActivityHistoricoModal';
+import ActivityCard from './ActivityCard';
 
 export default function ManejoAgricolaPanel() {
   const [filtroTalhao, setFiltroTalhao] = useState('todos');
@@ -527,158 +528,15 @@ export default function ManejoAgricolaPanel() {
               atividadesRecentes.map((atividade) => {
                 const atividadeDisplay = mapAtividadeToDisplay(atividade);
                 return (
-                  <div key={atividade.id_atividade} className="p-5 rounded-xl bg-white shadow-[0_2px_8px_rgba(0,68,23,0.06)] transition-all duration-200">
-        <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-        {getIconByType(atividade.nome_atividade || '')}
-                    <div>
-                          <h4 className="font-semibold text-[#004417]">{atividadeDisplay.descricao}</h4>
-                          <p className="text-[13px] text-[rgba(0,68,23,0.75)] font-medium">{atividade.dataFormatada}</p>
-                    </div>
-                  </div>
-      <span className="text-xs bg-[#00A651]/20 text-[#00A651] font-semibold px-2 py-1 rounded-full">
-        {atividadeDisplay.talhao}
-      </span>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-[rgba(0,68,23,0.75)] font-medium">Produtos:</span>
-                    <ul className="mt-1 space-y-1">
-                      {atividade.produtos && atividade.produtos.length > 0 ? (
-                        atividade.produtos.map((p, idx) => (
-                          <li key={idx} className="flex justify-between">
-                            <span className="font-semibold text-[#004417]">{p.nome_produto}</span>
-                            <span className="text-[rgba(0,68,23,0.75)] font-medium text-right">
-                              {p.quantidade_val ?? '-'} {p.quantidade_un ?? ''}
-                              {p.dose_val ? ` · ${p.dose_val} ${p.dose_un ?? ''}` : ''}
-                            </span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-[rgba(0,68,23,0.75)] font-medium">Não informado</li>
-                      )}
-                    </ul>
-                  </div>
-                  <div>
-                    <span className="text-[rgba(0,68,23,0.75)] font-medium">Máquinas:</span>
-                    <ul className="mt-1 space-y-1">
-                      {atividade.maquinas && atividade.maquinas.length > 0 ? (
-                        atividade.maquinas.map((m, idx) => (
-                          <li key={idx} className="flex justify-between">
-                            <span className="font-semibold text-[#004417]">{m.nome_maquina}</span>
-                            <span className="text-[rgba(0,68,23,0.75)] font-medium">{m.horas_maquina ?? '-'} h</span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-[rgba(0,68,23,0.75)] font-medium">Não informado</li>
-                      )}
-                    </ul>
-
-                    <div className="mt-2">
-                      <span className="text-[rgba(0,68,23,0.75)] font-medium">Responsável:</span>
-                      <p className="mt-1 text-sm text-[rgba(0,68,23,0.75)]">{atividade.responsaveis && atividade.responsaveis.length > 0 ? atividade.responsaveis.map(r => r.nome).join(', ') : 'Não informado'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                    {atividadeDisplay.observacoes && (
-                  <div className="mt-3">
-                    <div>
-                      <div className="flex-1">
-                        <span className="text-[rgba(0,68,23,0.75)] font-medium text-sm">Observações:</span>
-                        <p className="text-sm text-[#00A651] mt-1">{atividadeDisplay.observacoes}</p>
-                      </div>
-                    </div>
-                    {/* separador abaixo das observações */}
-                    <div className="mt-3 border-t border-[rgba(0,68,23,0.08)]" />
-                    <div className="mt-3 pt-3 flex items-center justify-between">
-                      <div className="text-xs text-[#004417]/65">
-                        {atividade.created_at && (
-                          <>Lançado em {new Date(atividade.created_at).toLocaleString('pt-BR', {
-                            timeZone: 'America/Sao_Paulo',
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}</>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => openEditModal(atividade)}
-                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
-                          title="Editar lançamento"
-                        >
-                          <Edit2 className="w-4 h-4 text-[#00A651]" />
-                        </button>
-                        <button
-                          onClick={() => openHistory(atividade.id_atividade || '')}
-                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
-                          title="Ver histórico"
-                        >
-                          <History className="w-4 h-4 text-[#00A651]" />
-                        </button>
-                        <button
-                          onClick={() => openAttachmentModal(
-                            atividade.id_atividade || '',
-                            atividade.nome_atividade || 'Atividade'
-                          )}
-                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
-                          title="Gerenciar anexo"
-                        >
-                          <Paperclip className="w-4 h-4 text-[#00A651]" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                    )}
-                    {!atividadeDisplay.observacoes && (
-                  <div className="mt-3 pt-3 border-t border-[rgba(0,68,23,0.08)]">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs text-[#004417]/65">
-                        {atividade.created_at && (
-                          <>Lançado em {new Date(atividade.created_at).toLocaleString('pt-BR', {
-                            timeZone: 'America/Sao_Paulo',
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}</>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => openEditModal(atividade)}
-                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
-                          title="Editar lançamento"
-                        >
-                          <Edit2 className="w-4 h-4 text-[#00A651]" />
-                        </button>
-                        <button
-                          onClick={() => openHistory(atividade.id_atividade || '')}
-                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
-                          title="Ver histórico"
-                        >
-                          <History className="w-4 h-4 text-[#00A651]" />
-                        </button>
-                        <button
-                          onClick={() => openAttachmentModal(
-                            atividade.id_atividade || '',
-                            atividade.nome_atividade || 'Atividade'
-                          )}
-                          className="p-2 text-[#00A651] hover:opacity-90 bg-transparent border-0 shadow-none"
-                          title="Gerenciar anexo"
-                        >
-                          <Paperclip className="w-4 h-4 text-[#00A651]" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                    )}
-              </div>
+                  <ActivityCard
+                    key={atividade.id_atividade}
+                    atividade={atividade}
+                    atividadeDisplay={atividadeDisplay}
+                    talhaoDefault={talhaoDefault}
+                    onEdit={openEditModal}
+                    onHistory={openHistory}
+                    onAttachment={openAttachmentModal}
+                  />
                 );
               })
             )}

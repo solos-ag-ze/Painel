@@ -3,6 +3,7 @@ export interface ProdutoItem {
   nome: string;
   quantidade: string;
   unidade: string;
+  produto_catalogo_id?: string | null;
 }
 
 export interface MaquinaItem {
