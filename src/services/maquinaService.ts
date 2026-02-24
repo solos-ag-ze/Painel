@@ -1,4 +1,5 @@
 import { supabase, MaquinasEquipamentos } from '../lib/supabase';
+import logger from '../lib/logger';
 import { PropriedadeService } from './propriedadeService';
 
 
@@ -53,13 +54,13 @@ export class MaquinaService {
                 .select('*')
                 .eq('user_id', userId);
 
-            if (error) {
-                throw new Error(`Error fetching machines: ${error.message}`);
-            }
+                if (error) {
+                    throw new Error(`Error fetching machines: ${error.message}`);
+                }
 
             return data || [];
         } catch (error) {
-            console.error('Erro ao buscar maquinas', error);
+            logger.error('Erro ao buscar maquinas', error);
             return [];
         }
     }
@@ -77,7 +78,7 @@ export class MaquinaService {
 
             return count || 0;
         } catch (error) {
-            console.error('Erro ao contar maquinas', error);
+            logger.error('Erro ao contar maquinas', error);
             return 0;
         }
     }
@@ -126,7 +127,7 @@ export class MaquinaService {
 
                 return data;
             } catch (error) {
-                console.error('Error ao buscar a maquina pelo id:', error);
+                logger.error('Error ao buscar a maquina pelo id:', error);
                 throw error;
             }
             }
@@ -143,10 +144,9 @@ export class MaquinaService {
 
                 if (error) throw Error (`Error ao atualizar a maquina: ${error.message}`);
 
-              // console.log(`Machine ${maquinaId} updated: ${columnName} = ${url}`);
                return;
             } catch (error) {
-                console.error('Error updating machine URL:', error);
+                logger.error('Error updating machine URL:', error);
                 throw error;
             }
             }
@@ -161,20 +161,20 @@ export class MaquinaService {
                     .is('url_segundo_envio', null);
 
                 if (error) {
-                    console.error('Error fetching machines without attachments:', error);
+                    logger.error('Error fetching machines without attachments:', error);
                     return [];
                 }
 
                 return (data || []).map(item => item.id_maquina);
                 } catch (error) {
-                console.error('Error getting machines without attachments:', error);
+                logger.error('Error getting machines without attachments:', error);
                 return [];
                 }
             }
 
             async deleteMaquina(maquinaId: string): Promise<void> {
                 try {
-                    console.log('🗑️ Deletando máquina:', maquinaId);
+                    logger.info('🗑️ Deletando máquina:', maquinaId);
 
                     const { error } = await supabase
                         .from('maquinas_equipamentos')
@@ -185,9 +185,9 @@ export class MaquinaService {
                         throw new Error(`Error deleting machine: ${error.message}`);
                     }
 
-                    console.log('✅ Máquina deletada com sucesso');
+                    logger.info('✅ Máquina deletada com sucesso');
                 } catch (error) {
-                    console.error('Erro ao deletar máquina:', error);
+                    logger.error('Erro ao deletar máquina:', error);
                     throw error;
                 }
             }
