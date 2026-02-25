@@ -838,31 +838,6 @@ export class EstoqueService {
     }
   }
 
-    /**
-     * Aplica produtos de uma atividade (chamada pelo modal de edição).
-     * Envia o array de produtos para a função RPC `apply_activity_products_modal` no banco.
-     */
-    static async applyActivityProductsModal(activityId: string, produtos: Array<any>): Promise<any> {
-      try {
-        const userId = await this.getCurrentUserId();
-        const { data, error } = await supabase.rpc('apply_activity_products_modal', {
-          p_activity_id: activityId,
-          p_products: produtos,
-          p_user_id: userId,
-        });
-
-        if (error) {
-          console.error('❌ Erro ao chamar RPC apply_activity_products_modal:', error);
-          throw error;
-        }
-
-        return data;
-      } catch (err) {
-        console.error('❌ applyActivityProductsModal falhou:', err);
-        throw err;
-      }
-    }
-
   /**
    * Remove quantidade de um produto agrupado seguindo FIFO (First In, First Out)
    * NOVO SISTEMA: Cria registros de SAÍDA na tabela estoque_de_produtos

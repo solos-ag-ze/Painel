@@ -1,24 +1,12 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 import type { ActivityPayload, ProdutoItem, MaquinaItem } from '../../types/activity';
-import { MaquinaService } from '../../services/maquinaService';
-import logger from '../../lib/logger';
-import type { MaquinasEquipamentos } from '../../lib/supabase';
+import { TalhaoService } from '../../services/talhaoService';
 import { AuthService } from '../../services/authService';
-import { N8nService } from '../../services/n8nService';
-import { PropriedadeService } from '../../services/propriedadeService';
-import useLoadActivity from '../../hooks/useLoadActivity';
-import useTalhoes from '../../hooks/useTalhoes';
-import useProdutos from '../../hooks/useProdutos';
-import { useForm, useFieldArray, useWatch, FormProvider } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import ErrorToast from '../common/ErrorToast';
-import LoadingSpinner from '../Dashboard/LoadingSpinner';
-import ProdutoRow from './ProdutoRow';
-import MaquinaRow from './MaquinaRow';
-import ResponsavelRow from './ResponsavelRow';
+import { EstoqueService, ProdutoEstoque } from '../../services/estoqueService';
+import { MaquinaService } from '../../services/maquinaService';
+import { supabase } from '../../lib/supabase';
 
 interface Props {
   isOpen: boolean;
@@ -28,220 +16,235 @@ interface Props {
 }
 
 export default function ActivityEditModal({ isOpen, transaction, onClose, onSave }: Props) {
-  const { local, loading: loadingActivity } = useLoadActivity(transaction);
-  const { availableTalhoes } = useTalhoes(isOpen);
-  const { availableProdutos } = useProdutos(isOpen);
+  const [local, setLocal] = useState<ActivityPayload | null>(null);
+  const [availableTalhoes, setAvailableTalhoes] = useState<Array<{ id_talhao: string; nome: string; talhao_default?: boolean }>>([]);
+  const [availableProdutos, setAvailableProdutos] = useState<ProdutoEstoque[]>([]);
   const [availableMaquinas, setAvailableMaquinas] = useState<Array<{ id_maquina: string; nome: string }>>([]);
   const [saving, setSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [showError, setShowError] = useState(false);
-
-  // zod schema for validation with stronger checks
-  const produtoSchema = z.object({
-    id: z.string().optional(),
-    nome: z.string().optional(),
-    quantidade: z.preprocess((val) => {
-      if (typeof val === 'string') {
-        const s = val.trim();
-        if (s === '') return undefined;
-        const n = Number(s.replace(',', '.'));
-        return Number.isNaN(n) ? val : n;
-      }
-      return val;
-    }, z.number().positive({ message: 'Quantidade deve ser maior que 0' })).optional(),
-    unidade: z.string().optional(),
-    produto_catalogo_id: z.string().nullable().optional(),
-  });
-
-  const maquinaSchema = z.object({
-    id: z.string().optional(),
-    nome: z.string().optional(),
-    horas: z.preprocess((val) => {
-      if (typeof val === 'string') {
-        const s = val.trim();
-        if (s === '') return undefined;
-        const n = Number(s);
-        return Number.isNaN(n) ? val : Math.trunc(n);
-      }
-      return val;
-    }, z.number().int().min(0, { message: 'Horas deve ser inteiro >= 0' })).optional(),
-    maquina_id: z.string().nullable().optional(),
-  });
-
-  const responsavelSchema = z.object({ id: z.string().optional(), nome: z.string().optional() });
-
-  const schema = z.object({
-    descricao: z.string().max(50).nullable().optional(),
-    data_atividade: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Data inválida. Use YYYY-MM-DD' }).nullable().optional(),
-    nome_talhao: z.string().optional(),
-    talhao_ids: z.array(z.string()).optional(),
-    produtos: z.array(produtoSchema).optional(),
-    maquinas: z.array(maquinaSchema).optional(),
-    observacoes: z.string().max(100).nullable().optional(),
-    responsaveis: z.array(responsavelSchema).optional(),
-  });
-
-  type ProdutoFormItem = Omit<ProdutoItem, 'quantidade'> & { quantidade?: number | null };
-  type MaquinaFormItem = Omit<MaquinaItem, 'horas'> & { horas?: number | null };
-
-  type FormValues = {
-    descricao?: string | null;
-    data_atividade?: string | null;
-    nome_talhao?: string;
-    talhao_ids?: string[];
-    produtos?: ProdutoFormItem[];
-    maquinas?: MaquinaFormItem[];
-    observacoes?: string | null;
-    responsaveis?: Array<{ id?: string; nome?: string }>;
-  };
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    mode: 'onChange',
-    defaultValues: {
-      descricao: '',
-      data_atividade: '',
-      nome_talhao: '',
-      talhao_ids: [],
-      produtos: [],
-      maquinas: [],
-      observacoes: '',
-      responsaveis: [],
-    }
-  });
-
-  const { control, register, handleSubmit, reset, setValue, formState } = form;
-  const produtosFieldArray = useFieldArray<FormValues, 'produtos'>({ control, name: 'produtos' });
-  const maquinasFieldArray = useFieldArray<FormValues, 'maquinas'>({ control, name: 'maquinas' });
-  const responsaveisFieldArray = useFieldArray<FormValues, 'responsaveis'>({ control, name: 'responsaveis' });
-  // useWatch para observar apenas os campos necessários e reduzir re-renders
-  const descricao = useWatch<FormValues>({ control, name: 'descricao' }) as string | undefined;
-  const observacoes = useWatch<FormValues>({ control, name: 'observacoes' }) as string | undefined;
-  const watchedTalhaoIds = useWatch<FormValues>({ control, name: 'talhao_ids' }) as string[] | undefined;
 
   useEffect(() => {
+    async function loadActivityData() {
+      if (!transaction?.id) return;
+      
+      try {
+        // Buscar talhões vinculados na tabela lancamento_talhoes
+        const { data: vinculados, error: errorTalhoes } = await supabase
+          .from('lancamento_talhoes')
+          .select('talhao_id')
+          .eq('atividade_id', transaction.id);
+
+        if (errorTalhoes) {
+          console.error('Erro ao carregar talhões vinculados:', errorTalhoes);
+        }
+
+        const talhaoIdsVinculados = (vinculados || []).map(v => v.talhao_id);
+
+        // Buscar responsáveis vinculados na tabela lancamento_responsaveis
+        const { data: responsaveisVinculados, error: errorResp } = await supabase
+          .from('lancamento_responsaveis')
+          .select('id, nome')
+          .eq('atividade_id', transaction.id);
+
+        if (errorResp) {
+          console.error('Erro ao carregar responsáveis vinculados:', errorResp);
+        }
+
+        const responsaveis = (responsaveisVinculados || []).map(r => ({
+          id: String(r.id),
+          nome: r.nome
+        }));
+
+        // Buscar produtos vinculados na tabela lancamento_produtos
+        const { data: produtosVinculados, error: errorProd } = await supabase
+          .from('lancamento_produtos')
+          .select('id, nome_produto, quantidade_val, quantidade_un, unidade_medida, produto_catalogo_id')
+          .eq('atividade_id', transaction.id);
+
+        if (errorProd) {
+          console.error('Erro ao carregar produtos vinculados:', errorProd);
+        }
+
+        const produtosRaw = (produtosVinculados || []).map((p: any) => ({
+          id: String(p.id),
+          nome: p.nome_produto || '',
+          quantidade: p.quantidade_val ? String(p.quantidade_val) : '',
+          unidade: p.quantidade_un || p.unidade_medida || 'kg',
+          produto_catalogo_id: p.produto_catalogo_id
+        }));
+
+        // Resolver nomes reais dos produtos via produto_catalogo_id → estoque_de_produtos.produto_id
+        const catalogoIds = produtosRaw.map(p => p.produto_catalogo_id).filter(Boolean);
+        let prodNamesMap: Record<string, string> = {};
+        if (catalogoIds.length > 0) {
+          const { data: estoqueProds } = await supabase
+            .from('estoque_de_produtos')
+            .select('produto_id, nome_do_produto')
+            .in('produto_id', catalogoIds);
+          prodNamesMap = (estoqueProds || []).reduce((acc: Record<string, string>, ep: any) => {
+            if (ep.produto_id && ep.nome_do_produto) acc[ep.produto_id] = ep.nome_do_produto;
+            return acc;
+          }, {});
+        }
+
+        const produtos = produtosRaw.map(p => ({
+          ...p,
+          nome: (p.produto_catalogo_id && prodNamesMap[p.produto_catalogo_id]) ? prodNamesMap[p.produto_catalogo_id] : p.nome
+        }));
+
+        // Buscar máquinas vinculadas na tabela lancamento_maquinas
+        const { data: maquinasVinculadas, error: errorMaq } = await supabase
+          .from('lancamento_maquinas')
+          .select('id, maquina_id, nome_maquina, horas_maquina')
+          .eq('atividade_id', transaction.id);
+
+        if (errorMaq) {
+          console.error('Erro ao carregar máquinas vinculadas:', errorMaq);
+        }
+
+        // Buscar nomes reais de maquinas_equipamentos para máquinas com maquina_id
+        const maqIds = (maquinasVinculadas || []).map((m: any) => m.maquina_id).filter(Boolean);
+        let maqNamesMap: Record<string, string> = {};
+        if (maqIds.length > 0) {
+          const { data: maqEquip } = await supabase
+            .from('maquinas_equipamentos')
+            .select('id_maquina, nome')
+            .in('id_maquina', maqIds);
+          maqNamesMap = (maqEquip || []).reduce((acc: Record<string, string>, eq: any) => {
+            acc[eq.id_maquina] = eq.nome;
+            return acc;
+          }, {});
+        }
+
+        const maquinas = (maquinasVinculadas || []).map((m: any) => ({
+          id: String(m.id),
+          nome: (m.maquina_id && maqNamesMap[m.maquina_id]) ? maqNamesMap[m.maquina_id] : (m.nome_maquina || ''),
+          horas: m.horas_maquina != null ? String(m.horas_maquina) : '',
+          maquina_id: m.maquina_id
+        }));
+
+        // Preencher campos relevantes para atividade agrícola
+        const tx = transaction as ActivityPayload;
+        setLocal({
+          descricao: tx.descricao ?? undefined,
+          data_atividade: tx.data_atividade ?? undefined,
+          nome_talhao: tx.nome_talhao ?? '',
+          talhao_ids: talhaoIdsVinculados.length > 0 ? talhaoIdsVinculados : (tx.talhao_ids ?? []),
+          produtos: produtos.length > 0 ? produtos : (tx.produtos ?? []),
+          maquinas: maquinas.length > 0 ? maquinas : (tx.maquinas ?? []),
+          imagem: tx.imagem ?? undefined,
+          arquivo: tx.arquivo ?? undefined,
+          observacoes: tx.observacoes ?? undefined,
+          responsaveis: responsaveis.length > 0 ? responsaveis : (tx.responsaveis ?? []),
+        });
+      } catch (e) {
+        console.error('Erro ao carregar dados da atividade:', e);
+        // Fallback para dados locais
+        const tx = transaction as ActivityPayload;
+        setLocal({
+          descricao: tx.descricao ?? undefined,
+          data_atividade: tx.data_atividade ?? undefined,
+          nome_talhao: tx.nome_talhao ?? '',
+          talhao_ids: tx.talhao_ids ?? [],
+          produtos: tx.produtos ?? [],
+          maquinas: tx.maquinas ?? [],
+          imagem: tx.imagem ?? undefined,
+          arquivo: tx.arquivo ?? undefined,
+          observacoes: tx.observacoes ?? undefined,
+          responsaveis: tx.responsaveis ?? [],
+        });
+      }
+    }
+
+    if (transaction) {
+      loadActivityData();
+    } else {
+      setLocal(null);
+    }
+  }, [transaction]);
+
+  useEffect(() => {
+    // Load user's talhões for multiselect
+    async function loadTalhoes() {
+      try {
+        const userId = AuthService.getInstance().getCurrentUser()?.user_id;
+        if (!userId) return;
+        const list = await TalhaoService.getTalhoesByUserId(userId);
+        // Mostrar apenas talhões não-default (talhao_default = false)
+        setAvailableTalhoes((list || []).filter((t) => t.talhao_default !== true));
+      } catch (e) {
+        console.error('Erro ao carregar talhões:', e);
+      }
+    }
+
+    if (isOpen) loadTalhoes();
+  }, [isOpen]);
+
+  useEffect(() => {
+    // Load produtos do estoque para preencher select
+    async function loadProdutos() {
+      try {
+        const list = await EstoqueService.getProdutos();
+        setAvailableProdutos(list || []);
+      } catch (e) {
+        console.error('Erro ao carregar produtos do estoque:', e);
+      }
+    }
+
+    if (isOpen) loadProdutos();
+  }, [isOpen]);
+
+  useEffect(() => {
+    // Load máquinas do usuário para preencher select
     async function loadMaquinas() {
       try {
         const userId = AuthService.getInstance().getCurrentUser()?.user_id;
         if (!userId) return;
-        // Suporta método estático se exposto pela classe, caso contrário instancia
-        const timeoutMs = 8000;
-        const callPromise = (async () => {
-          if (typeof (MaquinaService as any).getMaquinasByUserId === 'function') {
-            return await (MaquinaService as any).getMaquinasByUserId(userId);
-          }
-          const svc = new MaquinaService();
-          return await svc.getMaquinasByUserId(userId);
-        })();
-
-        const list = await Promise.race([
-          callPromise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
-        ]);
-
-        setAvailableMaquinas(((list as MaquinasEquipamentos[]) || []).map((m: MaquinasEquipamentos) => ({ id_maquina: m.id_maquina, nome: m.nome })));
+        const svc = new MaquinaService();
+        const list = await svc.getMaquinasByUserId(userId);
+        setAvailableMaquinas((list || []).map(m => ({ id_maquina: (m as any).id_maquina, nome: (m as any).nome })));
       } catch (e) {
-        logger.error('Erro ao carregar máquinas:', e);
-        setAvailableMaquinas([]);
-        setErrorMessage(typeof e === 'object' && e && 'message' in e ? (e as any).message : 'Erro ao carregar máquinas. Tente novamente.');
-        setShowError(true);
+        console.error('Erro ao carregar máquinas:', e);
       }
     }
 
     if (isOpen) loadMaquinas();
   }, [isOpen]);
 
-  // limpar mensagens de erro ao reabrir o modal
-  useEffect(() => {
-    if (isOpen) {
-      setErrorMessage('');
-      setShowError(false);
-    }
-  }, [isOpen]);
+  if (!isOpen || !local || !transaction) return null;
 
-  // quando a carga local (vinda do hook) muda, resetar o form
-  useEffect(() => {
-    if (!local) return;
-    // normalize numeric fields for the form (quantidade, horas)
-    const produtosNorm = (local.produtos || []).map((p: ProdutoItem) => ({
-      ...p,
-      quantidade: p && p.quantidade !== undefined && p.quantidade !== null && p.quantidade !== '' ? Number(String(p.quantidade).replace(',', '.')) : undefined,
-    }));
-    const maquinasNorm = (local.maquinas || []).map((m: MaquinaItem) => ({
-      ...m,
-      horas: m && m.horas !== undefined && m.horas !== null && m.horas !== '' ? Math.trunc(Number(m.horas)) : undefined,
-    }));
-
-    reset({
-      descricao: local.descricao ?? '',
-      data_atividade: local.data_atividade ?? '',
-      nome_talhao: local.nome_talhao ?? '',
-      talhao_ids: local.talhao_ids ?? [],
-      produtos: produtosNorm,
-      maquinas: maquinasNorm,
-      observacoes: local.observacoes ?? '',
-      responsaveis: local.responsaveis ?? [],
-    });
-  }, [local, reset]);
-
-  if (!isOpen) return null;
-  
-
-  const onSubmit = async (values: FormValues) => {
+  const handleSave = async () => {
     setSaving(true);
     try {
-      const payload: ActivityPayload = {
-        descricao: values.descricao ?? undefined,
-        data_atividade: values.data_atividade ?? undefined,
-        nome_talhao: values.nome_talhao ?? undefined,
-        talhoes: values.talhao_ids ? values.talhao_ids.map(id => ({ talhao_id: id })) : undefined,
-        produtos: values.produtos ? values.produtos.map(p => ({
-          id: p.id ?? '',
-          nome: p.nome ?? '',
-          quantidade: p.quantidade != null ? String(p.quantidade) : '',
-          unidade: p.unidade ?? '',
-          produto_catalogo_id: p.produto_catalogo_id ?? undefined,
-        })) : [],
-        maquinas: values.maquinas ? values.maquinas.map(m => ({
-          id: m.id ?? '',
-          nome: m.nome ?? '',
-          horas: m.horas != null ? String(Math.trunc(m.horas)) : '',
-        })) : [],
-        observacoes: values.observacoes ?? undefined,
-        responsaveis: values.responsaveis ? values.responsaveis.map(r => ({ id: r.id, nome: r.nome ?? '' })) : [],
-      };
-
-      logger.debug('📝 ActivityEditModal - Iniciando salvamento (form)');
-      logger.debug('Transaction ID:', transaction?.id);
-      logger.debug('Payload completo:', payload);
-      await onSave(transaction?.id || '', payload);
-      logger.info('✅ Atividade salva com sucesso');
-
-      // Após salvar a atividade, enviar payload completo para webhook do n8n
-      try {
-        const userId = AuthService.getInstance().getCurrentUser()?.user_id || null;
-        const propriedadeId = userId ? await PropriedadeService.getPropriedadeAtivaDoUsuario(userId) : null;
-        const webhookPayload = {
-          atividade_id: transaction?.id || null,
-          salvo_em: new Date().toISOString(),
-          usuario_id: userId,
-          propriedade_id: propriedadeId,
-          atividade: payload,
-        };
-
-        await N8nService.sendActivityWebhook(webhookPayload);
-      } catch (hookErr) {
-        logger.error('Erro ao enviar payload para n8n:', hookErr);
-        setErrorMessage('Atividade salva, porém falha ao enviar dados para automação (n8n).');
-        setShowError(true);
+      const payload: ActivityPayload = { ...(local as ActivityPayload) };
+      if (local?.talhao_ids) {
+        payload.talhoes = local.talhao_ids.map(id => ({ talhao_id: id } as any));
       }
-
+      
+      console.log('📝 ActivityEditModal - Iniciando salvamento');
+      console.log('Transaction ID:', transaction?.id);
+      console.log('Payload completo:', payload);
+      console.log('Descricao:', payload.descricao);
+      console.log('Data:', payload.data_atividade);
+      console.log('Talhoes IDs:', payload.talhao_ids);
+      console.log('Produtos:', payload.produtos);
+      console.log('Maquinas:', payload.maquinas);
+      console.log('Responsáveis:', payload.responsaveis);
+      console.log('Observações:', payload.observacoes);
+      
+      await onSave(transaction?.id || '', payload);
+      console.log('✅ Atividade salva com sucesso');
       onClose();
-    } catch (e: unknown) {
-      logger.error('❌ Erro ao salvar atividade:', e);
-      const msg = (e && typeof e === 'object' && 'message' in e && typeof (e as any).message === 'string') ? (e as any).message : 'Erro ao salvar atividade. Tente novamente.';
-      setErrorMessage(msg);
-      setShowError(true);
+    } catch (e: any) {
+      console.error('❌ Erro ao salvar atividade:', e);
+      console.error('Erro detalhado:', {
+        message: e?.message,
+        status: e?.status,
+        statusText: e?.statusText,
+        data: e?.data,
+        error: e?.error,
+        errorDescription: e?.error?.message || e?.error?.description
+      });
+      onClose();
     } finally {
       setSaving(false);
     }
@@ -252,46 +255,33 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
       <div className="w-[90vw] sm:max-w-[900px] max-h-[90vh] overflow-y-auto bg-white rounded-lg p-6">
         <div className="flex items-start justify-between">
           <h3 className="text-lg font-semibold text-[#004417]">Editar atividade</h3>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="p-2 rounded hover:bg-gray-100">
+          <button onClick={onClose} aria-label="Fechar" className="p-2 rounded hover:bg-gray-100">
             <X className="w-5 h-5 text-[#F7941F]" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} aria-label="Formulário de edição de atividade">
-        <FormProvider {...form}>
-        {loadingActivity ? <div className="mt-4"><LoadingSpinner /></div> : (
-
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label htmlFor="descricao" className="flex flex-col">
+          <label className="flex flex-col">
             <span className="text-sm font-medium text-[#092f20]">Descrição</span>
             <input
-              id="descricao"
-              aria-invalid={Boolean(formState.errors?.descricao)}
-              aria-describedby={formState.errors?.descricao ? 'descricao-error' : 'descricao-help'}
               className="mt-1 border rounded px-3 py-2 focus:border-[#397738]"
-              {...register('descricao')}
+              value={String(local.descricao || '')}
               maxLength={50}
+              onChange={(e) => setLocal({ ...local, descricao: e.target.value.slice(0, 50) })}
             />
-            {formState.errors?.descricao ? (
-              <p id="descricao-error" className="mt-1 text-sm text-[#D92D20]">{(formState.errors.descricao as any)?.message}</p>
-            ) : (String(descricao || '').length >= 50) && (
-              <p id="descricao-help" className="mt-1 text-sm text-[#F7941F]">Você atingiu o limite de 50 caracteres. Use uma descrição curta.</p>
+            {(String(local.descricao || '').length >= 50) && (
+              <p className="mt-1 text-sm text-[#F7941F]">Você atingiu o limite de 50 caracteres. Use uma descrição curta.</p>
             )}
           </label>
 
-          <label htmlFor="data_atividade" className="flex flex-col">
+          <label className="flex flex-col">
             <span className="text-sm font-medium text-[#092f20]">Data da atividade</span>
             <input
-              id="data_atividade"
               type="date"
-              aria-invalid={Boolean(formState.errors?.data_atividade)}
-              aria-describedby={formState.errors?.data_atividade ? 'data_atividade-error' : undefined}
               className="mt-1 border rounded px-3 py-2 focus:border-[#397738]"
-              {...register('data_atividade')}
+              value={local.data_atividade ? String(local.data_atividade).slice(0,10) : ''}
+              onChange={(e) => setLocal({ ...local, data_atividade: e.target.value })}
             />
-            {formState.errors?.data_atividade && (
-              <p id="data_atividade-error" className="mt-1 text-sm text-[#D92D20]">{(formState.errors.data_atividade as any)?.message}</p>
-            )}
           </label>
 
           <div className="col-span-1 sm:col-span-2">
@@ -304,14 +294,14 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
                 <label key={t.id_talhao} className="flex items-center gap-3">
                   <input
                     type="checkbox"
-                    checked={Boolean((watchedTalhaoIds || []).includes(t.id_talhao))}
+                    checked={Boolean(local?.talhao_ids?.includes(t.id_talhao))}
                     onChange={(e) => {
                       const checked = e.target.checked;
-                      const current = (watchedTalhaoIds || []) as string[];
+                      const current = (local?.talhao_ids ? [...local.talhao_ids] : []) as string[];
                       const setIds = new Set(current);
                       if (checked) setIds.add(t.id_talhao);
                       else setIds.delete(t.id_talhao);
-                      setValue('talhao_ids', Array.from(setIds));
+                      setLocal({ ...local, talhao_ids: Array.from(setIds) });
                     }}
                   />
                   <span className="text-sm text-[#092f20]">{t.nome}</span>
@@ -325,7 +315,11 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
               <span className="text-sm font-medium text-[#092f20]">Responsáveis</span>
               <button
                 type="button"
-                onClick={() => responsaveisFieldArray.append({ id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : String(Date.now()), nome: '' })}
+                onClick={() => {
+                  const cur = local?.responsaveis ? [...local.responsaveis] : [];
+                  cur.push({ id: Date.now().toString(), nome: '' });
+                  setLocal({ ...local, responsaveis: cur });
+                }}
                 className="px-3 py-1 bg-[#86b646] text-white rounded-md text-sm"
               >
                 + Adicionar
@@ -333,8 +327,28 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
             </div>
 
             <div className="mt-3 space-y-2">
-              {responsaveisFieldArray.fields.map((r, idx) => (
-                <ResponsavelRow key={r.id || idx} r={r} idx={idx} register={register} remove={responsaveisFieldArray.remove} />
+              {(local?.responsaveis || []).map((r, idx) => (
+                <div key={r.id || idx} className="flex gap-2 items-center">
+                  <input
+                    className="flex-1 border rounded px-2 py-2"
+                    placeholder="Nome do responsável"
+                    value={r.nome || ''}
+                    onChange={(e) => {
+                      const arr = local?.responsaveis ? [...local.responsaveis] : [];
+                      arr[idx] = { ...arr[idx], nome: e.target.value };
+                      setLocal({ ...local, responsaveis: arr });
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const arr = local?.responsaveis ? [...local.responsaveis] : [];
+                      arr.splice(idx, 1);
+                      setLocal({ ...local, responsaveis: arr });
+                    }}
+                    className="text-sm text-[#F7941F]"
+                  >Remover</button>
+                </div>
               ))}
             </div>
           </div>
@@ -348,7 +362,12 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
               </div>
               <button
                 type="button"
-                onClick={() => produtosFieldArray.append({ id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : String(Date.now()), nome: availableProdutos[0]?.nome_produto || '', quantidade: undefined, unidade: 'kg' })}
+                onClick={() => {
+                  const produtos = local?.produtos || [];
+                  const defaultName = availableProdutos[0]?.nome_produto || '';
+                  const novo: ProdutoItem = { id: Date.now().toString(), nome: defaultName, quantidade: '', unidade: 'kg' };
+                  setLocal({ ...local, produtos: [...produtos, novo] });
+                }}
                 className="px-3 py-1 bg-[#86b646] text-white rounded-md text-sm"
               >
                 + Adicionar produto
@@ -356,17 +375,112 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
             </div>
 
             <div className="mt-3 space-y-3">
-              {produtosFieldArray.fields.map((p, idx) => (
-                <ProdutoRow
-                  key={p.id || idx}
-                  p={p}
-                  idx={idx}
-                  availableProdutos={availableProdutos}
-                  control={control}
-                  register={register}
-                  setValue={setValue}
-                  remove={produtosFieldArray.remove}
-                />
+              {(local?.produtos || []).map((p: any, idx) => (
+                <div key={p.id || idx} className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end">
+                  {/* Alerta se produto não está cadastrado no estoque */}
+                  {!p.produto_catalogo_id && (
+                    <div className="col-span-1 sm:col-span-6 bg-orange-50 border border-orange-200 rounded p-2 text-sm text-orange-700 flex items-center gap-2">
+                      <span>⚠️</span>
+                      <span>Este produto não está cadastrado no estoque</span>
+                    </div>
+                  )}
+                  
+                  <div className="col-span-1 sm:col-span-2">
+                    {availableProdutos.length > 0 ? (
+                      (() => {
+                        const isKnown = availableProdutos.some(ap => ap.nome_produto === p.nome);
+                        return (
+                          <>
+                            <select
+                              className="w-full border rounded px-2 py-2"
+                              value={isKnown ? p.nome : ''}
+                              onChange={(e) => {
+                                const produtos = local?.produtos ? [...local.produtos] : [];
+                                const val = e.target.value;
+                                if (val === '') {
+                                  // marcar como custom (vai mostrar input)
+                                  produtos[idx] = { ...produtos[idx], nome: '', produto_catalogo_id: null };
+                                } else {
+                                  // Buscar produto_id do estoque para vincular
+                                  const matchProd = availableProdutos.find(ap => ap.nome_produto === val);
+                                  produtos[idx] = { ...produtos[idx], nome: val, produto_catalogo_id: matchProd?.produto_id || null };
+                                }
+                                setLocal({ ...local, produtos });
+                              }}
+                            >
+                              <option value="">Outro...</option>
+                              {availableProdutos.map(ap => (
+                                <option key={ap.id} value={ap.nome_produto}>{ap.nome_produto}</option>
+                              ))}
+                            </select>
+                            {!isKnown && (
+                              <input
+                                className="mt-2 w-full border rounded px-2 py-2"
+                                placeholder="Nome do produto"
+                                value={p.nome || ''}
+                                onChange={(e) => {
+                                  const produtos = local?.produtos ? [...local.produtos] : [];
+                                  produtos[idx] = { ...produtos[idx], nome: e.target.value };
+                                  setLocal({ ...local, produtos });
+                                }}
+                              />
+                            )}
+                          </>
+                        );
+                      })()
+                    ) : (
+                      <input
+                        className="col-span-1 sm:col-span-2 border rounded px-2 py-2"
+                        placeholder="Nome do produto"
+                        value={p.nome || ''}
+                        onChange={(e) => {
+                          const produtos = local?.produtos ? [...local.produtos] : [];
+                          produtos[idx] = { ...produtos[idx], nome: e.target.value };
+                          setLocal({ ...local, produtos });
+                        }}
+                      />
+                    )}
+                  </div>
+                  <input
+                    className="col-span-1 sm:col-span-1 border rounded px-2 py-2"
+                    placeholder="Quantidade"
+                    value={p.quantidade || ''}
+                    onChange={(e) => {
+                      const produtos = local?.produtos ? [...local.produtos] : [];
+                      produtos[idx] = { ...produtos[idx], quantidade: e.target.value };
+                      setLocal({ ...local, produtos });
+                    }}
+                  />
+                  <select
+                    className="col-span-1 sm:col-span-1 border rounded px-2 py-2"
+                    value={p.unidade || 'kg'}
+                    onChange={(e) => {
+                      const produtos = local?.produtos ? [...local.produtos] : [];
+                      produtos[idx] = { ...produtos[idx], unidade: e.target.value };
+                      setLocal({ ...local, produtos });
+                    }}
+                  >
+                    <option value="mg">mg</option>
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                    <option value="ton">ton</option>
+                    <option value="mL">mL</option>
+                    <option value="L">L</option>
+                    <option value="un">un</option>
+                  </select>
+
+                  <div className="col-span-1 sm:col-span-6 text-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const produtos = local?.produtos ? [...local.produtos] : [];
+                        produtos.splice(idx, 1);
+                        setLocal({ ...local, produtos: produtos.slice() });
+                      }}
+                      className="text-sm text-[#F7941F]"
+                    >Remover</button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -380,7 +494,12 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
               </div>
               <button
                 type="button"
-                onClick={() => maquinasFieldArray.append({ id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : String(Date.now()), nome: availableMaquinas[0]?.nome || '', horas: undefined })}
+                onClick={() => {
+                  const maquinas = local?.maquinas || [];
+                  const defaultName = availableMaquinas[0]?.nome || '';
+                  const novo: MaquinaItem = { id: Date.now().toString(), nome: defaultName, horas: '' };
+                  setLocal({ ...local, maquinas: [...maquinas, novo] });
+                }}
                 className="px-3 py-1 bg-[#86b646] text-white rounded-md text-sm"
               >
                 + Adicionar máquina
@@ -388,62 +507,115 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
             </div>
 
             <div className="mt-3 space-y-3">
-              {maquinasFieldArray.fields.map((m, idx) => (
-                <MaquinaRow
-                  key={m.id || idx}
-                  m={m}
-                  idx={idx}
-                  availableMaquinas={availableMaquinas}
-                  control={control}
-                  register={register}
-                  remove={maquinasFieldArray.remove}
-                />
+              {(local?.maquinas || []).map((m, idx) => (
+                <div key={m.id || idx} className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end">
+                  <div className="col-span-1 sm:col-span-2">
+                    {availableMaquinas.length > 0 ? (
+                      (() => {
+                        const isKnown = availableMaquinas.some(am => am.nome === m.nome);
+                        return (
+                          <>
+                            <select
+                              className="w-full border rounded px-2 py-2"
+                              value={isKnown ? m.nome : ''}
+                              onChange={(e) => {
+                                const maquinas = local?.maquinas ? [...local.maquinas] : [];
+                                const val = e.target.value;
+                                if (val === '') {
+                                  maquinas[idx] = { ...maquinas[idx], nome: '' };
+                                } else {
+                                  maquinas[idx] = { ...maquinas[idx], nome: val };
+                                }
+                                setLocal({ ...local, maquinas });
+                              }}
+                            >
+                              <option value="">Outro...</option>
+                              {availableMaquinas.map(am => (
+                                <option key={am.id_maquina} value={am.nome}>{am.nome}</option>
+                              ))}
+                            </select>
+                            {!isKnown && (
+                              <input
+                                className="mt-2 w-full border rounded px-2 py-2"
+                                placeholder="Nome da máquina"
+                                value={m.nome || ''}
+                                onChange={(e) => {
+                                  const maquinas = local?.maquinas ? [...local.maquinas] : [];
+                                  maquinas[idx] = { ...maquinas[idx], nome: e.target.value };
+                                  setLocal({ ...local, maquinas });
+                                }}
+                              />
+                            )}
+                          </>
+                        );
+                      })()
+                    ) : (
+                      <input
+                        className="col-span-1 sm:col-span-2 border rounded px-2 py-2"
+                        placeholder="Nome da máquina"
+                        value={m.nome || ''}
+                        onChange={(e) => {
+                          const maquinas = local?.maquinas ? [...local.maquinas] : [];
+                          maquinas[idx] = { ...maquinas[idx], nome: e.target.value };
+                          setLocal({ ...local, maquinas });
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  <input
+                    className="col-span-1 sm:col-span-1 border rounded px-2 py-2"
+                    placeholder="Horas inteiras"
+                    value={m.horas || ''}
+                    inputMode="numeric"
+                    pattern="\d*"
+                    onChange={(e) => {
+                      const digits = (e.target.value || '').replace(/\D/g, '');
+                      const maquinas = local?.maquinas ? [...local.maquinas] : [];
+                      maquinas[idx] = { ...maquinas[idx], horas: digits };
+                      setLocal({ ...local, maquinas });
+                    }}
+                  />
+
+                  <div className="col-span-1 sm:col-span-6 text-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const maquinas = local?.maquinas ? [...local.maquinas] : [];
+                        maquinas.splice(idx, 1);
+                        setLocal({ ...local, maquinas: maquinas.slice() });
+                      }}
+                      className="text-sm text-[#F7941F]"
+                    >Remover</button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
 
           {/* Campos de transação removidos neste modal de atividade */}
 
-          <label htmlFor="observacoes" className="flex flex-col col-span-1 sm:col-span-2">
+          <label className="flex flex-col col-span-1 sm:col-span-2">
             <span className="text-sm font-medium text-[#092f20]">Observações</span>
             <input
-              id="observacoes"
-              aria-invalid={Boolean(formState.errors?.observacoes)}
-              aria-describedby={formState.errors?.observacoes ? 'observacoes-error' : undefined}
               className="mt-1 border rounded px-3 py-2 focus:border-[#397738]"
-              {...register('observacoes')}
+              value={String(local.observacoes || '')}
               maxLength={100}
+              onChange={(e) => setLocal({ ...local, observacoes: e.target.value.slice(0, 100) })}
             />
-            {formState.errors?.observacoes ? (
-              <p id="observacoes-error" className="mt-1 text-sm text-[#D92D20]">{(formState.errors.observacoes as any)?.message}</p>
-            ) : (String(observacoes || '').length >= 100) && (
+            {(String(local.observacoes || '').length >= 100) && (
               <p className="mt-1 text-sm text-[#F7941F]">Você atingiu o limite de 100 caracteres.</p>
             )}
           </label>          
         </div>
-        )}
-        </FormProvider>
 
         <div className="mt-6 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-white border">Cancelar</button>
-          <button
-            type="submit"
-            disabled={saving || !formState.isValid || loadingActivity}
-            className="px-4 py-2 rounded bg-[#397738] text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Salvando...' : 'Salvar'}
-          </button>
+          <button onClick={onClose} className="px-4 py-2 rounded bg-white border">Cancelar</button>
+          <button disabled={saving} onClick={handleSave} className="px-4 py-2 rounded bg-[#397738] text-white">{saving ? 'Salvando...' : 'Salvar'}</button>
         </div>
-        </form>
       </div>
     </div>
   );
 
-  return createPortal(
-    <>
-      {modal}
-      <ErrorToast message={errorMessage} isVisible={showError} onClose={() => setShowError(false)} />
-    </>,
-    document.body
-  );
+  return createPortal(modal, document.body);
 }
