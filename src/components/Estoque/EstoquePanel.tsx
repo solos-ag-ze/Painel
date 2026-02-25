@@ -615,12 +615,7 @@ export default function EstoquePanel() {
         onConfirm={async (quantidadeConvertida: number) => {
           if (!removeModal.productGroup) return;
           try {
-            // Remove quantidade usando FIFO (First In, First Out)
-            // quantidadeConvertida já vem na unidade de referência do produto (kg, L, un, etc.)
-            // ✅ Passar média ponderada do grupo para registrar valor histórico correto
             const idsEntradas = removeModal.productGroup.entradas.map(e => e.id);
-            console.log('📤 Enviando IDs para remoção:', idsEntradas);
-
             await EstoqueService.removerQuantidadeFIFO(
               removeModal.productGroup.nome,
               quantidadeConvertida,
@@ -629,15 +624,24 @@ export default function EstoquePanel() {
               removeModal.productGroup.unidadeValorOriginal,
               idsEntradas
             );
-            
-            // Recarrega produtos
-            const produtosAtualizados = await EstoqueService.getProdutos();
-            setProdutos(produtosAtualizados);
-            const gruposAtualizados = await agruparProdutos(produtosAtualizados);
-            const gruposEnriquecidos = enriquecerGruposComValor(gruposAtualizados);
-            setProdutosAgrupados(gruposEnriquecidos);
-            atualizarResumo(gruposEnriquecidos);
-
+            // Recarrega produtos do ledger FIFO
+            const produtosFIFO = await EstoqueService.getProdutosNovoEstoque();
+            setProdutos(produtosFIFO);
+            const grupos = await agruparProdutos(produtosFIFO);
+            const gruposComSaldo = grupos.map(grupo => {
+              const produtoView = produtosFIFO.find(p => p.nome_produto === grupo.nome);
+              return {
+                ...grupo,
+                saldo_atual: produtoView?.saldo_atual,
+                unidade_base: produtoView?.unidade_base,
+                unidadeDisplay: produtoView?.unidade_base,
+                unidadeValorOriginal: produtoView?.unidade_base,
+                custo_unitario_base: produtoView?.custo_unitario_base,
+              };
+            });
+            setProdutosAgrupados(gruposComSaldo);
+            const valorTotal = await EstoqueService.getValorTotalEstoque();
+            atualizarResumo(gruposComSaldo, valorTotal);
             setRemoveModal({ isOpen: false, productGroup: null, quantidade: 1, observacao: '' });
             setToastMessage('Quantidade removida com sucesso!');
             setShowToast(true);

@@ -29,21 +29,32 @@ export default function RemoveQuantityModal({
   // 🔧 HOOKS PRIMEIRO - antes de qualquer return
   const [unidadeSelecionada, setUnidadeSelecionada] = useState<string>('kg');
 
-  // Atualizar unidade selecionada quando o produto mudar
+  // Log ao abrir o modal para visualizar o objeto recebido
   useEffect(() => {
+    if (isOpen && productGroup) {
+      console.group('🟢 RemoveQuantityModal - ProdutoAgrupado recebido');
+      console.log('productGroup:', productGroup);
+      console.log('produtos:', productGroup.produtos);
+      console.log('entradas:', productGroup.entradas);
+      console.log('saidas:', productGroup.saidas);
+      console.log('unidadeDisplay:', productGroup.unidadeDisplay);
+      console.log('totalEstoqueDisplay:', productGroup.totalEstoqueDisplay);
+      console.log('mediaPrecoOriginal:', productGroup.mediaPrecoOriginal);
+      console.groupEnd();
+    }
     if (productGroup) {
       setUnidadeSelecionada(productGroup.unidadeValorOriginal || productGroup.unidadeDisplay);
     }
-  }, [productGroup]);
+  }, [isOpen, productGroup]);
 
   // ✅ Early return DEPOIS dos hooks
   if (!isOpen || !productGroup) return null;
 
-  // Determinar as unidades disponíveis baseado no tipo do produto
-  const primeiraUnidade = productGroup.produtos[0]?.unidade || 'un';
-  const ehMassa = isMassUnit(primeiraUnidade);
-  const ehVolume = isVolumeUnit(primeiraUnidade);
-  
+  // Determinar as unidades disponíveis baseado na unidade_base (ou unidadeDisplay)
+  const unidadeReferenciaSeletor = productGroup.unidade_base || productGroup.unidadeDisplay || 'un';
+  const ehMassa = isMassUnit(unidadeReferenciaSeletor);
+  const ehVolume = isVolumeUnit(unidadeReferenciaSeletor);
+
   const unidadesDisponiveis = ehMassa
     ? ['mg', 'g', 'kg', 'ton']
     : ehVolume
@@ -73,11 +84,11 @@ export default function RemoveQuantityModal({
     unidadeReferencia
   );
 
-  // Validar se a quantidade é válida (comparando com totalEstoqueDisplay que está na unidade de referência)
+  // Validar se a quantidade é válida (comparando com saldo_atual que está na unidade base)
   // Usar tolerância maior para evitar erros de precisão de ponto flutuante ao zerar estoque
   // Aumentado para 0.01 para permitir zerar estoque com variações de arredondamento
   const TOLERANCE = 0.01;
-  const isInvalid = quantidade <= 0 || quantidadeConvertida > (productGroup.totalEstoqueDisplay + TOLERANCE);
+  const isInvalid = quantidade <= 0 || quantidadeConvertida > (productGroup.saldo_atual + TOLERANCE);
 
   // 🔍 Handler com logs detalhados
   const handleConfirm = () => {
@@ -172,17 +183,17 @@ export default function RemoveQuantityModal({
               Quantidade disponível
             </p>
             <p className="text-[16px] font-bold text-[#004417]">
-              {productGroup.totalEstoqueDisplay.toFixed(2)} {productGroup.unidadeDisplay}
+              {typeof productGroup.saldo_atual === 'number' ? productGroup.saldo_atual.toFixed(2) : '0.00'} {productGroup.unidade_base || productGroup.unidadeDisplay}
             </p>
           </div>
-          {productGroup.mediaPrecoOriginal !== null && productGroup.mediaPrecoOriginal > 0 && (
+          {productGroup.custo_unitario_base !== undefined && productGroup.custo_unitario_base > 0 && (
             <div className="text-right">
               <p className="text-[14px] font-semibold text-[#004417] mb-1">
                 Valor unitário
               </p>
               <p className="text-[15px] font-bold text-[#00A651]">
-                {formatCurrency(productGroup.mediaPrecoOriginal)}
-                <span className="text-[rgba(0,68,23,0.7)]"> / {productGroup.unidadeValorOriginal}</span>
+                {formatCurrency(productGroup.custo_unitario_base)}
+                <span className="text-[rgba(0,68,23,0.7)]"> / {productGroup.unidade_base || productGroup.unidadeDisplay}</span>
               </p>
             </div>
           )}

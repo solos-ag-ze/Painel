@@ -883,212 +883,36 @@ export class EstoqueService {
     entradaIds?: number[]
   ): Promise<void> {
     const userId = await this.getCurrentUserId();
-    const propriedadeId = await this.getPropriedadeIdDoUsuario(userId);
 
-    console.log('🔄 Iniciando remoção FIFO (novo sistema):', {
+    console.log('🔄 Iniciando registro de saída via RPC:', {
       produto: nomeProduto,
       quantidadeRemover,
       observacao,
-      entradaIds: entradaIds,
-      entradaIdsCount: entradaIds?.length
+      mediaPrecoGrupo,
+      unidadeValorGrupo
     });
 
-    // Buscar todas as ENTRADAS deste produto, ordenadas por created_at (FIFO)
-    let query = supabase
-      .from('estoque_de_produtos')
-      .select('*')
-      .eq('user_id', userId)
-      .or('tipo_de_movimentacao.eq.entrada,tipo_de_movimentacao.is.null') // Entradas ou legado (null = entrada)
-      .order('created_at', { ascending: true }); // Mais antigos primeiro (FIFO)
-
-    // Se tivermos IDs específicos, usamos eles (mais seguro)
-    if (entradaIds && entradaIds.length > 0) {
-      query = query.in('id', entradaIds);
-    } else {
-      // Fallback para busca por nome se não tiver IDs
-      query = query.ilike('nome_do_produto', nomeProduto);
-    }
-
-    const { data: entradas, error: fetchError } = await query;
-
-    if (fetchError) {
-      console.error('❌ Erro ao buscar entradas para remoção FIFO:', fetchError);
-      throw fetchError;
-    }
-
-    if (!entradas || entradas.length === 0) {
-      console.warn('⚠️ Nenhuma entrada encontrada. IDs procurados:', entradaIds);
-      throw new Error('Nenhuma entrada encontrada para este produto.');
-    }
-    
-    console.log(`✅ Encontradas ${entradas.length} entradas para processar.`);
-
-    // Buscar todas as SAÍDAS e APLICAÇÕES já existentes para calcular saldo de cada entrada
-    let querySaidas = supabase
-      .from('estoque_de_produtos')
-      .select('*')
-      .eq('user_id', userId)
-      // ⚠️ IMPORTANTE: Ignorar 'aplicacao' aqui para alinhar com o frontend (agruparProdutosService)
-      // O frontend ignora 'aplicacao' da tabela estoque_de_produtos e usa apenas lancamento_produtos
-      // Se incluirmos 'aplicacao' aqui, podemos contar duas vezes ou divergir do saldo exibido
-      .eq('tipo_de_movimentacao', 'saida');
-
-    if (entradaIds && entradaIds.length > 0) {
-      querySaidas = querySaidas.in('entrada_referencia_id', entradaIds);
-    } else {
-      querySaidas = querySaidas.ilike('nome_do_produto', nomeProduto);
-    }
-
-    const { data: saidasExistentes, error: saidasError } = await querySaidas;
-
-    if (saidasError) {
-      console.error('❌ Erro ao buscar saídas existentes:', saidasError);
-      throw saidasError;
-    }
-    
-    // Buscar lançamentos (tabela antiga) para abater do saldo
-    // Isso garante consistência com o painel que subtrai lançamentos
-    let lancamentos: LancamentoProdutoEntry[] = [];
-    try {
-      lancamentos = await EstoqueService.getLancamentosPorProdutos(entradas.map(e => e.id));
-    } catch (err) {
-      console.warn('⚠️ Erro ao buscar lançamentos (ignorando):', err);
-    }
-
-    // Calcular saldo disponível por entrada
-    // Saldo = quantidade_em_estoque da entrada - soma das saídas referenciando essa entrada - lançamentos
-    const saldoPorEntrada: Map<number, number> = new Map();
-    
-    for (const entrada of entradas) {
-      // 1. Subtrair saídas/aplicações da tabela estoque_de_produtos
-      const saidasDestaEntrada = (saidasExistentes || []).filter(
-        (s: any) => s.entrada_referencia_id === entrada.id
-      );
-      const totalSaido = saidasDestaEntrada.reduce(
-        (sum: number, s: any) => sum + (s.quantidade_em_estoque || 0), 
-        0
-      );
-      
-      // 2. Subtrair lançamentos da tabela lancamento_produtos
-      const lancamentosDestaEntrada = lancamentos.filter(l => Number(l.produto_id) === entrada.id);
-      let totalLancado = 0;
-      lancamentosDestaEntrada.forEach(l => {
-         const qtd = l.quantidade_val || 0;
-         const und = l.quantidade_un || 'un';
-         // Converter para a unidade da entrada (que deve ser a padrão mg/mL)
-         if (entrada.unidade_de_medida) {
-            totalLancado += convertBetweenUnits(qtd, und, entrada.unidade_de_medida);
-         }
-      });
-
-      const saldo = (entrada.quantidade_em_estoque || 0) - totalSaido - totalLancado;
-      saldoPorEntrada.set(entrada.id, Math.max(0, saldo));
-      
-      console.log(`   📦 Entrada ID ${entrada.id} (${entrada.nome_do_produto}):`);
-      console.log(`      Inicial: ${entrada.quantidade_em_estoque}`);
-      console.log(`      - Saídas: ${totalSaido}`);
-      console.log(`      - Lançamentos: ${totalLancado}`);
-      console.log(`      = Saldo: ${saldo}`);
-      
-      if (saidasDestaEntrada.length > 0) {
-        console.log(`      🔻 Saídas detalhadas:`, saidasDestaEntrada.map((s: any) => `${s.id} (${s.tipo_de_movimentacao}): ${s.quantidade_em_estoque}`));
-      }
-    }
-
-    // Determinar unidade de referência
-    const primeiraEntrada = entradas[0];
-    const unidadeReferencia = unidadeValorGrupo || primeiraEntrada.unidade_valor_original || primeiraEntrada.unidade_de_medida;
-    
-    // Converter quantidade a remover para unidade padrão (mg/mL)
-    const converted = convertToStandardUnit(quantidadeRemover, unidadeReferencia);
-    const quantidadeRemoverPadrao = converted.quantidade;
-
-    console.log('🔄 Conversão para unidade padrão:', {
-      quantidadeOriginal: quantidadeRemover,
-      unidadeReferencia,
-      quantidadePadrao: quantidadeRemoverPadrao,
-      unidadePadrao: converted.unidade
+    // Chamar RPC registrar_produto_e_saida
+    const { data, error } = await supabase.rpc('registrar_produto_e_saida', {
+      p_nome: nomeProduto,
+      p_marca: null,
+      p_categoria: null,
+      p_unidade_base: unidadeValorGrupo || null,
+      p_registro_mapa: null,
+      p_fornecedor: null,
+      p_quantidade: quantidadeRemover,
+      p_valor_total: mediaPrecoGrupo ? mediaPrecoGrupo * quantidadeRemover : null,
+      p_lote: null,
+      p_validade: null,
+      p_user_id: userId
     });
 
-    let quantidadeRestante = quantidadeRemoverPadrao;
-
-    // Processar FIFO: remover das entradas mais antigas primeiro
-    for (const entrada of entradas) {
-      if (quantidadeRestante <= 0) break;
-
-      const saldoDisponivel = saldoPorEntrada.get(entrada.id) || 0;
-      if (saldoDisponivel <= 0) continue; // Entrada já esgotada
-
-      const quantidadeARemover = Math.min(quantidadeRestante, saldoDisponivel);
-
-      console.log(`  🔹 Criando saída da entrada ID ${entrada.id}:`, {
-        saldoDisponivel,
-        quantidadeARemover,
-        created_at: entrada.created_at,
-      });
-
-      // Criar registro de SAÍDA referenciando esta entrada
-      const valorUnitario = mediaPrecoGrupo ?? entrada.valor_medio ?? entrada.valor_unitario ?? null;
-      
-      // ✅ Calcular valor_total corretamente: converter quantidade de mg/mL para unidade_valor_original
-      let valorTotal = null;
-      if (valorUnitario) {
-        const unidadeDoValor = unidadeValorGrupo || entrada.unidade_valor_original || entrada.unidade_de_medida;
-        const unidadePadrao = entrada.unidade_de_medida; // mg ou mL
-        
-        // Converter quantidadeARemover (em mg/mL) para unidade_valor_original
-        const quantidadeNaUnidadeDoValor = convertFromStandardUnit(
-          quantidadeARemover,
-          unidadePadrao,
-          unidadeDoValor
-        );
-        
-        valorTotal = valorUnitario * quantidadeNaUnidadeDoValor;
-        
-        console.log(`  💰 Cálculo valor: ${valorUnitario} × ${quantidadeNaUnidadeDoValor} ${unidadeDoValor} = R$ ${valorTotal.toFixed(2)}`);
-      }
-      
-      const { error: insertError } = await supabase
-        .from('estoque_de_produtos')
-        .insert({
-          user_id: userId,
-          propriedade_id: propriedadeId,
-          nome_do_produto: entrada.nome_do_produto,
-          marca_ou_fabricante: entrada.marca_ou_fabricante,
-          categoria: entrada.categoria,
-          unidade_de_medida: entrada.unidade_de_medida, // Mesma unidade da entrada (mg/mL)
-          quantidade_em_estoque: quantidadeARemover,    // Quantidade removida
-          quantidade_inicial: quantidadeARemover,
-          valor_unitario: valorUnitario,
-          valor_total: valorTotal,
-          unidade_valor_original: unidadeValorGrupo || entrada.unidade_valor_original,
-          lote: entrada.lote,
-          validade: entrada.validade,
-          fornecedor: entrada.fornecedor,
-          registro_mapa: entrada.registro_mapa,
-          tipo_de_movimentacao: 'saida',
-          entrada_referencia_id: entrada.id,           // Referência à entrada (FIFO)
-          produto_id: entrada.produto_id,              // Mesmo produto_id do grupo
-          observacoes_das_movimentacoes: observacao || null,
-        });
-
-      if (insertError) {
-        console.error('❌ Erro ao criar registro de saída:', insertError);
-        throw insertError;
-      }
-
-      quantidadeRestante -= quantidadeARemover;
-      console.log(`  ✅ Saída criada. Restante a remover: ${quantidadeRestante}`);
+    if (error) {
+      console.error('❌ Erro ao registrar saída via RPC:', error);
+      throw error;
     }
 
-    // Verificar se conseguiu remover tudo (com tolerância)
-    const TOLERANCE = 10000; // 10.000 mg ou 10 mL
-    if (quantidadeRestante > TOLERANCE) {
-      console.warn('⚠️ Quantidade solicitada excede o estoque disponível.');
-      throw new Error('Quantidade solicitada excede o estoque disponível.');
-    }
-
-    console.log('✅ Remoção FIFO concluída com sucesso!');
+    console.log('✅ Saída registrada com sucesso!', { data });
   }
 
   static async getMovimentacoesExpandidas(
