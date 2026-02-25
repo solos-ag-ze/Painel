@@ -202,15 +202,18 @@ export default function EstoquePanel() {
     });
   };
 
-  const atualizarResumo = (grupos: ProdutoAgrupado[]) => {
+  const atualizarResumo = (grupos: ProdutoAgrupado[], valorTotalOverride?: number | null) => {
     const total = grupos.length;
-    const valorTotal = grupos.reduce((acc, grupo) => {
+    let valorTotal = grupos.reduce((acc, grupo) => {
       if (grupo.valorAtualEstoque != null) return acc + grupo.valorAtualEstoque;
       const estoqueLiquidoFallback = Number(grupo.totalEstoqueDisplay) || 0;
       const precoMedioFallback = Number(grupo.mediaPrecoDisplay) || 0;
       return acc + estoqueLiquidoFallback * precoMedioFallback;
     }, 0);
-
+    if (typeof valorTotalOverride === 'number' && !isNaN(valorTotalOverride)) {
+      valorTotal = valorTotalOverride;
+    }
+    console.log('[Resumo Estoque] total:', total, 'valorTotal:', valorTotal);
     setResumoEstoque({
       total,
       valorTotal: Number(valorTotal.toFixed(2)),
@@ -383,7 +386,10 @@ export default function EstoquePanel() {
         });
         console.log('[Final] Grupos com saldo:', gruposComSaldo);
         setProdutosAgrupados(gruposComSaldo);
-        atualizarResumo(gruposComSaldo);
+        // Busca valor total do estoque via view específica
+        const valorTotal = await EstoqueService.getValorTotalEstoque();
+        console.log('[vw_estoque_valor_total] Valor total retornado:', valorTotal);
+        atualizarResumo(gruposComSaldo, valorTotal);
       } catch (error) {
         console.error("❌ Erro ao carregar estoque (novo fluxo):", error);
       }

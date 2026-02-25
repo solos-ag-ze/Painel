@@ -89,6 +89,24 @@ export class EstoqueService {
       }
       return data || [];
     }
+  
+     /**
+      * Busca o valor total do estoque do usuário usando a view vw_estoque_valor_total
+      */
+     static async getValorTotalEstoque(): Promise<number | null> {
+       const userId = await this.getCurrentUserId();
+       const { data, error } = await supabase
+         .from('vw_estoque_valor_total')
+         .select('valor_total')
+         .eq('user_id', userId)
+         .maybeSingle();
+ 
+       if (error) {
+         console.error('Erro ao buscar valor total do estoque:', error);
+         return null;
+       }
+       return data?.valor_total ?? null;
+     }
   // Cache de lançamentos para melhorar performance
   private static lancamentosCache: { data: LancamentoProdutoEntry[], timestamp: number } | null = null;
   private static readonly CACHE_TTL = 30000; // 30 segundos
