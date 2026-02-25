@@ -74,6 +74,21 @@ export interface LancamentoProdutoEntry {
 }
 
 export class EstoqueService {
+    /**
+     * Busca produtos do novo estoque (ledger FIFO) usando a view vw_estoque_saldo
+     */
+    static async getProdutosNovoEstoque(): Promise<any[]> {
+      const userId = await this.getCurrentUserId();
+      const { data, error } = await supabase
+        .from('vw_estoque_saldo')
+        .select('*')
+        .eq('user_id', userId);
+      if (error) {
+        console.error('Erro ao buscar produtos do novo estoque:', error);
+        return [];
+      }
+      return data || [];
+    }
   // Cache de lançamentos para melhorar performance
   private static lancamentosCache: { data: LancamentoProdutoEntry[], timestamp: number } | null = null;
   private static readonly CACHE_TTL = 30000; // 30 segundos
@@ -471,33 +486,34 @@ export class EstoqueService {
     console.log(`  - Valor unitário: R$ ${valorUnitario.toFixed(2)}/${produto.unidade}`);
     console.log(`  - Propriedade ID: ${propriedadeId || 'N/A'}`);
 
-    const { data, error } = await supabase
-      .from('estoque_de_produtos')
-      .insert([
-        {
-          user_id: userId,
-          propriedade_id: propriedadeId,
-          nome_do_produto: produto.nome_produto,
-          marca_ou_fabricante: produto.marca,
-          categoria: produto.categoria,
-          // ✅ Salvar em unidade PADRÃO (mg/mL)
-          unidade_de_medida: converted.unidade,
-          quantidade_em_estoque: converted.quantidade,
-          quantidade_inicial: converted.quantidade,
-          // ✅ Valor unitário na unidade original
-          valor_unitario: valorUnitario,
-          valor_total: valorTotal,
-          unidade_valor_original: produto.unidade,
-          lote: produto.lote,
-          validade: produto.validade || '1999-12-31',
-          fornecedor: produto.fornecedor,
-          registro_mapa: produto.registro_mapa,
-          // ✅ Tipo de movimentação inicial sempre é 'entrada'
-          tipo_de_movimentacao: 'entrada',
-        },
-      ])
-      .select()
-      .single();
+      // Novo fluxo: cadastro via RPC registrar_produto_e_entrada
+      try {
+        const userId = await this.getCurrentUserId();
+        const { data, error } = await supabase.rpc('registrar_produto_e_entrada', {
+          p_nome: produto.nome_produto,
+          p_marca: produto.marca,
+          p_categoria: produto.categoria,
+          p_unidade_base: produto.unidade,
+          p_registro_mapa: produto.registro_mapa,
+          p_fornecedor: produto.fornecedor,
+          p_quantidade: produto.quantidade,
+          p_valor_total: produto.valor,
+          p_lote: produto.lote,
+          p_validade: produto.validade,
+          p_user_id: userId,
+        });
+        if (error) {
+          console.error('Erro ao cadastrar produto via RPC:', error);
+          return false;
+        }
+        if (data) {
+          console.log('Retorno do RPC registrar_produto_e_entrada:', data);
+        }
+        return !!data;
+      } catch (err) {
+        console.error('Erro inesperado ao cadastrar produto:', err);
+        return false;
+      }
 
     if (error) {
       console.error('❌ Erro ao adicionar produto:', error);
@@ -1150,20 +1166,24 @@ export class EstoqueService {
   /**
    * Busca movimentações para um conjunto de produtos (útil para histórico por grupo)
    */
-  static async getMovimentacoesPorProdutos(produtoIds: (number | string)[]): Promise<MovimentacaoEstoque[]> {
+  /**
+   * Busca movimentações completas para um conjunto de produtos usando a nova view vw_estoque_movimentacoes_completas
+   * Retorna todos os campos necessários para o histórico detalhado
+   */
+  static async getMovimentacoesPorProdutos(produtoIds: (number | string)[]): Promise<any[]> {
     if (!produtoIds || produtoIds.length === 0) return [];
     const { data, error } = await supabase
-      .from('movimentacoes_estoque')
+      .from('vw_estoque_movimentacoes_completas')
       .select('*')
       .in('produto_id', produtoIds)
-      .order('created_at', { ascending: false });
+      .order('criado_em', { ascending: false });
 
     if (error) {
-      console.error('❌ Erro ao buscar movimentações por produtos:', error);
-      throw error;
+      console.error('❌ Erro ao buscar movimentações completas:', error);
+      return [];
     }
 
-    return (data || []) as MovimentacaoEstoque[];
+    return data || [];
   }
 
   /**

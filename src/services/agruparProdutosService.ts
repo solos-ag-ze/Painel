@@ -163,6 +163,9 @@ export interface ProdutoAgrupado {
   valorAtualEstoque?: number;
   mediaPrecoAtual?: number;
   quantidadeLiquidaAtual?: number;
+  saldo_atual?: number;
+  unidade_base?: string;
+  custo_unitario_base?: number;
 }
 
 export async function agruparProdutos(produtos: ProdutoEstoque[]): Promise<ProdutoAgrupado[]> {

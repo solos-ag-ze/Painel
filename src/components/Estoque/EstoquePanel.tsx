@@ -359,43 +359,50 @@ export default function EstoquePanel() {
 
   // 🔄 Carregar produtos ao montar
   useEffect(() => {
-    const carregarDados = async () => {
+    const carregarProdutosNovoEstoque = async () => {
       try {
-        await refetchAll();
+        // Busca produtos do ledger FIFO via view vw_estoque_saldo
+        const produtosFIFO = await EstoqueService.getProdutosNovoEstoque();
+        console.log('[vw_estoque_saldo] Produtos retornados:', produtosFIFO);
+        setProdutos(produtosFIFO);
+        // Agrupamento pode ser ajustado conforme a estrutura da view
+        const grupos = await agruparProdutos(produtosFIFO);
+        console.log('[Agrupamento] Grupos montados:', grupos);
+        // Mapear saldo_atual/unidade_base para cada grupo
+        const gruposComSaldo = grupos.map(grupo => {
+          const produtoView = produtosFIFO.find(p => p.nome_produto === grupo.nome);
+          console.log(`[Grupo: ${grupo.nome}] produtoView:`, produtoView);
+          return {
+            ...grupo,
+            saldo_atual: produtoView?.saldo_atual,
+            unidade_base: produtoView?.unidade_base,
+            unidadeDisplay: produtoView?.unidade_base,
+            unidadeValorOriginal: produtoView?.unidade_base,
+            custo_unitario_base: produtoView?.custo_unitario_base,
+          };
+        });
+        console.log('[Final] Grupos com saldo:', gruposComSaldo);
+        setProdutosAgrupados(gruposComSaldo);
+        atualizarResumo(gruposComSaldo);
       } catch (error) {
-        console.error("❌ Erro ao carregar estoque:", error);
+        console.error("❌ Erro ao carregar estoque (novo fluxo):", error);
       }
     };
 
-    carregarDados();
+    carregarProdutosNovoEstoque();
 
-    // 🔄 Auto-atualização a cada 30 segundos para pegar valores atualizados pelo trigger
+    // Auto-atualização a cada 30 segundos
     const intervalo = setInterval(async () => {
       try {
-        await refetchAll();
+        await carregarProdutosNovoEstoque();
       } catch (error) {
         console.error("❌ Erro ao atualizar estoque automaticamente:", error);
       }
-    }, 30000); // 30 segundos
-
-    // Limpar intervalo ao desmontar
+    }, 30000);
     return () => clearInterval(intervalo);
   }, []);
 
-  // 💠 Sempre que a lista de produtos mudar, reagrupa para atualizar a UI automaticamente
-  useEffect(() => {
-    const reagrupar = async () => {
-      try {
-        const grupos = await agruparProdutos(produtos);
-        const gruposEnriquecidos = enriquecerGruposComValor(grupos);
-        setProdutosAgrupados(gruposEnriquecidos);
-        atualizarResumo(gruposEnriquecidos);
-      } catch (err) {
-        console.error('Erro ao reagrupar produtos:', err);
-      }
-    };
-    reagrupar();
-  }, [produtos]);
+  // (Removido: reagrupar produtos automaticamente ao mudar produtos)
 
   // ...existing code...
 
@@ -420,8 +427,12 @@ export default function EstoquePanel() {
   // 🔎 Aplicação dos filtros e ordenação nos grupos (useMemo para evitar loops)
   const produtosAgrupadosFiltrados = useMemo(() => {
     return produtosAgrupados
-      .filter((grupo) => grupo.nome.toLowerCase().includes(search.toLowerCase()))
-      .filter((grupo) => (categoria ? grupo.categorias.includes(categoria) : true))
+      .filter((grupo) => (typeof grupo.nome === 'string' ? grupo.nome.toLowerCase().includes(search.toLowerCase()) : false))
+      .filter((grupo) => {
+        if (!categoria) return true;
+        const categorias = Array.isArray(grupo.categorias) ? grupo.categorias : [];
+        return categorias.includes(categoria);
+      })
       .sort((a, b) => {
         if (ordem === "alfabetica") {
           return ordemDirecao === "asc"

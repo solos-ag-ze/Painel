@@ -26,6 +26,8 @@ export default function ListaProdutosMobile({
   setRemoveModal,
   onAjustarEstoque,
 }: Props) {
+  // Fallback defensivo para evitar erro de undefined
+  const produtosSafe = Array.isArray(produtos) ? produtos : [];
   return (
     <div className="block md:hidden bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[rgba(0,68,23,0.08)] overflow-hidden relative">
       {/* Cabeçalho */}
@@ -35,19 +37,19 @@ export default function ListaProdutosMobile({
 
       {/* Lista */}
       <div className="divide-y divide-[rgba(0,68,23,0.08)]">
-        {produtos.map((item) => (
+        {produtosSafe.map((item) => (
           <div key={item.nome} className="p-4 space-y-3 active:bg-[rgba(0,68,23,0.02)] transition-all">
             {/* Cabeçalho: ícone + nome */}
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 flex items-center justify-center bg-[rgba(0,68,23,0.05)] rounded-xl">
-                {getCategoryIcon(item.categorias[0] || '')}
+                {getCategoryIcon(Array.isArray(item.categorias) && item.categorias.length > 0 ? item.categorias[0] : '')}
               </div>
               <div className="flex-1">
                 <h4 className="text-[15px] font-bold text-[#004417] leading-tight">
                   {item.nome}
                 </h4>
                 <span className="inline-block text-[12px] font-medium px-2 py-0.5 bg-[rgba(0,166,81,0.1)] text-[#00A651] rounded-xl mt-1">
-                  {item.categorias.join(', ')}
+                  {Array.isArray(item.categorias) && item.categorias.length > 0 ? item.categorias.join(', ') : ''}
                 </span>
               </div>
             </div>
@@ -57,16 +59,21 @@ export default function ListaProdutosMobile({
               <div>
                 <p className="text-[13px] text-[rgba(0,68,23,0.6)] mb-0.5">Qtd.</p>
                 <p className="text-[15px] font-semibold text-[#004417]">
-                  {(item.quantidadeLiquidaAtual ?? item.totalEstoqueDisplay).toFixed(2)}{' '}
-                  <span className="text-[13px] text-[rgba(0,68,23,0.7)]">{formatUnitFull(item.unidadeDisplay)}</span>
+                  {(() => {
+                    // Para novo modelo, usar saldo_atual e unidade_base
+                    const quantidade = typeof item.saldo_atual === 'number' && !isNaN(item.saldo_atual) ? item.saldo_atual : 0;
+                    const unidade = item.unidade_base || 'un';
+                    return `${quantidade} ${unidade}`;
+                  })()}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-[13px] text-[rgba(0,68,23,0.6)] mb-0.5">Valor Méd.</p>
                 <p className="text-[15px] font-bold text-[#004417]">
                   {(() => {
-                    const valorMedio = item.mediaPrecoAtual ?? item.mediaPrecoDisplay;
-                    const unidadeValor = item.unidadeValorOriginal || item.unidadeDisplay;
+                    // Igual à versão desktop: prioriza custo_unitario_base (view FIFO)
+                    const valorMedio = item.custo_unitario_base ?? item.mediaPrecoAtual ?? item.mediaPrecoDisplay;
+                    const unidadeValor = item.unidadeValorOriginal || item.unidadeDisplay || item.unidade_base;
 
                     if (valorMedio == null || unidadeValor == null) return "—";
 

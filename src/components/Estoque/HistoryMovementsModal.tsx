@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { X, Paperclip } from 'lucide-react';
 import { ProdutoAgrupado } from '../../services/agruparProdutosService';
+import { EstoqueService } from '../../services/estoqueService';
 import AttachmentProductModal from './AttachmentProductModal';
 import ActivityAttachmentModal from '../ManejoAgricola/ActivityAttachmentModal';
 import ActivityDetailModal from '../ManejoAgricola/ActivityDetailModal';
@@ -25,6 +26,7 @@ interface MovementItem {
   tipo: 'entrada' | 'saida';
   quantidade: number;
   unidade: string;
+  unidade_base?: string; // <- Adicionado para refletir campo da view
   observacao?: string | null;
   created_at: string;
   nome_produto: string;
@@ -76,15 +78,24 @@ const formatValidity = (validadeStr: string | null | undefined): string => {
   return DEFAULT_DATES.includes(time) ? '—' : new Date(validadeStr).toLocaleDateString('pt-BR');
 };
 
-const getUnidadePadraoFromUnit = (unidade: string): string => {
-  if (isMassUnit(unidade)) return 'mg';
-  if (isVolumeUnit(unidade)) return 'mL';
-  return unidade;
-};
-
-const formatQuantityDisplay = (quantidade: number, unidadePadrao: string): string => {
-  const scaled = autoScaleQuantity(quantidade, unidadePadrao);
-  return `${scaled.quantidade} ${formatUnitAbbreviated(scaled.unidade)}`;
+const formatQuantityDisplay = (quantidade: number, unidade: string): string => {
+  // Se a unidade não for reconhecida por autoScale, exibe a quantidade e unidade originais
+  try {
+    const scaled = autoScaleQuantity(quantidade, unidade);
+    // Se autoScale retornou unidade diferente de 'un', usa ela; senão, usa a original
+    if (scaled.unidade && scaled.unidade !== 'un') {
+      return `${scaled.quantidade} ${formatUnitAbbreviated(scaled.unidade)}`;
+    }
+    // Se unidade original não for 'un', exibe a original
+    if (unidade && unidade !== 'un') {
+      return `${quantidade} ${formatUnitAbbreviated(unidade)}`;
+    }
+    // Fallback
+    return `${quantidade} un`;
+  } catch {
+    // Em caso de erro, exibe a quantidade e unidade originais
+    return `${quantidade} ${formatUnitAbbreviated(unidade)}`;
+  }
 };
 
 // ============================================================================
@@ -103,203 +114,105 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
   const [activityAttachmentModal, setActivityAttachmentModal] = useState({ isOpen: false, activityId: '', activityDescription: '' });
   const [activityDetailModal, setActivityDetailModal] = useState({ isOpen: false, activityId: '' });
 
-  const unidadePadrao = product?.produtos[0]?.unidade 
-    ? getUnidadePadraoFromUnit(product.produtos[0].unidade) 
-    : 'un';
+  // Unidade base real das movimentações (view)
+  const [unidadeMovimentacao, setUnidadeMovimentacao] = useState<string>('un');
 
   // --------------------------------------------------------------------------
   // Data Loading
   // --------------------------------------------------------------------------
 
-  const loadTotals = useCallback(async () => {
-    if (!product) return;
-
-    try {
-      let entradas = 0;
-      let saidas = 0;
-
-      for (const p of product.produtos) {
-        const tipo = p.tipo_de_movimentacao || 'entrada';
-        
-        // Quantidade base
-        // Entrada: quantidade_inicial (quanto entrou)
-        // Saída/Aplicação: quantidade_em_estoque (quanto saiu)
-        const quantidade = tipo === 'entrada' 
-          ? (p.quantidade_inicial ?? p.quantidade ?? 0) 
-          : (p.quantidade ?? 0);
-
-        // Converter para unidade padrão do grupo
-        let quantidadePadraoItem = quantidade;
-        const unidadeItem = p.unidade || 'un';
-
-        if (unidadePadrao !== 'un' && unidadeItem !== unidadePadrao) {
-          try {
-            if ((isMassUnit(unidadeItem) && isMassUnit(unidadePadrao)) || 
-                (isVolumeUnit(unidadeItem) && isVolumeUnit(unidadePadrao))) {
-              const converted = convertToStandardUnit(quantidade, unidadeItem);
-              quantidadePadraoItem = convertFromStandardUnit(converted.quantidade, converted.unidade, unidadePadrao);
-            }
-          } catch (e) {
-            console.warn('Erro conversão totais:', e);
-          }
-        }
-
-        if (tipo === 'entrada') {
-          entradas += quantidadePadraoItem;
-        } else {
-          saidas += quantidadePadraoItem;
+  // Agora os totais são calculados a partir das movimentações reais (allMovements)
+  const calcularTotaisMovimentacoes = useCallback((movs: MovementItem[]) => {
+    let entradas = 0;
+    let saidas = 0;
+    let unidadeBase = 'un';
+    if (movs.length > 0) {
+      unidadeBase = movs[0].unidade || movs[0].unidade_valor_original || movs[0].unidade_base || 'un';
+    }
+    movs.forEach((m) => {
+      let quantidade = m.quantidade ?? 0;
+      const unidadeItem = m.unidade || 'un';
+      // Converter para unidade base se necessário
+      if (unidadeItem !== unidadeBase) {
+        try {
+          quantidade = convertBetweenUnits(quantidade, unidadeItem, unidadeBase);
+        } catch (e) {
+          console.warn('Erro conversão totais para unidade base:', e);
         }
       }
-
-      setTotalEntradas(entradas);
-      setTotalSaidas(saidas);
-    } catch (error) {
-      console.error('Erro ao carregar totais:', error);
-    }
-  }, [product, unidadePadrao]);
+      if (m.tipo === 'entrada') {
+        entradas += quantidade;
+      } else {
+        saidas += quantidade;
+      }
+    });
+    setTotalEntradas(entradas);
+    setTotalSaidas(saidas);
+    setUnidadeMovimentacao(unidadeBase);
+  }, []);
 
   const loadData = useCallback(async (page: number) => {
     if (!product) return;
     setLoading(true);
-
     try {
-      const allMovements: MovementItem[] = [];
+      // Busca movimentações completas da view para todos os produtos do grupo
+      const produtoIds = product.produtos.map(p => p.produto_id || p.id);
+      console.log('[HistoryMovementsModal] Buscando movimentações para produtoIds:', produtoIds);
+      const allMovementsRaw = await EstoqueService.getMovimentacoesPorProdutos(produtoIds);
+      console.log('[HistoryMovementsModal] Resultado bruto da view vw_estoque_movimentacoes_completas:', allMovementsRaw);
 
-      for (const p of product.produtos) {
-        const tipo = p.tipo_de_movimentacao || 'entrada';
-        
-        // Definir tipo e source
-        let source: 'entrada' | 'saida' | 'lancamento' = 'entrada';
-        let tipoMov: 'entrada' | 'saida' = 'entrada';
+      // Mapeamento dos campos da view para MovementItem
+      const allMovements: MovementItem[] = allMovementsRaw.map((mov: any) => ({
+        id: mov.movimento_id || mov.id,
+        produto_id: mov.produto_id,
+        tipo: mov.tipo_movimento && mov.tipo_movimento.toLowerCase() === 'entrada' ? 'entrada' : 'saida',
+        quantidade: Number(mov.quantidade_base) || 0,
+        unidade: mov.unidade_base || 'un',
+        observacao: null, // pode mapear se houver campo
+        created_at: mov.criado_em,
+        nome_produto: mov.nome_produto || '',
+        marca: mov.marca,
+        categoria: mov.categoria,
+        valor: mov.custo_unitario_base ? Number(mov.custo_unitario_base) : null,
+        unidade_valor_original: mov.unidade_base,
+        numero_nota_fiscal: null, // pode mapear se houver campo
+        valor_total: mov.valor_total ? Number(mov.valor_total) : null,
+        valor_medio: mov.custo_unitario_base ? Number(mov.custo_unitario_base) : null,
+        lote: mov.lote,
+        validade: mov.validade,
+        fornecedor: mov.fornecedor,
+        registro_mapa: mov.registro_mapa,
+        entrada_referencia: null, // pode mapear se houver campo
+        _source: mov.tipo_movimento && mov.tipo_movimento.toLowerCase() === 'entrada' ? 'entrada' : 'saida',
+        // Os campos abaixo são opcionais e podem ser ajustados conforme necessidade
+        _agrupado: false,
+        _quantidade_lotes: undefined,
+        _entradas_referencia: undefined,
+        nome_atividade: undefined,
+        atividade_id: undefined,
+        quantidade_val: undefined,
+        quantidade_un: undefined,
+        custo_calculado: undefined,
+        nota_fiscal: undefined,
+        unidade_nota_fiscal: undefined,
+      }));
 
-        if (tipo === 'entrada') {
-          source = 'entrada';
-          tipoMov = 'entrada';
-        } else if (tipo === 'saida') {
-          source = 'saida';
-          tipoMov = 'saida';
-        } else if (tipo === 'aplicacao') {
-          source = 'lancamento';
-          tipoMov = 'saida';
-        }
+      // Calcular totais reais a partir das movimentações
+      calcularTotaisMovimentacoes(allMovements);
 
-        // Quantidade para exibição
-        let quantidadeExibicao = tipo === 'entrada' ? (p.quantidade_inicial ?? p.quantidade) : p.quantidade;
-        let unidadeExibicao = p.unidade;
-
-        // Tentar converter para unidade original do valor se for entrada (para manter consistência visual)
-        if (tipo === 'entrada' && p.unidade_valor_original && p.quantidade_inicial) {
-           if (isMassUnit(p.unidade_valor_original)) {
-             quantidadeExibicao = convertFromStandardUnit(p.quantidade_inicial, 'mg', p.unidade_valor_original);
-             unidadeExibicao = p.unidade_valor_original;
-           } else if (isVolumeUnit(p.unidade_valor_original)) {
-             quantidadeExibicao = convertFromStandardUnit(p.quantidade_inicial, 'mL', p.unidade_valor_original);
-             unidadeExibicao = p.unidade_valor_original;
-           } else {
-             unidadeExibicao = p.unidade_valor_original;
-           }
-        }
-
-        // Buscar entrada de referência se houver
-        let entradaRef = null;
-        if (p.entrada_referencia_id) {
-          const ref = product.produtos.find(prod => prod.id === p.entrada_referencia_id);
-          if (ref) {
-            entradaRef = { 
-              id: ref.id, 
-              lote: ref.lote, 
-              created_at: ref.created_at || new Date().toISOString() 
-            };
-          }
-        }
-
-        allMovements.push({
-          id: p.id,
-          produto_id: p.id,
-          tipo: tipoMov,
-          quantidade: quantidadeExibicao,
-          unidade: unidadeExibicao,
-          observacao: p.observacoes_das_movimentacoes || null,
-          created_at: p.created_at || new Date().toISOString(),
-          nome_produto: p.nome_produto,
-          marca: p.marca,
-          categoria: p.categoria,
-          valor: p.valor,
-          unidade_valor_original: p.unidade_valor_original,
-          numero_nota_fiscal: p.numero_nota_fiscal ?? null,
-          nota_fiscal: p.nota_fiscal ?? null,
-          unidade_nota_fiscal: p.unidade_nota_fiscal ?? null,
-          valor_total: p.valor_total,
-          valor_medio: p.valor_medio,
-          lote: p.lote,
-          validade: p.validade,
-          fornecedor: p.fornecedor,
-          registro_mapa: p.registro_mapa,
-          entrada_referencia: entradaRef,
-          _source: source,
-          // Campos específicos para lançamentos/aplicações
-          nome_atividade: source === 'lancamento' ? 'Aplicação' : undefined,
-          quantidade_val: source === 'lancamento' ? quantidadeExibicao : undefined,
-          quantidade_un: source === 'lancamento' ? unidadeExibicao : undefined,
-          custo_calculado: source === 'lancamento' ? (p.valor_total ?? null) : null
-        });
-      }
-
-      // Ordenar por data (mais recente primeiro)
+      // Paginação manual
       allMovements.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-      // Agrupar saídas FIFO simultâneas
-      const grupos = new Map<string, MovementItem[]>();
-      allMovements.forEach(mov => {
-        const timestamp = new Date(mov.created_at).toISOString().split('.')[0];
-        const chave = `${timestamp}_${mov.tipo}_${mov.observacao || ''}`;
-        if (!grupos.has(chave)) grupos.set(chave, []);
-        grupos.get(chave)!.push(mov);
-      });
-
-      const movimentacoesAgrupadas: MovementItem[] = [];
-      grupos.forEach(movs => {
-        if (movs.length === 1) {
-          movimentacoesAgrupadas.push(movs[0]);
-        } else {
-          const primeiro = movs[0];
-          const quantidadeTotal = movs.reduce((sum, m) => sum + (m.quantidade || 0), 0);
-
-          // Calcular valorTotal com validação para evitar NaN
-          const valorTotal = movs.reduce((sum, m) => {
-            let valor = 0;
-            if (m.valor_total != null && !isNaN(m.valor_total) && isFinite(m.valor_total)) {
-              valor = m.valor_total;
-            } else if (m.valor_medio != null && !isNaN(m.valor_medio) && isFinite(m.valor_medio) &&
-                       m.quantidade != null && !isNaN(m.quantidade) && isFinite(m.quantidade)) {
-              valor = m.valor_medio * m.quantidade;
-            }
-            return sum + valor;
-          }, 0);
-
-          const entradasRef = movs.filter(m => m.entrada_referencia).map(m => m.entrada_referencia!);
-
-          movimentacoesAgrupadas.push({
-            ...primeiro,
-            quantidade: quantidadeTotal,
-            valor_total: valorTotal,
-            _agrupado: true,
-            _quantidade_lotes: movs.length,
-            _entradas_referencia: entradasRef
-          });
-        }
-      });
-
-      setTotalCount(movimentacoesAgrupadas.length);
-
+      setTotalCount(allMovements.length);
       const startIndex = (page - 1) * ITEMS_PER_PAGE;
-      setItems(movimentacoesAgrupadas.slice(startIndex, startIndex + ITEMS_PER_PAGE));
+      const paginated = allMovements.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+      console.log('[HistoryMovementsModal] Movimentações paginadas para exibir:', paginated);
+      setItems(paginated);
     } catch (error) {
       console.error('Erro ao carregar histórico:', error);
     } finally {
       setLoading(false);
     }
-  }, [product]);
+  }, [product, calcularTotaisMovimentacoes]);
 
   // --------------------------------------------------------------------------
   // Effects
@@ -308,9 +221,8 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
   useEffect(() => {
     if (isOpen && product) {
       setCurrentPage(1);
-      loadTotals();
     }
-  }, [isOpen, product, loadTotals]);
+  }, [isOpen, product]);
 
   useEffect(() => {
     if (isOpen && product) {
@@ -345,27 +257,15 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 text-[14px] text-[rgba(0,68,23,0.8)]">
                 <div className="whitespace-nowrap">
                   <strong className="font-semibold">Total Entradas:</strong>{' '}
-                  <span className="font-bold text-[#004417]">{formatQuantityDisplay(totalEntradas, unidadePadrao)}</span>
+                  <span className="font-bold text-[#004417]">{formatQuantityDisplay(totalEntradas, unidadeMovimentacao)}</span>
                 </div>
                 <div className="whitespace-nowrap">
                   <strong className="font-semibold">Total Saídas:</strong>{' '}
-                  <span className="font-bold text-[#004417]">{formatQuantityDisplay(totalSaidas, unidadePadrao)}</span>
+                  <span className="font-bold text-[#004417]">{formatQuantityDisplay(totalSaidas, unidadeMovimentacao)}</span>
                 </div>
                 <div className="whitespace-nowrap">
                   <strong className="font-semibold">Em estoque:</strong>{' '}
-                  <span className="font-bold text-[#004417]">
-                    {(() => {
-                      const { quantidade, unidade } = autoScaleQuantity(totalEntradas - totalSaidas, unidadePadrao);
-                      return (
-                        <>
-                          {quantidade}{' '}
-                          <span className="text-[rgba(0,68,23,0.7)] text-[13px]">
-                            {formatUnitAbbreviated(unidade)}
-                          </span>
-                        </>
-                      );
-                    })()}
-                  </span>
+                  <span className="font-bold text-[#004417]">{formatQuantityDisplay(totalEntradas - totalSaidas, unidadeMovimentacao)}</span>
                 </div>
               </div>
             </div>

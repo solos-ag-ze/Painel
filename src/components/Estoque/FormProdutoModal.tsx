@@ -82,7 +82,8 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
       const user = AuthService.getInstance().getCurrentUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const novoProduto = await EstoqueService.addProduto({
+      // Chama o novo método integrado ao RPC
+      const sucesso = await EstoqueService.addProduto({
         nome_produto: formData.nome,
         marca: formData.marca,
         categoria: formData.categoria,
@@ -95,19 +96,28 @@ export default function FormProdutoModal({ isOpen, onClose, onCreated }: Props) 
         registro_mapa: formData.registro_mapa || null,
       });
 
-      if (formData.anexo) {
-        const err = AttachmentProductService.validateFile(formData.anexo);
-        if (err) throw new Error(err);
-        await AttachmentProductService.uploadAttachment(String(novoProduto.id), formData.anexo);
+      if (sucesso) {
+        setToastMessage('Produto cadastrado com sucesso!');
+        setShowToast(true);
+        onCreated({
+          nome: formData.nome,
+          marca: formData.marca,
+          categoria: formData.categoria,
+          unidade: formData.unidade,
+          quantidade: Number(formData.quantidade),
+          valor: Number(formData.valor),
+          lote: formData.lote || null,
+          validade: formData.validade || null,
+          fornecedor: formData.fornecedor || null,
+          registro_mapa: formData.registro_mapa || null,
+        });
+        // Upload de anexo pode ser adaptado para buscar o produto recém cadastrado, se necessário
+        setTimeout(() => {
+          onClose();
+        }, 500);
+      } else {
+        alert('Erro ao cadastrar produto.');
       }
-
-      onCreated(novoProduto);
-      setToastMessage(formData.anexo ? 'Produto cadastrado com sucesso e anexo enviado!' : 'Produto cadastrado com sucesso!');
-      setShowToast(true);
-
-      setTimeout(() => {
-        onClose();
-      }, 500);
     } catch (error) {
       console.error('❌ Erro ao cadastrar produto:', error);
       alert(error instanceof Error ? error.message : 'Erro ao cadastrar produto.');
