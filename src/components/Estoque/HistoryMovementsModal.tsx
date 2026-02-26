@@ -23,7 +23,7 @@ interface Props {
 interface MovementItem {
   id: string | number;
   produto_id: number;
-  tipo: 'entrada' | 'saida';
+  tipo: 'entrada' | 'saida' | 'aplicacao';
   quantidade: number;
   unidade: string;
   unidade_base?: string; // <- Adicionado para refletir campo da view
@@ -53,6 +53,7 @@ interface MovementItem {
   custo_calculado?: number | null;
   nota_fiscal?: boolean | null;
   unidade_nota_fiscal?: string | null;
+  custo_total_aplicacao?: number | null;
 }
 
 // ============================================================================
@@ -127,19 +128,11 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
     let saidas = 0;
     let unidadeBase = 'un';
     if (movs.length > 0) {
-      unidadeBase = movs[0].unidade || movs[0].unidade_valor_original || movs[0].unidade_base || 'un';
+      unidadeBase = movs[0].unidade_base || movs[0].unidade_valor_original || movs[0].unidade || 'un';
     }
     movs.forEach((m) => {
+      // `m.quantidade` já representa a quantidade na unidade base (mudei o mapeamento abaixo)
       let quantidade = m.quantidade ?? 0;
-      const unidadeItem = m.unidade || 'un';
-      // Converter para unidade base se necessário
-      if (unidadeItem !== unidadeBase) {
-        try {
-          quantidade = convertBetweenUnits(quantidade, unidadeItem, unidadeBase);
-        } catch (e) {
-          console.warn('Erro conversão totais para unidade base:', e);
-        }
-      }
       if (m.tipo === 'entrada') {
         entradas += quantidade;
       } else {
@@ -160,15 +153,33 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
       console.log('[HistoryMovementsModal] Buscando movimentações para produtoIds:', produtoIds);
       const allMovementsRaw = await EstoqueService.getMovimentacoesPorProdutos(produtoIds);
       console.log('[HistoryMovementsModal] Resultado bruto da view vw_estoque_movimentacoes_completas:', allMovementsRaw);
+      if (allMovementsRaw && allMovementsRaw.length > 0) {
+        console.log('[HistoryMovementsModal] RAW movement keys example:', Object.keys(allMovementsRaw[0]));
+        allMovementsRaw.forEach((mov: any, idx: number) => {
+          console.log(`[HistoryMovementsModal] raw[${idx}] sample fields: quantidade=${mov.quantidade} quantidade_base=${mov.quantidade_base} quantidade_documento=${mov.quantidade_documento} quantidade_original=${mov.quantidade_original} unidade=${mov.unidade} unidade_base=${mov.unidade_base} unidade_documento=${mov.unidade_documento} unidade_original=${mov.unidade_original}`);
+        });
+      }
 
       // Mapeamento dos campos da view para MovementItem
+      // Observação: priorizamos a quantidade convertida para unidade base (`quantidade_documento_em_base`)
+      // quando disponível; caso contrário usamos `quantidade_base`.
       const allMovements: MovementItem[] = allMovementsRaw.map((mov: any) => ({
         id: mov.movimento_id || mov.id,
         produto_id: mov.produto_id,
-        tipo: mov.tipo_movimento && mov.tipo_movimento.toLowerCase() === 'entrada' ? 'entrada' : 'saida',
-        quantidade: Number(mov.quantidade_base) || 0,
+        // Usa o campo correto ('tipo' ou 'tipo_movimento'), trata como .toUpperCase()
+        tipo: (() => {
+          const tipoMov = String(mov.tipo_movimento ?? mov.tipo ?? '').toUpperCase();
+          const docTipo = String(mov.documento_tipo ?? mov.origem_tipo ?? '').toUpperCase();
+          if (tipoMov === 'ENTRADA') return 'entrada';
+          if (tipoMov === 'SAIDA' && docTipo === 'APLICACAO') return 'aplicacao';
+          return 'saida';
+        })(),
+        // `quantidade` deve representar a quantidade em UNIDADE BASE (para totais).
+        // Se a view expôs `quantidade_documento_em_base` (conversão do item do documento para a unidade base),
+        // usamos esse valor. Senão, usamos `quantidade_base` presente no movimento.
+        quantidade: (mov.quantidade_documento_em_base != null ? Number(mov.quantidade_documento_em_base) : (Number(mov.quantidade_base) || 0)),
         unidade: mov.unidade_base || 'un',
-        observacao: null, // pode mapear se houver campo
+        observacao: mov.observacao || null,
         created_at: mov.criado_em,
         nome_produto: mov.nome_produto || '',
         marca: mov.marca,
@@ -183,16 +194,29 @@ export default function HistoryMovementsModal({ isOpen, product, onClose }: Prop
         fornecedor: mov.fornecedor,
         registro_mapa: mov.registro_mapa,
         entrada_referencia: null, // pode mapear se houver campo
-        _source: mov.tipo_movimento && mov.tipo_movimento.toLowerCase() === 'entrada' ? 'entrada' : 'saida',
-        // Os campos abaixo são opcionais e podem ser ajustados conforme necessidade
+        // _source: identifica o tipo para exibição
+        _source: (() => {
+          const tipoRaw = mov.tipo ?? mov.tipo_movimento ?? '';
+          const tipo = String(tipoRaw).toUpperCase();
+          if (tipo === 'ENTRADA') return 'entrada';
+          if (tipo === 'APLICACAO') return 'lancamento';
+          return 'saida';
+        })(),
         _agrupado: false,
         _quantidade_lotes: undefined,
         _entradas_referencia: undefined,
-        nome_atividade: undefined,
-        atividade_id: undefined,
-        quantidade_val: undefined,
-        quantidade_un: undefined,
-        custo_calculado: undefined,
+        nome_atividade: mov.nome_atividade || mov.atividade_nome || mov.atividade || undefined,
+        atividade_id: mov.atividade_id || undefined,
+        // Para exibição da aplicação, preferir os campos originais do documento (quantidade/unidade do item)
+        quantidade_val: (
+          mov.quantidade_documento ?? mov.quantidade ?? mov.quantidade_original ?? mov.quantidade_item ?? mov.quantidade_itens ?? mov.qtde ?? null
+        ) != null ? Number(mov.quantidade_documento ?? mov.quantidade ?? mov.quantidade_original ?? mov.quantidade_item ?? mov.quantidade_itens ?? mov.qtde) : (mov.quantidade_base ? Number(mov.quantidade_base) : undefined),
+        quantidade_un: (
+          mov.unidade_documento ?? mov.unidade ?? mov.unidade_original ?? mov.unidade_item ?? mov.unidade_itens ?? null
+        ) || mov.unidade_base || undefined,
+        custo_calculado: mov.valor_total ? Number(mov.valor_total) : undefined,
+        // Prioriza custo calculado no documento (campo calculado na view), depois fallback para custo_total_aplicacao ou custo_calculado
+        custo_total_aplicacao: mov.custo_total_aplicacao_documento ? Number(mov.custo_total_aplicacao_documento) : (mov.custo_total_aplicacao ? Number(mov.custo_total_aplicacao) : undefined),
         nota_fiscal: undefined,
         unidade_nota_fiscal: undefined,
       }));
@@ -350,17 +374,18 @@ interface MovementCardProps {
 }
 
 function MovementCard({ movement: m, onOpenAttachment }: MovementCardProps) {
-  const isLancamento = m._source === 'lancamento';
+  // Considera aplicação se tipo === 'aplicacao' OU _source === 'lancamento'
+  const isAplicacao = m.tipo === 'aplicacao' || m._source === 'lancamento';
   const isEntrada = m.tipo === 'entrada';
-  const badgeClass = isLancamento
+  const badgeClass = isAplicacao
     ? 'bg-[rgba(202,219,42,0.18)] text-[#004417]'
     : isEntrada
       ? 'bg-[rgba(0,166,81,0.15)] text-[#00A651]'
       : 'bg-[rgba(247,148,31,0.15)] text-[#F7941F]';
 
-  const badgeLabel = isLancamento ? 'Aplicação' : isEntrada ? 'Entrada' : 'Saída';
-  const qty = isLancamento ? (m.quantidade_val ?? 0) : (m.quantidade ?? 0);
-  const unit = isLancamento ? (m.quantidade_un || m.unidade || 'un') : (m.unidade || 'un');
+  const badgeLabel = isAplicacao ? 'Aplicação' : isEntrada ? 'Entrada' : 'Saída';
+  const qty = isAplicacao ? (m.quantidade_val ?? 0) : (m.quantidade ?? 0);
+  const unit = isAplicacao ? (m.quantidade_un || m.unidade || 'un') : (m.unidade || 'un');
 
   // Validar quantidade de entrada - se for NaN, null ou inválida, usar 0
   let qtySegura = 0;
@@ -439,21 +464,25 @@ function MovementCard({ movement: m, onOpenAttachment }: MovementCardProps) {
             </p>
           )}
 
-          {/* Lançamento (Aplicação) */}
-          {isLancamento && (
+          {/* Aplicação */}
+          {isAplicacao && (
             <LancamentoDetails
               nomeAtividade={m.nome_atividade}
               quantidade={m.quantidade_val ?? 0}
               unidade={m.quantidade_un || m.unidade || 'un'}
               custoCalculado={m.custo_calculado}
+              valorUnitario={m.valor}
+              unidadeValor={m.unidade_valor_original || m.unidade}
+              valorTotal={m.valor_total}
+              custoTotalAplicacao={m.custo_total_aplicacao}
             />
           )}
 
           {/* Entrada */}
           {isEntrada && <EntradaDetails movement={m} />}
 
-          {/* Saída (não lançamento) */}
-          {!isEntrada && !isLancamento && <SaidaDetails movement={m} />}
+          {/* Saída (não aplicação/entrada) */}
+          {!isEntrada && !isAplicacao && <SaidaDetails movement={m} />}
         </div>
       </div>
 
@@ -469,8 +498,6 @@ function MovementCard({ movement: m, onOpenAttachment }: MovementCardProps) {
           </button>
         </div>
       )}
-
-      
     </div>
   );
 }
@@ -479,74 +506,77 @@ function MovementCard({ movement: m, onOpenAttachment }: MovementCardProps) {
 // Sub-components
 // ============================================================================
 
-function LancamentoDetails({ nomeAtividade, quantidade, unidade, custoCalculado }: {
+function LancamentoDetails({ nomeAtividade, quantidade, unidade, custoCalculado, valorUnitario, unidadeValor, valorTotal, custoTotalAplicacao }: {
   nomeAtividade?: string;
   quantidade: number;
   unidade: string;
   custoCalculado?: number | null;
+  valorUnitario?: number | null;
+  unidadeValor?: string | null;
+  valorTotal?: number | null;
+  custoTotalAplicacao?: number | null;
 }) {
-  // Validar quantidade de entrada - se for NaN, null ou inválida, usar 0
-  let quantidadeSegura = 0;
-  if (typeof quantidade === 'number' && !isNaN(quantidade) && isFinite(quantidade)) {
-    quantidadeSegura = quantidade;
-  }
+    let quantidadeSegura = 0;
+    if (typeof quantidade === 'number' && !isNaN(quantidade) && isFinite(quantidade)) {
+      quantidadeSegura = quantidade;
+    }
+    const unidadeSegura = (unidade && typeof unidade === 'string' && unidade.trim() !== '') ? unidade : 'un';
 
-  // Validar unidade - se vazia ou inválida, usar 'un'
-  const unidadeSegura = (unidade && typeof unidade === 'string' && unidade.trim() !== '') ? unidade : 'un';
+    // Fallback de custo: prioriza custo_total_aplicacao (documento) > valor_total > custo_calculado > valorUnitario * quantidade
+    let custoFinal = null;
+    if (custoTotalAplicacao != null && !isNaN(custoTotalAplicacao) && isFinite(custoTotalAplicacao) && custoTotalAplicacao > 0) {
+      custoFinal = custoTotalAplicacao;
+    } else if (valorTotal != null && !isNaN(valorTotal) && isFinite(valorTotal) && valorTotal > 0) {
+      custoFinal = valorTotal;
+    } else if (custoCalculado != null && !isNaN(custoCalculado) && isFinite(custoCalculado) && custoCalculado > 0) {
+      custoFinal = custoCalculado;
+    } else if (
+      valorUnitario != null &&
+      typeof valorUnitario === 'number' &&
+      !isNaN(valorUnitario) &&
+      isFinite(valorUnitario) &&
+      valorUnitario > 0
+    ) {
+      custoFinal = quantidadeSegura * valorUnitario;
+    }
 
-  // Tentar escalar a quantidade apenas se for válida
-  let quantidadeFormatada = quantidadeSegura.toFixed(2);
-  let unidadeFormatada = unidadeSegura;
-
-  if (quantidadeSegura > 0) {
+    // Formatação
+    let quantidadeFormatada = quantidadeSegura.toFixed(2);
+    let unidadeFormatada = unidadeSegura;
     try {
       const qtyScaled = autoScaleQuantity(quantidadeSegura, unidadeSegura);
-
-      // Validar o resultado do autoScaleQuantity
-      if (qtyScaled &&
-          typeof qtyScaled.quantidade === 'number' &&
-          !isNaN(qtyScaled.quantidade) &&
-          isFinite(qtyScaled.quantidade) &&
-          qtyScaled.unidade) {
+      if (
+        qtyScaled &&
+        typeof qtyScaled.quantidade === 'number' &&
+        !isNaN(qtyScaled.quantidade) &&
+        isFinite(qtyScaled.quantidade) &&
+        qtyScaled.unidade
+      ) {
         quantidadeFormatada = qtyScaled.quantidade.toFixed(2);
         unidadeFormatada = qtyScaled.unidade;
       }
-    } catch (error) {
-      // Se falhar, usa os valores seguros originais
-      console.error('Erro ao escalar quantidade:', error);
-    }
+    } catch {}
+
+    const atividadeTexto = String(nomeAtividade || '—').replace(/NaN/g, '—');
+    const quantidadeTexto = String(quantidadeFormatada).replace(/NaN/g, '0.00');
+    const unidadeTexto = String(unidadeFormatada).replace(/NaN/g, 'un');
+
+    return (
+      <div className="mt-3 rounded-lg border border-[rgba(0,68,23,0.08)] bg-[rgba(202,219,42,0.08)] p-3 text-[13px] text-[rgba(0,68,23,0.85)]">
+        {/* Removido: título da atividade e quantidade usada para cards de aplicação */}
+        {/* Exibe apenas o custo do produto usado */}
+        {custoFinal != null && custoFinal > 0 ? (
+          <div>
+            <strong className="font-semibold text-[#004417]">Custo do produto usado:</strong> {formatCurrency(custoFinal)}
+          </div>
+        ) : (
+          <div>
+            <strong className="font-semibold text-[#004417]">Custo do produto usado:</strong> —
+          </div>
+        )}
+      </div>
+    );
   }
-
-  // Validar custo - deve ser número positivo válido
-  const temCustoValido = (
-    custoCalculado != null &&
-    typeof custoCalculado === 'number' &&
-    !isNaN(custoCalculado) &&
-    isFinite(custoCalculado) &&
-    custoCalculado > 0
-  );
-
-  // Sanitizar strings para garantir que não há NaN literal
-  const atividadeTexto = String(nomeAtividade || '—').replace(/NaN/g, '—');
-  const quantidadeTexto = String(quantidadeFormatada).replace(/NaN/g, '0.00');
-  const unidadeTexto = String(unidadeFormatada).replace(/NaN/g, 'un');
-
-  return (
-    <div className="mt-3 rounded-lg border border-[rgba(0,68,23,0.08)] bg-[rgba(202,219,42,0.08)] p-3 text-[13px] text-[rgba(0,68,23,0.85)] space-y-2">
-      <div>
-        <strong className="font-semibold text-[#004417]">Atividade:</strong> {atividadeTexto}
-      </div>
-      <div>
-        <strong className="font-semibold text-[#004417]">Quantidade usada:</strong> {quantidadeTexto} {unidadeTexto}
-      </div>
-      {temCustoValido && (
-        <div>
-          <strong className="font-semibold text-[#004417]">Custo do produto usado:</strong> {formatCurrency(custoCalculado!)}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function EntradaDetails({ movement: m }: { movement: MovementItem }) {
   const valorUnitario = m.valor || m.valor_medio;

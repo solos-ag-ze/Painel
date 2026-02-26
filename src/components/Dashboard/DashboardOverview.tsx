@@ -842,20 +842,35 @@ export default function DashboardOverview() {
             const { error: updateErr } = await supabase.from('lancamentos_agricolas').update({ is_completed: true }).eq('atividade_id', id);
             if (updateErr) throw updateErr;
 
-            // 2) Baixar estoque FIFO via RPC
-            const { error: fifoErr } = await supabase.rpc('fn_baixar_estoque_fifo_lancamento', { p_atividade_id: id });
-            if (fifoErr) {
-              console.error('Erro FIFO:', fifoErr);
-              // Reverter is_completed se FIFO falhou
-              await supabase.from('lancamentos_agricolas').update({ is_completed: false }).eq('atividade_id', id);
-              // Extrair mensagem amigável
-              const msg = fifoErr.message || 'Erro ao dar baixa no estoque';
-              const match = msg.match(/Sem estoque para produto "([^"]+)"|Estoque insuficiente para "([^"]+)"/);
-              if (match) {
-                const prodName = match[1] || match[2];
-                return `Estoque insuficiente para "${prodName}". Cadastre ou ajuste o estoque antes de confirmar.`;
+            // 2) Registrar aplicação no novo estoque via RPC
+            // Aqui você deve montar os dados do produto/atividade conforme necessário
+            // Exemplo genérico:
+            const atividade = incompleteActivities.find(a => a.id === id);
+            if (!atividade || !atividade.produtos || !atividade.produtos.length) {
+              return 'Atividade ou produtos não encontrados.';
+            }
+            for (const produto of atividade.produtos) {
+              const payload = {
+                p_nome: produto.nome_produto || produto.nome,
+                p_marca: produto.marca || null,
+                p_categoria: produto.categoria || null,
+                p_unidade_base: produto.unidade || produto.quantidade_un || null,
+                p_registro_mapa: produto.registro_mapa || null,
+                p_fornecedor: produto.fornecedor || null,
+                p_quantidade: produto.quantidade_val || produto.quantidade || null,
+                p_valor_total: produto.valor_total || null,
+                p_lote: produto.lote || null,
+                p_validade: produto.validade || null,
+                p_user_id: AuthService.getInstance().getCurrentUser()?.user_id
+              };
+              console.log('[APLICACAO] Iniciando registro de aplicação no estoque:', payload);
+              const { data, error: aplicacaoErr } = await supabase.rpc('registrar_produto_e_aplicacao', payload);
+              if (aplicacaoErr) {
+                console.error('[APLICACAO] Erro ao registrar aplicação:', aplicacaoErr);
+                await supabase.from('lancamentos_agricolas').update({ is_completed: false }).eq('atividade_id', id);
+                return aplicacaoErr.message || 'Erro ao registrar aplicação no estoque';
               }
-              return msg;
+              console.log('[APLICACAO] Aplicação registrada com sucesso. Documento ID:', data);
             }
           } catch (err: any) {
             console.error('Erro ao confirmar atividade:', err);

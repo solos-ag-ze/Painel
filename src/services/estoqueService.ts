@@ -2,6 +2,7 @@
 import { supabase } from '../lib/supabase';
 import { AuthService } from './authService';
 import { ActivityService } from './activityService';
+import { CadastroProdutosService } from './cadastroProdutosService';
 import { convertToStandardUnit, convertFromStandardUnit, isMassUnit, isVolumeUnit, convertBetweenUnits } from '../lib/unitConverter';
 
 export interface ProdutoEstoque {
@@ -89,6 +90,7 @@ export class EstoqueService {
       }
       return data || [];
     }
+    
   
      /**
       * Busca o valor total do estoque do usuário usando a view vw_estoque_valor_total
@@ -1061,5 +1063,13 @@ export class EstoqueService {
    */
   static clearLancamentosCache(): void {
     this.lancamentosCache = null;
+  }
+
+  /**
+   * Wrapper mínimo para retornar produtos do catálogo `cadastro_produtos`.
+   * Mantém compatibilidade com chamadas que esperam `EstoqueService.getProdutosCadastro()`.
+   */
+  static async getProdutosCadastro(): Promise<ProdutoEstoque[]> {
+    return CadastroProdutosService.getProdutosCadastro();
   }
 }

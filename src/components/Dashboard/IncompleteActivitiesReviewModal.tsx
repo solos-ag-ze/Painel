@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { EstoqueService } from '../../services/estoqueService';
 import { createPortal } from 'react-dom';
 import type { ActivityPayload } from '../../types/activity';
 import ActivityEditModal from './ActivityEditModal';
@@ -16,6 +17,19 @@ interface Props {
 }
 
 export default function IncompleteActivitiesReviewModal({ isOpen, activities, onClose, onEdit, onDelete, onConfirmItem, onConfirmAll }: Props) {
+  const [produtosCadastro, setProdutosCadastro] = useState<any[]>([]);
+    // Carregar produtos do cadastro_produtos ao abrir o modal
+    useEffect(() => {
+      async function fetchProdutos() {
+        try {
+          const list = await EstoqueService.getProdutosCadastro && await EstoqueService.getProdutosCadastro();
+          setProdutosCadastro(list || []);
+        } catch (e) {
+          setProdutosCadastro([]);
+        }
+      }
+      if (isOpen) fetchProdutos();
+    }, [isOpen]);
   const [processing, setProcessing] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name?: string } | null>(null);
@@ -41,6 +55,22 @@ export default function IncompleteActivitiesReviewModal({ isOpen, activities, on
     const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
     return dateB - dateA; // Decrescente (mais recente primeiro)
   });
+
+  // Enriquecer produtos das atividades com dados do cadastro_produtos
+  function enrichProdutos(produtos: any[]) {
+    return (produtos || []).map((p) => {
+      const cadastro = produtosCadastro.find((c) => c.id === (p.produto_id || p.produto_catalogo_id));
+      return {
+        ...p,
+        nome: cadastro?.nome || p.nome_produto || p.nome || '-',
+        unidade_base: cadastro?.unidade_base,
+        marca: cadastro?.marca_ou_fabricante,
+        categoria: cadastro?.categoria,
+        fornecedor: cadastro?.fornecedor,
+        registro_mapa: cadastro?.registro_mapa,
+      };
+    });
+  }
 
   // Debug: log activities to check structure
   console.log('🔍 IncompleteActivities modal activities:', sortedActivities);
@@ -98,12 +128,15 @@ export default function IncompleteActivitiesReviewModal({ isOpen, activities, on
                       <div className="mt-2 text-xs text-[#092f20]">
                         <div className="font-semibold text-[13px] text-[#004417]">Produtos:</div>
                         <ul className="list-disc ml-4">
-                          {act.produtos.map((p: any, idx: number) => {
-                            const nomeProduto = p.nome_produto || p.nome || '-';
+                          {enrichProdutos(act.produtos).map((p: any, idx: number) => {
+                            const nomeProduto = p.nome || '-';
                             const nomeCapitalizado = nomeProduto === '-' ? nomeProduto : nomeProduto.charAt(0).toUpperCase() + nomeProduto.slice(1);
                             return (
                               <li key={p.id || idx} className="text-xs text-[#092f20]">
-                                {nomeCapitalizado} — {p.quantidade_val || p.quantidade || '-'} {p.quantidade_un || p.unidade || ''}
+                                {nomeCapitalizado}
+                                {p.marca ? ` (${p.marca})` : ''}
+                                {p.categoria ? ` — ${p.categoria}` : ''}
+                                {' — '}{p.quantidade_val || p.quantidade || '-'} {p.quantidade_un || p.unidade || p.unidade_base || ''}
                               </li>
                             );
                           })}

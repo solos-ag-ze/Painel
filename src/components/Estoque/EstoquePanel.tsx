@@ -414,7 +414,7 @@ export default function EstoquePanel() {
 
   // 📌 Ícone por categoria
   const getCategoryIcon = (categoria: string) => {
-    const c = categoria.toLowerCase();
+    const c = (categoria || '').toLowerCase();
     if (c.includes('fertilizante')) return <Sprout className="w-6 h-6 text-[#004417]" />;
     if (c.includes('corretivo')) return <Hammer className="w-6 h-6 text-[#004417]" />;
     if (c.includes('herbicida')) return <Package className="w-6 h-6 text-[#004417]" />;

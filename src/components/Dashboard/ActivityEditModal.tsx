@@ -5,6 +5,8 @@ import type { ActivityPayload, ProdutoItem, MaquinaItem } from '../../types/acti
 import { TalhaoService } from '../../services/talhaoService';
 import { AuthService } from '../../services/authService';
 import { EstoqueService, ProdutoEstoque } from '../../services/estoqueService';
+import { agruparProdutos, ProdutoAgrupado } from '../../services/agruparProdutosService';
+import { CadastroProdutosService } from '../../services/cadastroProdutosService';
 import { MaquinaService } from '../../services/maquinaService';
 import { supabase } from '../../lib/supabase';
 
@@ -18,7 +20,7 @@ interface Props {
 export default function ActivityEditModal({ isOpen, transaction, onClose, onSave }: Props) {
   const [local, setLocal] = useState<ActivityPayload | null>(null);
   const [availableTalhoes, setAvailableTalhoes] = useState<Array<{ id_talhao: string; nome: string; talhao_default?: boolean }>>([]);
-  const [availableProdutos, setAvailableProdutos] = useState<ProdutoEstoque[]>([]);
+  const [availableProdutos, setAvailableProdutos] = useState<ProdutoAgrupado[]>([]);
   const [availableMaquinas, setAvailableMaquinas] = useState<Array<{ id_maquina: string; nome: string }>>([]);
   const [saving, setSaving] = useState(false);
 
@@ -180,12 +182,66 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
   }, [isOpen]);
 
   useEffect(() => {
-    // Load produtos do estoque para preencher select
+    // Load produtos do estoque para preencher select (agrupados como no painel de Estoque)
     async function loadProdutos() {
       try {
-        const list = await EstoqueService.getProdutos();
-        setAvailableProdutos(list || []);
+        const dadosTodos = await EstoqueService.getAllMovimentacoes();
+        const dadosVisiveis = (dadosTodos || []).filter((p: any) => (p.status || '').toLowerCase() !== 'pendente');
+        const grupos = await agruparProdutos(dadosVisiveis as ProdutoEstoque[]);
+        if (grupos && grupos.length > 0) {
+          setAvailableProdutos(grupos);
+        } else {
+          // Fallback: usar catálogo de produtos cadastrados (cadastro_produtos)
+          const catalogo = await CadastroProdutosService.getProdutosCadastro();
+          const mapped = (catalogo || []).map((c: any) => ({
+            nome: c.nome_produto || c.nome || '',
+            produtos: [{
+              id: Number(c.id) || 0,
+              user_id: '',
+              nome_produto: c.nome_produto || c.nome || '',
+              marca: c.marca_ou_fabricante ?? '',
+              categoria: c.categoria ?? '',
+              unidade: c.unidade_base ?? 'kg',
+              quantidade: 0,
+              valor: null,
+              status: undefined,
+              numero_nota_fiscal: null,
+              lote: null,
+              validade: null,
+              created_at: undefined,
+              fornecedor: null,
+              registro_mapa: null,
+              unidade_valor_original: c.unidade_base ?? null,
+              quantidade_inicial: 0,
+              nota_fiscal: null,
+              unidade_nota_fiscal: null,
+              valor_total: null,
+              valor_medio: null,
+              tipo_de_movimentacao: null,
+              produto_id: String(c.produto_id ?? c.id ?? ''),
+              observacoes_das_movimentacoes: null,
+              entrada_referencia_id: null,
+            } as ProdutoEstoque],
+            entradas: [],
+            saidas: [],
+            mediaPreco: 0,
+            mediaPrecoDisplay: 0,
+            totalEstoque: 0,
+            totalEstoqueDisplay: 0,
+            unidadeDisplay: c.unidade_base ?? 'kg',
+            marcas: c.marca_ou_fabricante ? [c.marca_ou_fabricante] : [],
+            categorias: [],
+            unidades: [c.unidade_base ?? 'kg'],
+            lotes: [],
+            validades: [],
+            fornecedores: [],
+            unidadeValorOriginal: c.unidade_base ?? null,
+            mediaPrecoOriginal: null,
+          } as ProdutoAgrupado));
+          setAvailableProdutos(mapped);
+        }
       } catch (e) {
+        setAvailableProdutos([]);
         console.error('Erro ao carregar produtos do estoque:', e);
       }
     }
@@ -364,7 +420,7 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
                 type="button"
                 onClick={() => {
                   const produtos = local?.produtos || [];
-                  const defaultName = availableProdutos[0]?.nome_produto || '';
+                  const defaultName = availableProdutos[0]?.nome || '';
                   const novo: ProdutoItem = { id: Date.now().toString(), nome: defaultName, quantidade: '', unidade: 'kg' };
                   setLocal({ ...local, produtos: [...produtos, novo] });
                 }}
@@ -386,60 +442,39 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
                   )}
                   
                   <div className="col-span-1 sm:col-span-2">
-                    {availableProdutos.length > 0 ? (
-                      (() => {
-                        const isKnown = availableProdutos.some(ap => ap.nome_produto === p.nome);
+                    <select
+                      className="w-full border rounded px-2 py-2"
+                      value={p.produto_catalogo_id || ''}
+                      onChange={(e) => {
+                        const produtos = local?.produtos ? [...local.produtos] : [];
+                        const val = e.target.value;
+                        const matchGroup = availableProdutos.find(g => (
+                          (g.produtos || []).some(p => String(p.produto_id ?? p.id ?? '') === String(val)) ||
+                          String(g.nome) === String(val)
+                        ));
+                        const chosenNome = matchGroup?.nome || '';
+                        const chosenUnidade = matchGroup?.unidadeDisplay || matchGroup?.unidadeValorOriginal || 'kg';
+                        produtos[idx] = {
+                          ...produtos[idx],
+                          produto_catalogo_id: val,
+                          nome: chosenNome,
+                          unidade: chosenUnidade,
+                        };
+                        setLocal({ ...local, produtos });
+                      }}
+                    >
+                      <option value="">Selecione um produto...</option>
+                      {availableProdutos.map((ap, idx) => {
+                        const representative = ap.produtos?.[0];
+                        const repId = String(representative?.produto_id ?? representative?.id ?? ap.nome);
+                        const marca = Array.isArray(ap.marcas) && ap.marcas.length ? ap.marcas[0] : undefined;
                         return (
-                          <>
-                            <select
-                              className="w-full border rounded px-2 py-2"
-                              value={isKnown ? p.nome : ''}
-                              onChange={(e) => {
-                                const produtos = local?.produtos ? [...local.produtos] : [];
-                                const val = e.target.value;
-                                if (val === '') {
-                                  // marcar como custom (vai mostrar input)
-                                  produtos[idx] = { ...produtos[idx], nome: '', produto_catalogo_id: null };
-                                } else {
-                                  // Buscar produto_id do estoque para vincular
-                                  const matchProd = availableProdutos.find(ap => ap.nome_produto === val);
-                                  produtos[idx] = { ...produtos[idx], nome: val, produto_catalogo_id: matchProd?.produto_id || null };
-                                }
-                                setLocal({ ...local, produtos });
-                              }}
-                            >
-                              <option value="">Outro...</option>
-                              {availableProdutos.map(ap => (
-                                <option key={ap.id} value={ap.nome_produto}>{ap.nome_produto}</option>
-                              ))}
-                            </select>
-                            {!isKnown && (
-                              <input
-                                className="mt-2 w-full border rounded px-2 py-2"
-                                placeholder="Nome do produto"
-                                value={p.nome || ''}
-                                onChange={(e) => {
-                                  const produtos = local?.produtos ? [...local.produtos] : [];
-                                  produtos[idx] = { ...produtos[idx], nome: e.target.value };
-                                  setLocal({ ...local, produtos });
-                                }}
-                              />
-                            )}
-                          </>
+                          <option key={repId || String(idx)} value={repId}>
+                            {ap.nome} {marca ? `(${marca})` : ''}
+                          </option>
                         );
-                      })()
-                    ) : (
-                      <input
-                        className="col-span-1 sm:col-span-2 border rounded px-2 py-2"
-                        placeholder="Nome do produto"
-                        value={p.nome || ''}
-                        onChange={(e) => {
-                          const produtos = local?.produtos ? [...local.produtos] : [];
-                          produtos[idx] = { ...produtos[idx], nome: e.target.value };
-                          setLocal({ ...local, produtos });
-                        }}
-                      />
-                    )}
+                      })}
+                    </select>
                   </div>
                   <input
                     className="col-span-1 sm:col-span-1 border rounded px-2 py-2"

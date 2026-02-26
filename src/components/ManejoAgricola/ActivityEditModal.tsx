@@ -5,6 +5,7 @@ import type { ActivityPayload, ProdutoItem, MaquinaItem } from '../../types/acti
 import { TalhaoService } from '../../services/talhaoService';
 import { AuthService } from '../../services/authService';
 import { EstoqueService, ProdutoEstoque } from '../../services/estoqueService';
+import { agruparProdutos, ProdutoAgrupado } from '../../services/agruparProdutosService';
 import { MaquinaService } from '../../services/maquinaService';
 import { supabase } from '../../lib/supabase';
 
@@ -18,7 +19,7 @@ interface Props {
 export default function ActivityEditModal({ isOpen, transaction, onClose, onSave }: Props) {
   const [local, setLocal] = useState<ActivityPayload | null>(null);
   const [availableTalhoes, setAvailableTalhoes] = useState<Array<{ id_talhao: string; nome: string; talhao_default?: boolean }>>([]);
-  const [availableProdutos, setAvailableProdutos] = useState<ProdutoEstoque[]>([]);
+  const [availableProdutos, setAvailableProdutos] = useState<ProdutoAgrupado[]>([]);
   const [availableMaquinas, setAvailableMaquinas] = useState<Array<{ id_maquina: string; nome: string }>>([]);
   const [saving, setSaving] = useState(false);
 
@@ -180,13 +181,16 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
   }, [isOpen]);
 
   useEffect(() => {
-    // Load produtos do estoque para preencher select
+    // Load produtos agrupados a partir das movimentações do estoque
     async function loadProdutos() {
       try {
-        const list = await EstoqueService.getProdutos();
-        setAvailableProdutos(list || []);
+        const dadosTodos = await EstoqueService.getAllMovimentacoes();
+        const dadosVisiveis = (dadosTodos || []).filter((p: any) => (p.status || '').toLowerCase() !== 'pendente');
+        const grupos = await agruparProdutos(dadosVisiveis as ProdutoEstoque[]);
+        setAvailableProdutos(grupos);
       } catch (e) {
-        console.error('Erro ao carregar produtos do estoque:', e);
+        console.error('Erro ao carregar produtos do estoque/cadastro:', e);
+        setAvailableProdutos([]);
       }
     }
 
@@ -364,7 +368,7 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
                 type="button"
                 onClick={() => {
                   const produtos = local?.produtos || [];
-                  const defaultName = availableProdutos[0]?.nome_produto || '';
+                  const defaultName = availableProdutos[0]?.nome || availableProdutos[0]?.nome_produto || '';
                   const novo: ProdutoItem = { id: Date.now().toString(), nome: defaultName, quantidade: '', unidade: 'kg' };
                   setLocal({ ...local, produtos: [...produtos, novo] });
                 }}
@@ -388,7 +392,7 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
                   <div className="col-span-1 sm:col-span-2">
                     {availableProdutos.length > 0 ? (
                       (() => {
-                        const isKnown = availableProdutos.some(ap => ap.nome_produto === p.nome);
+                        const isKnown = availableProdutos.some(ap => ap.nome === p.nome || ap.nome_produto === p.nome);
                         return (
                           <>
                             <select
@@ -401,17 +405,23 @@ export default function ActivityEditModal({ isOpen, transaction, onClose, onSave
                                   // marcar como custom (vai mostrar input)
                                   produtos[idx] = { ...produtos[idx], nome: '', produto_catalogo_id: null };
                                 } else {
-                                  // Buscar produto_id do estoque para vincular
-                                  const matchProd = availableProdutos.find(ap => ap.nome_produto === val);
-                                  produtos[idx] = { ...produtos[idx], nome: val, produto_catalogo_id: matchProd?.produto_id || null };
+                                  // Encontrar grupo correspondente e pegar id representativo
+                                  const matchGroup = availableProdutos.find(g => String(g.nome) === String(val) || String(g.nome_produto) === String(val));
+                                  const representative = matchGroup?.produtos?.[0];
+                                  const repId = representative ? String(representative.produto_id ?? representative.id ?? '') : null;
+                                  produtos[idx] = { ...produtos[idx], nome: val, produto_catalogo_id: repId };
                                 }
                                 setLocal({ ...local, produtos });
                               }}
                             >
                               <option value="">Outro...</option>
-                              {availableProdutos.map(ap => (
-                                <option key={ap.id} value={ap.nome_produto}>{ap.nome_produto}</option>
-                              ))}
+                              {availableProdutos.map((ap, i) => {
+                                const representative = ap.produtos?.[0];
+                                const repId = String(representative?.produto_id ?? representative?.id ?? ap.nome);
+                                return (
+                                  <option key={repId || String(i)} value={String(ap.nome ?? ap.nome_produto ?? '')}>{ap.nome ?? ap.nome_produto}</option>
+                                );
+                              })}
                             </select>
                             {!isKnown && (
                               <input
