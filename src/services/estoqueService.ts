@@ -480,19 +480,13 @@ export class EstoqueService {
     validade: string | null;
     fornecedor: string | null;
     registro_mapa: string | null;
-  }): Promise<ProdutoEstoque> {
+  }): Promise<ProdutoEstoque | null> {
     const userId = await this.getCurrentUserId();
-    
-    // ✅ Buscar propriedade ativa do usuário
+    // Buscar propriedade ativa do usuário (não usada no RPC, mas mantida para logging)
     const propriedadeId = await this.getPropriedadeIdDoUsuario(userId);
 
     const valorTotal = produto.valor || 0;
-    
-    // ✅ Converter quantidade para unidade padrão (mg para massa, mL para volume)
     const converted = convertToStandardUnit(produto.quantidade, produto.unidade);
-    
-    // ✅ Valor unitário REAL na unidade ORIGINAL (sem conversão)
-    // Exemplo: R$ 5.000 ÷ 1000 kg = R$ 5/kg
     const valorUnitario = produto.quantidade > 0 
       ? valorTotal / produto.quantidade 
       : 0;
@@ -504,59 +498,50 @@ export class EstoqueService {
     console.log(`  - Valor unitário: R$ ${valorUnitario.toFixed(2)}/${produto.unidade}`);
     console.log(`  - Propriedade ID: ${propriedadeId || 'N/A'}`);
 
-      // Novo fluxo: cadastro via RPC registrar_produto_e_entrada
-      try {
-        const userId = await this.getCurrentUserId();
-        const { data, error } = await supabase.rpc('registrar_produto_e_entrada', {
-          p_nome: produto.nome_produto,
-          p_marca: produto.marca,
-          p_categoria: produto.categoria,
-          p_unidade_base: produto.unidade,
-          p_registro_mapa: produto.registro_mapa,
-          p_fornecedor: produto.fornecedor,
-          p_quantidade: produto.quantidade,
-          p_valor_total: produto.valor,
-          p_lote: produto.lote,
-          p_validade: produto.validade,
-          p_user_id: userId,
-        });
-        if (error) {
-          console.error('Erro ao cadastrar produto via RPC:', error);
-          return false;
-        }
-        if (data) {
-          console.log('Retorno do RPC registrar_produto_e_entrada:', data);
-        }
-        return !!data;
-      } catch (err) {
-        console.error('Erro inesperado ao cadastrar produto:', err);
-        return false;
+    // Novo fluxo: cadastro via RPC registrar_produto_e_entrada
+    try {
+      const { data, error } = await supabase.rpc('registrar_produto_e_entrada', {
+        p_nome: produto.nome_produto,
+        p_marca: produto.marca,
+        p_categoria: produto.categoria,
+        p_unidade_base: produto.unidade,
+        p_registro_mapa: produto.registro_mapa,
+        p_fornecedor: produto.fornecedor,
+        p_quantidade: produto.quantidade,
+        p_valor_total: produto.valor,
+        p_lote: produto.lote,
+        p_validade: produto.validade,
+        p_user_id: userId,
+      });
+      if (error) {
+        console.error('Erro ao cadastrar produto via RPC:', error);
+        return null;
       }
-
-    if (error) {
-      console.error('❌ Erro ao adicionar produto:', error);
-      throw error;
+      if (data) {
+        console.log('Retorno do RPC registrar_produto_e_entrada:', data);
+        return {
+          id: data.id,
+          user_id: data.user_id,
+          nome_produto: data.nome_do_produto,
+          marca: data.marca_ou_fabricante,
+          categoria: data.categoria,
+          unidade: data.unidade_de_medida,
+          quantidade: data.quantidade_em_estoque,
+          valor: data.valor_unitario,
+          lote: data.lote,
+          validade: data.validade,
+          created_at: data.created_at,
+          fornecedor: data.fornecedor,
+          registro_mapa: data.registro_mapa,
+          unidade_valor_original: data.unidade_valor_original,
+          quantidade_inicial: data.quantidade_inicial,
+        };
+      }
+      return null;
+    } catch (err) {
+      console.error('Erro inesperado ao cadastrar produto:', err);
+      return null;
     }
-
-    console.log('✅ Produto cadastrado com sucesso no banco de dados');
-
-    return {
-      id: data.id,
-      user_id: data.user_id,
-      nome_produto: data.nome_do_produto,
-      marca: data.marca_ou_fabricante,
-      categoria: data.categoria,
-      unidade: data.unidade_de_medida,
-      quantidade: data.quantidade_em_estoque,
-      valor: data.valor_unitario,
-      lote: data.lote,
-      validade: data.validade,
-      created_at: data.created_at,
-      fornecedor: data.fornecedor,
-      registro_mapa: data.registro_mapa,
-      unidade_valor_original: data.unidade_valor_original,
-      quantidade_inicial: data.quantidade_inicial,
-    };
   }
 
   static async atualizarQuantidade(
